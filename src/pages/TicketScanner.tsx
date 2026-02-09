@@ -163,6 +163,21 @@ export default function TicketScanner() {
       } else {
         // 2. Simple Code Validation (New format: PF-XXXX-XXXX)
         const normalizedCode = cleanCode.toUpperCase();
+        
+        // Regex validation for format PF-XXXX-XXXX
+        const codeRegex = /^PF-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+        if (!codeRegex.test(normalizedCode)) {
+          const errorResult = {
+            success: false,
+            message: `Formato de código inválido: ${normalizedCode}`,
+            code: 'INVALID_FORMAT'
+          };
+          setLastResult(errorResult);
+          addToHistory(errorResult, normalizedCode);
+          setProcessing(false);
+          return;
+        }
+
         console.log('Validating simple code:', normalizedCode);
 
         const result = await eventService.validateTicketScan(
