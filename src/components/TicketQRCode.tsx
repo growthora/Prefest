@@ -9,6 +9,7 @@ interface TicketQRCodeProps {
   ticketId: string;
   eventId: string;
   ticketToken: string;
+  ticketCode?: string;
   status: string;
   eventTitle: string;
   eventDate: string;
@@ -18,7 +19,8 @@ interface TicketQRCodeProps {
 export default function TicketQRCode({ 
   ticketId, 
   eventId, 
-  ticketToken, 
+  ticketToken,
+  ticketCode,
   status,
   eventTitle, 
   eventDate, 
@@ -27,8 +29,12 @@ export default function TicketQRCode({
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
 
   useEffect(() => {
-    if (ticketId && eventId && ticketToken) {
-      // Payload: { t: ticket_id, e: event_id, k: token }
+    if (ticketCode) {
+      const size = 300;
+      const url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(ticketCode)}&format=png`;
+      setQrCodeUrl(url);
+    } else if (ticketId && eventId && ticketToken) {
+      // Fallback legacy JSON format
       const payload = JSON.stringify({
         t: ticketId,
         e: eventId,
@@ -39,7 +45,7 @@ export default function TicketQRCode({
       const url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(payload)}&format=png`;
       setQrCodeUrl(url);
     }
-  }, [ticketId, eventId, ticketToken]);
+  }, [ticketId, eventId, ticketToken, ticketCode]);
 
   const downloadQRCode = () => {
     if (!qrCodeUrl) return;
@@ -113,7 +119,7 @@ export default function TicketQRCode({
         
         <div className="text-center w-full space-y-4">
            <div className="text-xs text-muted-foreground font-mono">
-             <p>ID: {ticketId.slice(0, 8)}...</p>
+             <p>{ticketCode ? `CÓD: ${ticketCode}` : `ID: ${ticketId.slice(0, 8)}...`}</p>
            </div>
            
            <Button onClick={downloadQRCode} variant="outline" className="w-full gap-2">

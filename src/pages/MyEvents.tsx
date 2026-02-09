@@ -199,6 +199,7 @@ export default function MyEvents() {
                     ticketId={ticket.id}
                     eventId={ticket.event_id}
                     ticketToken={ticket.ticket_token || ''}
+                    ticketCode={ticket.ticket_code}
                     status={ticket.status || 'valid'}
                     eventTitle={ticket.event?.title || 'Evento'}
                     eventDate={ticket.event ? new Date(ticket.event.event_date).toLocaleDateString('pt-BR') : ''}

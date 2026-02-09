@@ -92,44 +92,66 @@ export function Scanner() {
     setValidating(true);
     setScanResult(null);
 
+    // Normalize input
+    const cleanCode = qrDataString.trim();
+
     try {
-      // Parse QR Data
+      // 1. Try to parse as JSON (Legacy format)
       let ticketData;
+      let isJson = false;
       try {
-        ticketData = JSON.parse(qrDataString);
+        if (cleanCode.startsWith('{')) {
+          ticketData = JSON.parse(cleanCode);
+          isJson = true;
+        }
       } catch (e) {
-        // If not JSON, assume it's just the ticket ID (legacy/simple mode)
-        // But for secure validation we need token. 
-        // We will try manual validation endpoint for simple strings if it looks like a UUID or code
-        console.log('QR code is not JSON, trying as manual code');
-        return handleManualValidation(qrDataString);
+        // Not JSON, continue to simple code validation
       }
 
-      const { id, eventId, token } = ticketData;
+      if (isJson && ticketData) {
+        const { id, eventId, token } = ticketData;
 
-      if (!id || !eventId || !token) {
-        throw new Error('Formato de QR Code inválido');
-      }
+        if (!id || !eventId || !token) {
+          throw new Error('Formato de QR Code inválido');
+        }
 
-      if (eventId !== selectedEventId) {
-        setScanResult({
-          success: false,
-          message: 'Ingresso pertence a outro evento',
-          code: 'WRONG_EVENT'
-        });
-        return;
-      }
+        if (eventId !== selectedEventId) {
+          setScanResult({
+            success: false,
+            message: 'Ingresso pertence a outro evento',
+            code: 'WRONG_EVENT'
+          });
+          return;
+        }
 
-      if (!user?.id) return;
+        if (!user?.id) return;
 
-      const result = await eventService.validateTicket(id, eventId, token, user.id);
-      setScanResult(result);
+        const result = await eventService.validateTicket(id, eventId, token, user.id);
+        setScanResult(result);
 
-      if (result.success) {
-        toast.success('Check-in realizado com sucesso!');
-        playSuccessSound();
+        if (result.success) {
+          toast.success('Check-in realizado com sucesso!');
+          playSuccessSound();
+        } else {
+          playErrorSound();
+        }
       } else {
-        playErrorSound();
+        // 2. Simple Code Validation (New format: PF-XXXX-XXXX)
+        // Normalize for code format (uppercase, trim)
+        const normalizedCode = cleanCode.toUpperCase();
+        
+        if (!selectedEventId || !user?.id) return;
+
+        console.log('Validating simple code:', normalizedCode);
+        const result = await eventService.validateTicketScan(normalizedCode, selectedEventId, user.id);
+        setScanResult(result);
+
+        if (result.success) {
+          toast.success('Check-in realizado com sucesso!');
+          playSuccessSound();
+        } else {
+          playErrorSound();
+        }
       }
 
     } catch (error: any) {
@@ -150,9 +172,13 @@ export function Scanner() {
     setValidating(true);
     setScanResult(null);
     setPauseScanner(true);
+    
+    // Normalize input
+    const normalizedCode = code.trim().toUpperCase();
 
     try {
-      const result = await eventService.validateTicketManual(code, selectedEventId, user.id);
+      // Use validateTicketScan for manual entry too
+      const result = await eventService.validateTicketScan(normalizedCode, selectedEventId, user.id);
       setScanResult(result);
 
       if (result.success) {

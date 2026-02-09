@@ -61,6 +61,7 @@ export interface EventParticipant {
   status?: string;
   check_in_at?: string;
   security_token?: string;
+  ticket_code?: string;
 }
 
 export interface MatchCandidate {
@@ -666,6 +667,18 @@ export class EventService {
       p_ticket_id: ticketId,
       p_event_id: eventId,
       p_security_token: token,
+      p_validated_by: validatorId
+    });
+
+    if (error) throw error;
+    return data;
+  }
+
+  // Validar ingresso via Scanner (Novo Formato Simples)
+  async validateTicketScan(code: string, eventId: string, validatorId: string): Promise<any> {
+    const { data, error } = await supabase.rpc('validate_ticket_scan', {
+      p_code: code,
+      p_event_id: eventId,
       p_validated_by: validatorId
     });
 

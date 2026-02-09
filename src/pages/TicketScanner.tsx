@@ -125,32 +125,58 @@ export default function TicketScanner() {
     setProcessing(true);
     setScanning(false);
     
+    // Normalize input
+    const cleanCode = rawValue.trim();
+
     try {
-      // Parse payload: { t: ticketId, e: eventId, k: token }
+      // 1. Try to parse as JSON (Legacy)
       let payload;
+      let isJson = false;
       try {
-        payload = JSON.parse(rawValue);
+        if (cleanCode.startsWith('{')) {
+          payload = JSON.parse(cleanCode);
+          isJson = true;
+        }
       } catch (e) {
-        throw new Error('QR Code inválido (formato incorreto)');
+        // Not JSON
       }
 
-      if (!payload.t || !payload.e || !payload.k) {
-        throw new Error('QR Code incompleto');
-      }
+      if (isJson && payload) {
+        if (!payload.t || !payload.e || !payload.k) {
+          throw new Error('QR Code incompleto');
+        }
 
-      // Backend Validation: Passing selectedEvent.id as the expected event context
-      const result = await eventService.validateTicket(
-        payload.t,
-        selectedEvent.id, // Enforce validation against SELECTED event
-        payload.k,
-        user!.id
-      );
+        // Backend Validation: Passing selectedEvent.id as the expected event context
+        const result = await eventService.validateTicket(
+          payload.t,
+          selectedEvent.id, // Enforce validation against SELECTED event
+          payload.k,
+          user!.id
+        );
 
-      setLastResult(result);
-      addToHistory(result, payload.t);
-      
-      if (result.success) {
-        // Play success sound if needed (browser policy might block)
+        setLastResult(result);
+        addToHistory(result, payload.t);
+        
+        if (result.success) {
+          // Play success sound if needed (browser policy might block)
+        }
+      } else {
+        // 2. Simple Code Validation (New format: PF-XXXX-XXXX)
+        const normalizedCode = cleanCode.toUpperCase();
+        console.log('Validating simple code:', normalizedCode);
+
+        const result = await eventService.validateTicketScan(
+          normalizedCode,
+          selectedEvent.id,
+          user!.id
+        );
+
+        setLastResult(result);
+        addToHistory(result, normalizedCode);
+        
+        if (result.success) {
+          // Play success sound
+        }
       }
 
     } catch (error: any) {
@@ -174,15 +200,18 @@ export default function TicketScanner() {
     setIsManualDialogOpen(false);
     setScanning(false); // Stop scanner while validating
 
+    // Normalize input
+    const normalizedCode = manualCode.trim().toUpperCase();
+
     try {
-      const result = await eventService.validateTicketManual(
-        manualCode,
+      const result = await eventService.validateTicketScan(
+        normalizedCode,
         selectedEvent.id, // Enforce validation against SELECTED event
         user.id
       );
 
       setLastResult(result);
-      addToHistory(result, `MANUAL-${manualCode}`);
+      addToHistory(result, `MANUAL-${normalizedCode}`);
       setManualCode('');
 
     } catch (error: any) {
@@ -193,7 +222,7 @@ export default function TicketScanner() {
         code: 'ERROR'
       };
       setLastResult(errorResult);
-      addToHistory(errorResult, `MANUAL-${manualCode}`);
+      addToHistory(errorResult, `MANUAL-${normalizedCode}`);
     } finally {
       setProcessing(false);
     }
