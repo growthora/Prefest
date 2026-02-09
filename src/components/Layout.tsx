@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, Link, useLocation } from 'react-router-dom';
+import { NavLink, Link, useLocation, useSearchParams } from 'react-router-dom';
 import { 
   Menu, 
   X, 
@@ -33,6 +33,8 @@ import { AuthModal } from '@/components/AuthModal';
 import { LocationPopup } from '@/components/LocationPopup';
 import logoImage from '@/assets/PHOTO-2026-02-02-13-32-10_-_cópia-removebg-preview.png';
 import { Input } from '@/components/ui/input';
+import { StateSelector } from '@/components/StateSelector';
+import { BRAZIL_STATES } from '@/constants/states';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -44,7 +46,10 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
   const { user, profile } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
-  const [currentLocation, setCurrentLocation] = useState('Qualquer lugar');
+  const [searchParams] = useSearchParams();
+  
+  const currentStateValue = searchParams.get("state");
+  const currentLocation = BRAZIL_STATES.find(s => s.value === currentStateValue)?.label || 'Qualquer lugar';
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -101,28 +106,24 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
             </Link>
 
             {/* Desktop Search Bar & Location */}
-            <div className="hidden md:flex items-center flex-1 max-w-2xl relative shadow-sm hover:shadow-md transition-shadow rounded-lg">
+            <div className="hidden md:flex items-center flex-1 relative shadow-sm hover:shadow-md transition-shadow rounded-lg">
               <div className="relative flex-1 group z-10">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <Input 
                   placeholder="Buscar experiências" 
-                  className="pl-12 h-12 bg-white border-gray-200 focus-visible:ring-0 focus-visible:border-primary rounded-l-lg rounded-r-none border-r-0 shadow-none hover:border-gray-300 transition-colors focus:z-20"
+                  className="pl-12 h-12 bg-white border-gray-200 focus-visible:ring-0 focus-visible:border-primary rounded-l-lg rounded-r-none border-r-0 shadow-none hover:border-gray-300 transition-colors focus:z-20 w-full"
                 />
               </div>
 
               {/* Location Selector (Desktop) */}
               <div className="relative z-0">
-                <div className="flex items-center gap-2 px-6 h-12 bg-white border border-gray-200 border-l-gray-200 rounded-r-lg rounded-l-none text-primary cursor-pointer hover:bg-gray-50 transition-colors min-w-[180px] shadow-none">
-                  <MapPin size={20} className="flex-shrink-0" />
-                  <span className="truncate font-semibold text-sm flex-1">{currentLocation}</span>
-                  <ChevronDown size={16} className="flex-shrink-0 opacity-70" />
-                </div>
+                <StateSelector />
               </div>
             </div>
           </div>
 
           {/* Right Section: Actions */}
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-6 flex-shrink-0">
             
             {/* Desktop Action Links */}
             <div className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">

@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/lib';
+import { BRAZIL_STATES } from '@/constants/states';
 
 const ExploreEvents = () => {
   const [events, setEvents] = useState<FrontendEvent[]>([]);
@@ -19,6 +20,7 @@ const ExploreEvents = () => {
 
   // URL Params
   const categoryParam = searchParams.get('category');
+  const stateParam = searchParams.get('state');
   const searchParam = searchParams.get('q') || '';
 
   // Local state for inputs (synced with URL on submit/change)
@@ -50,6 +52,7 @@ const ExploreEvents = () => {
           location: event.location,
           address: event.location,
           city: event.city,
+          state: event.state,
           event_type: event.event_type,
           price: event.price,
           image: imageUrl,
@@ -82,7 +85,13 @@ const ExploreEvents = () => {
       (categoryParam === 'Festas e shows' && event.event_type === 'festive') || // Fallback/Mapping
       (categoryParam === 'Congressos e palestras' && event.event_type === 'formal');
 
-    return matchesSearch && matchesCategory;
+    // State Filter
+    const matchesState = !stateParam || stateParam === 'all' || 
+      event.state === stateParam ||
+      event.location?.includes(`- ${stateParam}`) || // Fallback comum "Cidade - UF"
+      event.address?.includes(`/${stateParam}`);     // Fallback comum "Cidade/UF"
+
+    return matchesSearch && matchesCategory && matchesState;
   });
 
   const handleCategoryChange = (category: string) => {
@@ -105,6 +114,9 @@ const ExploreEvents = () => {
   };
 
   const categories = ['Todas', 'Festas e shows', 'Teatros e espetáculos', 'Congressos e palestras', 'Passeios e tours', 'Gastronomia', 'Grátis'];
+  
+  const stateLabel = BRAZIL_STATES.find(s => s.value === stateParam)?.label;
+  const displayTitle = categoryParam || (stateLabel ? `Eventos em ${stateLabel}` : 'Explore eventos');
 
   return (
     <Layout fullWidth={true}>
@@ -119,18 +131,18 @@ const ExploreEvents = () => {
               <Link to={ROUTE_PATHS.HOME} className="hover:text-primary transition-colors">Página inicial</Link>
               <ChevronRight size={14} />
               <span className="text-gray-900 font-medium">
-                {categoryParam ? categoryParam : 'Explorar eventos'}
+                {displayTitle}
               </span>
             </div>
 
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
               <div>
                  <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-                   {categoryParam ? categoryParam : 'Explore eventos'}
+                   {displayTitle}
                  </h1>
                  <p className="text-gray-500">
                    {filteredEvents.length} eventos encontrados
-                   {categoryParam && ` em ${categoryParam}`}
+                   {categoryParam && stateLabel && ` em ${stateLabel}`}
                  </p>
               </div>
               

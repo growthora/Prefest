@@ -68,6 +68,7 @@ export interface Event {
   location: string;
   address: string;
   city?: string | null;
+  state?: string | null;
   event_type?: 'festive' | 'formal';
   price: number;
   image: string;
