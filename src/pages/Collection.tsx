@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
-import { EventGrid } from '@/components/EventCards';
+import { EventListItem } from '@/components/EventListItem';
 import { eventService, type Event as SupabaseEvent } from '@/services/event.service';
 import { type Event as FrontendEvent } from '@/lib/index';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -228,7 +228,16 @@ const Collection = () => {
                   <strong>{events.length}</strong> eventos encontrados
                 </p>
               </div>
-              <EventGrid events={events} />
+              
+              <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+                {events.map((event) => (
+                  <EventListItem 
+                    key={event.id} 
+                    event={event} 
+                    className="last:border-0"
+                  />
+                ))}
+              </div>
             </div>
           ) : (
             <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">

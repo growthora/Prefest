@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, ChevronDown, Filter, ChevronRight } from 'lucide-react';
 import { Layout } from '@/components/Layout';
-import { HorizontalEventCard } from '@/components/EventCards';
+import { EventListItem } from '@/components/EventListItem';
 import { eventService, type Event as SupabaseEvent } from '@/services/event.service';
 import { type Event as FrontendEvent } from '@/lib/index';
 import { Button } from '@/components/ui/button';
@@ -278,25 +278,27 @@ const ExploreEvents = () => {
               <div className="space-y-4">
                 {isLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="bg-white border border-gray-100 rounded-xl p-4">
+                    <div key={i} className="bg-white border-b border-gray-100 p-4 last:border-0">
                       <div className="flex gap-4">
-                        <Skeleton className="w-32 h-24 sm:w-48 sm:h-32 rounded-lg" />
-                        <div className="flex-1 space-y-3 py-1">
-                          <Skeleton className="h-6 w-3/4" />
-                          <Skeleton className="h-4 w-1/3" />
-                          <Skeleton className="h-4 w-1/2" />
+                        <Skeleton className="w-[120px] h-[90px] sm:w-[160px] sm:h-[100px] rounded-lg flex-shrink-0" />
+                        <div className="flex-1 space-y-2 py-1">
+                          <Skeleton className="h-5 w-3/4 rounded-md" />
+                          <Skeleton className="h-4 w-1/3 rounded-md" />
+                          <Skeleton className="h-4 w-1/4 rounded-md mt-2" />
                         </div>
                       </div>
                     </div>
                   ))
                 ) : filteredEvents.length > 0 ? (
-                  filteredEvents.map((event) => (
-                    <HorizontalEventCard 
-                      key={event.id} 
-                      event={event} 
-                      className="bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-primary/30 transition-all duration-300" 
-                    />
-                  ))
+                  <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
+                    {filteredEvents.map((event) => (
+                      <EventListItem 
+                        key={event.id} 
+                        event={event} 
+                        className="last:border-0"
+                      />
+                    ))}
+                  </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-20 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
                     <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4">

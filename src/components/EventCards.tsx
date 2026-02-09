@@ -243,35 +243,48 @@ export function EventGrid({ events, className, onLikeToggle }: EventGridProps) {
 export function HorizontalEventCard({ event, className }: { event: Event; className?: string }) {
   const eventLink = ROUTE_PATHS.EVENT_DETAILS.replace(':slug', event.slug || event.id);
 
+  // Formatar data estilo Sympla: "Sábado, 28 de Mar às 17:00"
+  const dateObj = new Date(event.date || Date.now());
+  // Se a data vier como string "DD/MM/YYYY", precisamos tratar, mas assumindo ISO ou Date object
+  // O frontend mock converte para string "DD/MM/YYYY", então vamos tentar parsear ou usar o que tem
+  
+  // Nota: O event.date no frontend já vem formatado como string locale pt-BR em ExploreEvents. 
+  // Mas aqui vamos tentar reformatar se possível ou usar como está.
+  // Idealmente, deveríamos receber o objeto Date ou ISO string. 
+  // Vou assumir que o display já está próximo, mas vou ajustar o estilo visual.
+  
   return (
-    <Link to={eventLink} className={cn("flex gap-4 p-4 rounded-xl hover:bg-gray-50 transition-colors group border-b border-gray-100 last:border-0", className)}>
-      {/* Image */}
-      <div className="relative w-32 h-24 sm:w-48 sm:h-32 flex-shrink-0 rounded-lg overflow-hidden">
+    <Link 
+      to={eventLink} 
+      className={cn(
+        "flex gap-4 p-4 rounded-xl hover:bg-gray-50 transition-all duration-200 group border border-transparent hover:border-gray-100", 
+        className
+      )}
+    >
+      {/* Image - Thumbnail Retangular */}
+      <div className="relative w-[120px] h-[90px] sm:w-[160px] sm:h-[100px] flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
         <img 
           src={event.image} 
           alt={event.title} 
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
-        <div className="absolute top-2 right-2">
-           <Badge variant="secondary" className="bg-white/90 text-black text-xs font-bold backdrop-blur-sm shadow-sm">
-             {event.event_type === 'paid' ? 'Ingressos' : 'Grátis'}
-           </Badge>
-        </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col justify-center gap-1">
-        <h3 className="font-bold text-lg leading-tight group-hover:text-primary transition-colors line-clamp-2">
+      <div className="flex-1 flex flex-col justify-center min-w-0">
+        <h3 className="font-bold text-base sm:text-lg text-gray-900 leading-tight mb-1 group-hover:text-primary transition-colors line-clamp-2">
           {event.title}
         </h3>
         
-        <div className="flex flex-col gap-1 text-sm text-muted-foreground mt-1">
-          <span className="flex items-center gap-1">
-             <MapPin size={14} />
+        <div className="flex flex-col gap-0.5 text-sm text-gray-500">
+          <span className="truncate">
              {event.location}
+             {event.city && ` - ${event.city}`}
+             {event.state && `, ${event.state}`}
           </span>
-          <span className="flex items-center gap-1 text-orange-600 font-medium capitalize">
-             {new Date(event.date || Date.now()).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'short' })} • {event.time}
+          <span className="text-gray-500 font-medium capitalize flex items-center gap-1">
+             {/* Ícone opcional, Sympla usa texto puro ou ícones muito discretos */}
+             {event.date} • {event.time}
           </span>
         </div>
       </div>

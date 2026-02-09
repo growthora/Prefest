@@ -268,46 +268,169 @@ const Home = () => {
           </div>
 
           {/* Featured Events Section */}
-          <div>
-            <div className="flex items-center justify-between mb-8">
+          <div className="relative group">
+            <div className="flex items-center justify-between mb-6 px-1">
               <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Eventos em destaque</h2>
-              <Link to="/colecao/destaques" className="text-primary font-bold hover:underline">Ver todos</Link>
+              <Link to="/colecao/destaques" className="text-primary font-bold hover:underline flex items-center gap-1">
+                Ver todos <ChevronRight size={16} />
+              </Link>
             </div>
             
             {isLoading ? (
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+               <div className="flex gap-6 overflow-hidden">
                  {[1, 2, 3, 4].map((i) => (
-                   <div key={i} className="space-y-3">
-                     <Skeleton className="h-[300px] w-full rounded-xl" />
-                     <Skeleton className="h-4 w-[250px]" />
+                   <div key={i} className="min-w-[280px] md:min-w-[320px] space-y-3">
+                     <Skeleton className="h-[300px] w-full rounded-2xl" />
                      <Skeleton className="h-4 w-[200px]" />
+                     <Skeleton className="h-4 w-[150px]" />
                    </div>
                  ))}
                </div>
             ) : (
-               <EventGrid events={events.slice(0, 4)} />
+              <Carousel
+                opts={{
+                  align: "start",
+                  dragFree: true,
+                  containScroll: "trimSnaps",
+                  slidesToScroll: "auto",
+                }}
+                className="w-full"
+              >
+                <CarouselContent className="-ml-4 pb-4">
+                  {events.slice(0, 8).map((event) => (
+                    <CarouselItem key={event.id} className="pl-4 basis-[280px] md:basis-[320px] lg:basis-[350px]">
+                      <div className="h-full transform transition-transform hover:-translate-y-1 duration-300">
+                        <div className="relative group/card h-full">
+                          <Link to={`/eventos/${event.slug || event.id}`} className="block h-full">
+                            <div className="relative aspect-[4/5] overflow-hidden rounded-2xl mb-3">
+                              <img 
+                                src={event.image} 
+                                alt={event.title}
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover/card:scale-110"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60" />
+                              
+                              <div className="absolute top-3 left-3">
+                                <Badge className="bg-white/90 text-black hover:bg-white font-bold backdrop-blur-md shadow-sm">
+                                  {event.category}
+                                </Badge>
+                              </div>
+
+                              <div className="absolute bottom-3 left-3 right-3 text-white">
+                                <p className="text-xs font-bold uppercase tracking-wider text-primary-foreground/90 mb-1">
+                                  {new Date(event.date.split('/').reverse().join('-')).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }).replace('.', '')} • {event.time}
+                                </p>
+                                <h3 className="font-bold text-lg leading-tight line-clamp-2 text-shadow-sm">
+                                  {event.title}
+                                </h3>
+                              </div>
+                            </div>
+                            
+                            <div className="px-1">
+                              <div className="flex items-center gap-1 text-sm text-gray-500 mb-2">
+                                <MapPin size={14} />
+                                <span className="truncate">{event.location}</span>
+                              </div>
+                              <div className="font-bold text-lg text-primary">
+                                {event.price === 0 ? 'Grátis' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(event.price)}
+                              </div>
+                            </div>
+                          </Link>
+                        </div>
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                {/* Navigation Buttons (Visible on hover/desktop) */}
+                <div className="hidden lg:block opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <CarouselPrevious className="left-0 -translate-x-1/2 h-12 w-12 border-none bg-white/90 shadow-lg hover:bg-white hover:scale-110 text-gray-800" />
+                  <CarouselNext className="right-0 translate-x-1/2 h-12 w-12 border-none bg-white/90 shadow-lg hover:bg-white hover:scale-110 text-gray-800" />
+                </div>
+              </Carousel>
             )}
           </div>
 
           {/* Events Near You / More Events */}
-          <div>
-            <div className="flex items-center justify-between mb-8">
+          <div className="relative group">
+            <div className="flex items-center justify-between mb-6 px-1">
               <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Próximos eventos</h2>
-              <Link to="/colecao/proximos-eventos" className="text-primary font-bold hover:underline">Ver todos</Link>
+              <Link to="/colecao/proximos-eventos" className="text-primary font-bold hover:underline flex items-center gap-1">
+                Ver todos <ChevronRight size={16} />
+              </Link>
             </div>
             
             {isLoading ? (
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+               <div className="flex gap-6 overflow-hidden">
                  {[1, 2, 3, 4].map((i) => (
-                   <div key={i} className="space-y-3">
-                     <Skeleton className="h-[300px] w-full rounded-xl" />
-                     <Skeleton className="h-4 w-[250px]" />
+                   <div key={i} className="min-w-[280px] md:min-w-[320px] space-y-3">
+                     <Skeleton className="h-[300px] w-full rounded-2xl" />
                      <Skeleton className="h-4 w-[200px]" />
+                     <Skeleton className="h-4 w-[150px]" />
                    </div>
                  ))}
                </div>
             ) : (
-               <EventGrid events={events.slice(4, 8)} />
+              <Carousel
+                opts={{
+                  align: "start",
+                  dragFree: true,
+                  containScroll: "trimSnaps",
+                  slidesToScroll: "auto",
+                }}
+                className="w-full"
+              >
+                <CarouselContent className="-ml-4 pb-4">
+                  {events.slice(4, 12).map((event) => (
+                    <CarouselItem key={event.id} className="pl-4 basis-[280px] md:basis-[320px] lg:basis-[350px]">
+                       {/* Reusing the same card structure for consistency */}
+                       <div className="h-full transform transition-transform hover:-translate-y-1 duration-300">
+                        <div className="relative group/card h-full">
+                          <Link to={`/eventos/${event.slug || event.id}`} className="block h-full">
+                            <div className="relative aspect-[4/5] overflow-hidden rounded-2xl mb-3">
+                              <img 
+                                src={event.image} 
+                                alt={event.title}
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover/card:scale-110"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60" />
+                              
+                              <div className="absolute top-3 left-3">
+                                <Badge className="bg-white/90 text-black hover:bg-white font-bold backdrop-blur-md shadow-sm">
+                                  {event.category}
+                                </Badge>
+                              </div>
+
+                              <div className="absolute bottom-3 left-3 right-3 text-white">
+                                <p className="text-xs font-bold uppercase tracking-wider text-primary-foreground/90 mb-1">
+                                  {new Date(event.date.split('/').reverse().join('-')).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }).replace('.', '')} • {event.time}
+                                </p>
+                                <h3 className="font-bold text-lg leading-tight line-clamp-2 text-shadow-sm">
+                                  {event.title}
+                                </h3>
+                              </div>
+                            </div>
+                            
+                            <div className="px-1">
+                              <div className="flex items-center gap-1 text-sm text-gray-500 mb-2">
+                                <MapPin size={14} />
+                                <span className="truncate">{event.location}</span>
+                              </div>
+                              <div className="font-bold text-lg text-primary">
+                                {event.price === 0 ? 'Grátis' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(event.price)}
+                              </div>
+                            </div>
+                          </Link>
+                        </div>
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                 {/* Navigation Buttons (Visible on hover/desktop) */}
+                 <div className="hidden lg:block opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <CarouselPrevious className="left-0 -translate-x-1/2 h-12 w-12 border-none bg-white/90 shadow-lg hover:bg-white hover:scale-110 text-gray-800" />
+                  <CarouselNext className="right-0 translate-x-1/2 h-12 w-12 border-none bg-white/90 shadow-lg hover:bg-white hover:scale-110 text-gray-800" />
+                </div>
+              </Carousel>
             )}
           </div>
         </div>
