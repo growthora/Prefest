@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Layout } from '@/components/Layout';
 import { 
   Search, 
   BookOpen, 
@@ -49,7 +50,8 @@ export function SupportHub() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <Layout fullWidth={true}>
+      <div className="min-h-screen bg-background">
       {/* Hero Section */}
       <section className="bg-muted/30 py-20 px-6">
         <div className="container mx-auto max-w-4xl text-center space-y-8">
@@ -165,6 +167,7 @@ export function SupportHub() {
           </div>
         </div>
       </section>
-    </div>
+      </div>
+    </Layout>
   );
 }

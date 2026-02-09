@@ -8,17 +8,29 @@ import { type Event as FrontendEvent } from '@/lib/index';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/lib';
 
 const ExploreEvents = () => {
   const [events, setEvents] = useState<FrontendEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // URL Params
+  const categoryParam = searchParams.get('category');
+  const searchParam = searchParams.get('q') || '';
+
+  // Local state for inputs (synced with URL on submit/change)
+  const [localSearchQuery, setLocalSearchQuery] = useState(searchParam);
 
   useEffect(() => {
     loadEvents();
   }, []);
+
+  useEffect(() => {
+    setLocalSearchQuery(searchParam);
+  }, [searchParam]);
 
   const loadEvents = async () => {
     try {
@@ -57,30 +69,69 @@ const ExploreEvents = () => {
     }
   };
 
-  const filteredEvents = events.filter(event => 
-    event.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    event.location.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter Logic
+  const filteredEvents = events.filter(event => {
+    // Search Filter
+    const matchesSearch = searchParam === '' || 
+      event.title.toLowerCase().includes(searchParam.toLowerCase()) || 
+      event.location.toLowerCase().includes(searchParam.toLowerCase());
+
+    // Category Filter
+    const matchesCategory = !categoryParam || categoryParam === 'Todas' || 
+      event.category?.toLowerCase() === categoryParam.toLowerCase() ||
+      (categoryParam === 'Festas e shows' && event.event_type === 'festive') || // Fallback/Mapping
+      (categoryParam === 'Congressos e palestras' && event.event_type === 'formal');
+
+    return matchesSearch && matchesCategory;
+  });
+
+  const handleCategoryChange = (category: string) => {
+    if (category === 'Todas') {
+      searchParams.delete('category');
+    } else {
+      searchParams.set('category', category);
+    }
+    setSearchParams(searchParams);
+  };
+
+  const handleSearch = (term: string) => {
+    setLocalSearchQuery(term);
+    if (term) {
+      searchParams.set('q', term);
+    } else {
+      searchParams.delete('q');
+    }
+    setSearchParams(searchParams);
+  };
+
+  const categories = ['Todas', 'Festas e shows', 'Teatros e espetáculos', 'Congressos e palestras', 'Passeios e tours', 'Gastronomia', 'Grátis'];
 
   return (
-    <Layout>
+    <Layout fullWidth={true}>
       <div className="bg-white min-h-screen pb-12">
         
         {/* Header Section */}
         <div className="bg-white border-b border-gray-100 py-8">
-          <div className="container mx-auto px-4">
+          <div className="container max-w-7xl mx-auto px-4">
             
             {/* Breadcrumb */}
             <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
               <Link to={ROUTE_PATHS.HOME} className="hover:text-primary transition-colors">Página inicial</Link>
               <ChevronRight size={14} />
-              <span className="text-gray-900 font-medium">Eventos em destaque</span>
+              <span className="text-gray-900 font-medium">
+                {categoryParam ? categoryParam : 'Explorar eventos'}
+              </span>
             </div>
 
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
               <div>
-                 <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">Explore eventos</h1>
-                 <p className="text-gray-500">Descubra as melhores experiências perto de você</p>
+                 <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
+                   {categoryParam ? categoryParam : 'Explore eventos'}
+                 </h1>
+                 <p className="text-gray-500">
+                   {filteredEvents.length} eventos encontrados
+                   {categoryParam && ` em ${categoryParam}`}
+                 </p>
               </div>
               
               {/* Mobile Search - Visible only on mobile */}
@@ -89,8 +140,8 @@ const ExploreEvents = () => {
                  <Input 
                    placeholder="Buscar eventos..." 
                    className="pl-10 h-10 rounded-lg border-gray-200"
-                   value={searchQuery}
-                   onChange={(e) => setSearchQuery(e.target.value)}
+                   value={localSearchQuery}
+                   onChange={(e) => handleSearch(e.target.value)}
                  />
               </div>
             </div>
@@ -98,12 +149,12 @@ const ExploreEvents = () => {
         </div>
 
         {/* Main Content */}
-        <div className="container mx-auto px-4 py-8">
+        <div className="container max-w-7xl mx-auto px-4 py-8">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
             
             {/* Sidebar Filters - Desktop Only */}
             <div className="hidden lg:block space-y-8">
-              <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm">
+              <div className="bg-white rounded-xl border border-gray-100 p-6 shadow-sm sticky top-24">
                 <div className="flex items-center gap-2 font-bold text-lg text-gray-800 mb-6 pb-4 border-b border-gray-100">
                   <Filter size={20} className="text-primary" />
                   Filtros
@@ -117,8 +168,8 @@ const ExploreEvents = () => {
                     <Input 
                       placeholder="Nome ou local..." 
                       className="pl-10 h-10 bg-gray-50 border-gray-200 focus-visible:ring-primary/20"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      value={localSearchQuery}
+                      onChange={(e) => handleSearch(e.target.value)}
                     />
                   </div>
                 </div>
@@ -127,18 +178,29 @@ const ExploreEvents = () => {
                 <div className="mb-6">
                   <label className="text-sm font-semibold text-gray-700 mb-3 block">Categorias</label>
                   <div className="space-y-2">
-                    {['Todas', 'Festas e Shows', 'Teatros', 'Infantil', 'Gastronomia', 'Congresso'].map((cat) => (
-                      <label key={cat} className="flex items-center gap-3 cursor-pointer group">
-                        <div className="w-4 h-4 rounded border border-gray-300 group-hover:border-primary flex items-center justify-center transition-colors">
-                          {/* Checkbox simulation */}
-                        </div>
-                        <span className="text-gray-600 group-hover:text-primary transition-colors text-sm">{cat}</span>
-                      </label>
-                    ))}
+                    {categories.map((cat) => {
+                      const isSelected = (cat === 'Todas' && !categoryParam) || cat === categoryParam;
+                      return (
+                        <label key={cat} className="flex items-center gap-3 cursor-pointer group">
+                          <div 
+                            className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${isSelected ? 'border-primary bg-primary' : 'border-gray-300 group-hover:border-primary'}`}
+                            onClick={() => handleCategoryChange(cat)}
+                          >
+                            {isSelected && <div className="w-2 h-2 bg-white rounded-full" />}
+                          </div>
+                          <span 
+                            className={`text-sm transition-colors ${isSelected ? 'text-primary font-medium' : 'text-gray-600 group-hover:text-primary'}`}
+                            onClick={() => handleCategoryChange(cat)}
+                          >
+                            {cat}
+                          </span>
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {/* Date */}
+                {/* Date (Mock) */}
                 <div className="mb-6">
                   <label className="text-sm font-semibold text-gray-700 mb-3 block">Data</label>
                   <div className="space-y-2">
@@ -151,7 +213,7 @@ const ExploreEvents = () => {
                   </div>
                 </div>
 
-                 {/* Price */}
+                 {/* Price (Mock) */}
                  <div>
                   <label className="text-sm font-semibold text-gray-700 mb-3 block">Preço</label>
                   <div className="space-y-2">
@@ -193,7 +255,7 @@ const ExploreEvents = () => {
                 {/* Sort - Desktop */}
                 <div className="hidden md:flex items-center gap-2">
                   <span className="text-sm text-gray-500">Ordenar por:</span>
-                  <select className="text-sm font-medium text-gray-800 bg-transparent border-none cursor-pointer focus:ring-0">
+                  <select className="text-sm font-medium text-gray-800 bg-transparent border-none cursor-pointer focus:ring-0 outline-none">
                     <option>Relevância</option>
                     <option>Data (próximos)</option>
                     <option>Menor preço</option>
@@ -229,11 +291,18 @@ const ExploreEvents = () => {
                       <Search className="text-gray-300 w-8 h-8" />
                     </div>
                     <h3 className="text-lg font-bold text-gray-800 mb-1">Nenhum evento encontrado</h3>
-                    <p className="text-gray-500 text-center max-w-xs">Tente ajustar seus termos de busca ou filtros para encontrar o que procura.</p>
+                    <p className="text-gray-500 text-center max-w-xs">
+                      {categoryParam 
+                        ? `Não encontramos eventos na categoria "${categoryParam}".` 
+                        : "Tente ajustar seus termos de busca ou filtros para encontrar o que procura."}
+                    </p>
                     <Button 
                       variant="link" 
                       className="text-primary mt-4 font-bold"
-                      onClick={() => setSearchQuery('')}
+                      onClick={() => {
+                        setSearchParams({});
+                        setLocalSearchQuery('');
+                      }}
                     >
                       Limpar filtros
                     </Button>

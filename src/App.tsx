@@ -16,6 +16,7 @@ import { CreateEventForm } from "@/components/CreateEventForm";
 import { EventList } from "@/components/EventList";
 import Home from "./pages/Home";
 import ExploreEvents from "./pages/ExploreEvents";
+import Collection from "./pages/Collection";
 import HowItWorks from "./pages/HowItWorks";
 import SellTickets from "./pages/SellTickets";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -70,6 +71,7 @@ const AppRoutes = () => {
       <Route path={ROUTE_PATHS.TICKET_SCANNER} element={<TicketScanner />} />
       <Route path={ROUTE_PATHS.HOME} element={<Home />} />
       <Route path={ROUTE_PATHS.EXPLORE} element={<ExploreEvents />} />
+      <Route path={ROUTE_PATHS.COLLECTION} element={<Collection />} />
       <Route path={ROUTE_PATHS.HOW_IT_WORKS} element={<HowItWorks />} />
       <Route path={ROUTE_PATHS.SELL_TICKETS} element={<SellTickets />} />
       <Route path={ROUTE_PATHS.PRIVACY} element={<PrivacyPolicy />} />

@@ -30,20 +30,21 @@ import { FloatingChat } from '@/components/FloatingChat';
 import { ProfileMenu } from '@/components/ProfileMenu';
 import { CreateEventModal } from '@/components/CreateEventModal';
 import { AuthModal } from '@/components/AuthModal';
+import { LocationPopup } from '@/components/LocationPopup';
 import logoImage from '@/assets/PHOTO-2026-02-02-13-32-10_-_cópia-removebg-preview.png';
 import { Input } from '@/components/ui/input';
 
 interface LayoutProps {
   children: React.ReactNode;
   showTopBanner?: boolean;
+  fullWidth?: boolean;
 }
 
-export function Layout({ children, showTopBanner = false }: LayoutProps) {
+export function Layout({ children, showTopBanner = false, fullWidth = false }: LayoutProps) {
   const { user, profile } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
   const [currentLocation, setCurrentLocation] = useState('Qualquer lugar');
-  const [showLocationTooltip, setShowLocationTooltip] = useState(true);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -86,7 +87,7 @@ export function Layout({ children, showTopBanner = false }: LayoutProps) {
 
       {/* Main Header - White on Desktop to match Sympla */}
       <header className="sticky top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-100">
-        <div className="container mx-auto px-4 h-20 flex items-center justify-between gap-8">
+        <div className="container max-w-7xl mx-auto px-4 h-20 flex items-center justify-between gap-8">
           
           {/* Left Section: Logo & Search & Location */}
           <div className="flex items-center gap-8 flex-1">
@@ -116,33 +117,6 @@ export function Layout({ children, showTopBanner = false }: LayoutProps) {
                   <span className="truncate font-semibold text-sm flex-1">{currentLocation}</span>
                   <ChevronDown size={16} className="flex-shrink-0 opacity-70" />
                 </div>
-
-                {/* White Tooltip - "Descubra o que fazer..." */}
-                <AnimatePresence>
-                  {showLocationTooltip && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10, x: "-50%" }}
-                      animate={{ opacity: 1, y: 0, x: "-50%" }}
-                      exit={{ opacity: 0, y: 10, x: "-50%" }}
-                      className="absolute top-full left-1/2 mt-4 bg-white text-gray-800 text-xs font-bold py-2.5 px-4 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.2)] border border-gray-100 z-50 flex items-center gap-3 whitespace-nowrap"
-                    >
-                      <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-t border-l border-gray-100 rotate-45"></div>
-                      <div className="bg-primary/10 p-1.5 rounded-full">
-                        <MapPin size={14} className="text-primary fill-primary/20" />
-                      </div>
-                      <div className="flex flex-col items-start gap-0.5">
-                         <span className="text-primary font-extrabold">Novidade!</span>
-                         <span className="font-medium text-gray-600">Descubra o que fazer perto de você</span>
-                      </div>
-                      <button 
-                        onClick={() => setShowLocationTooltip(false)}
-                        className="ml-2 hover:bg-gray-100 text-gray-400 hover:text-gray-600 rounded-full p-1 transition-colors"
-                      >
-                        <X size={14} />
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
               </div>
             </div>
           </div>
@@ -202,13 +176,13 @@ export function Layout({ children, showTopBanner = false }: LayoutProps) {
         </div>
 
         {/* Category Navigation Bar (Desktop) */}
-        <div className="hidden md:block bg-primary text-white shadow-md">
-          <div className="container mx-auto px-4">
-            <div className="flex items-center gap-8 py-3 text-sm font-medium overflow-x-auto scrollbar-hide">
+        <div className="hidden md:block bg-primary text-white shadow-md relative z-10">
+          <div className="container max-w-7xl mx-auto px-4">
+            <div className="flex items-center justify-center gap-8 py-3 text-sm font-medium overflow-x-auto scrollbar-hide">
               {categories.map((cat) => (
-                <Link 
+                <Link  
                   key={cat.name} 
-                  to={`/explorar?q=${cat.name}`} 
+                  to={`/explorar-eventos?category=${encodeURIComponent(cat.name)}`} 
                   className="whitespace-nowrap hover:text-white/80 transition-colors relative group py-1 flex items-center gap-2"
                 >
                   <cat.icon size={16} className="text-white/70 group-hover:text-white transition-colors" />
@@ -278,7 +252,10 @@ export function Layout({ children, showTopBanner = false }: LayoutProps) {
         )}
       </AnimatePresence>
 
-      <main className="flex-1">
+      <main className={cn(
+        "flex-1 w-full",
+        !fullWidth && "container max-w-7xl mx-auto px-4 py-8"
+      )}>
         {children}
       </main>
 
@@ -286,6 +263,9 @@ export function Layout({ children, showTopBanner = false }: LayoutProps) {
       
       {/* Floating Chat */}
       {user && <FloatingChat />}
+      
+      {/* Location Popup - Global Floating Notification */}
+      <LocationPopup />
     </div>
   );
 }

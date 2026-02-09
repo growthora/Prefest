@@ -9,6 +9,7 @@ export const ROUTE_PATHS = {
   PROFILE: '/perfil',
   CHAT: '/chat/:matchId',
   EXPLORE: '/explorar-eventos',
+  COLLECTION: '/colecao/:slug',
   HOW_IT_WORKS: '/como-funciona',
   SELL_TICKETS: '/venda-seus-ingressos',
   PRIVACY: '/privacidade',
