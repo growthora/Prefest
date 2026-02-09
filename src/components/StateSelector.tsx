@@ -1,6 +1,7 @@
 import * as React from "react"
 import { Check, ChevronDown, MapPin } from "lucide-react"
-import { useSearchParams } from "react-router-dom"
+import { useSearchParams, useNavigate, useLocation } from "react-router-dom"
+import { ROUTE_PATHS } from "@/lib"
 
 import { cn } from "@/lib/utils"
 import {
@@ -21,6 +22,8 @@ import { BRAZIL_STATES } from "@/constants/states"
 export function StateSelector() {
   const [open, setOpen] = React.useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const location = useLocation()
   
   const currentStateValue = searchParams.get("state")
   const currentStateLabel = BRAZIL_STATES.find(s => s.value === currentStateValue)?.label
@@ -39,7 +42,14 @@ export function StateSelector() {
         }
     }
     
-    setSearchParams(newSearchParams);
+    // Se estiver na rota de explorar, apenas atualiza params
+    // Se não, navega para explorar com os params
+    if (location.pathname === ROUTE_PATHS.EXPLORE) {
+        setSearchParams(newSearchParams);
+    } else {
+        navigate(`${ROUTE_PATHS.EXPLORE}?${newSearchParams.toString()}`);
+    }
+    
     setOpen(false);
   }
 

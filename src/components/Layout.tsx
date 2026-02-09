@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, Link, useLocation, useSearchParams } from 'react-router-dom';
+import { useNavigate, NavLink, Link, useLocation, useSearchParams } from 'react-router-dom';
 import { 
   Menu, 
   X, 
@@ -47,9 +47,33 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   
   const currentStateValue = searchParams.get("state");
+  const currentQuery = searchParams.get("q") || "";
   const currentLocation = BRAZIL_STATES.find(s => s.value === currentStateValue)?.label || 'Qualquer lugar';
+
+  const [searchTerm, setSearchTerm] = useState(currentQuery);
+
+  // Sync internal state with URL params
+  useEffect(() => {
+    setSearchTerm(currentQuery);
+  }, [currentQuery]);
+
+  // Handle Search Submission
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams(searchParams);
+    
+    if (searchTerm.trim()) {
+      params.set("q", searchTerm);
+    } else {
+      params.delete("q");
+    }
+
+    // Always navigate to ExploreEvents with preserved params
+    navigate(`${ROUTE_PATHS.EXPLORE}?${params.toString()}`);
+  };
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -107,13 +131,15 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
 
             {/* Desktop Search Bar & Location */}
             <div className="hidden md:flex items-center flex-1 relative shadow-sm hover:shadow-md transition-shadow rounded-lg">
-              <div className="relative flex-1 group z-10">
+              <form onSubmit={handleSearch} className="relative flex-1 group z-10">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <Input 
                   placeholder="Buscar experiências" 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-12 h-12 bg-white border-gray-200 focus-visible:ring-0 focus-visible:border-primary rounded-l-lg rounded-r-none border-r-0 shadow-none hover:border-gray-300 transition-colors focus:z-20 w-full"
                 />
-              </div>
+              </form>
 
               {/* Location Selector (Desktop) */}
               <div className="relative z-0">
