@@ -5,6 +5,7 @@ export const ROUTE_PATHS = {
   EVENTS: '/eventos',
   EVENT_DETAILS: '/eventos/:slug',
   CREATE_EVENT: '/eventos/criar',
+  MATCHES: '/matches',
   MATCH_EVENT: '/match/:id',
   PROFILE: '/perfil',
   CHAT: '/chat/:matchId',

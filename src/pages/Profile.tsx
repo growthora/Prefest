@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Shield, Camera, Lock, User as UserIcon, Heart, Ruler, Users, Key, FileText, AlertTriangle, LayoutDashboard, Ticket } from "lucide-react";
+import { Shield, Camera, Key, FileText, AlertTriangle, LayoutDashboard, Ticket, User as UserIcon, Heart } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
@@ -14,9 +14,6 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EventGrid } from "@/components/EventCards";
 import { eventService } from "@/services/event.service";
@@ -44,27 +41,9 @@ export default function Profile() {
     birth_date: '',
   });
 
-  // Match/Privacy States
-  const [matchEnabled, setMatchEnabled] = useState(false);
-  const [meetAttendees, setMeetAttendees] = useState(false);
+  // Privacy States
   const [showInitialsOnly, setShowInitialsOnly] = useState(false);
   
-  // Privacy Settings
-  const [privacySettings, setPrivacySettings] = useState({
-    show_age: true,
-    show_height: true,
-    show_instagram: false,
-    show_relationship: true
-  });
-  
-  // Match Specific Fields
-  const [matchIntention, setMatchIntention] = useState<'paquera' | 'amizade'>('paquera');
-  const [genderPreference, setGenderPreference] = useState<'homens' | 'mulheres' | 'todos'>('todos');
-  const [sexuality, setSexuality] = useState<string>('heterossexual');
-  const [relationshipStatus, setRelationshipStatus] = useState<string>('solteiro');
-  const [height, setHeight] = useState<string>('');
-  const [lookingFor, setLookingFor] = useState<string[]>([]);
-
   // Image Upload State
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string>('');
@@ -149,20 +128,7 @@ export default function Profile() {
         birth_date: profile.birth_date || '',
       });
       
-      setMatchEnabled(profile.match_enabled || false);
-      setMeetAttendees(profile.meet_attendees || false);
       setShowInitialsOnly(profile.show_initials_only || false);
-      
-      if (profile.privacy_settings) {
-        setPrivacySettings(profile.privacy_settings);
-      }
-      
-      setMatchIntention(profile.match_intention || 'paquera');
-      setGenderPreference(profile.match_gender_preference || 'todos');
-      setSexuality(profile.sexuality || 'heterossexual');
-      setRelationshipStatus(profile.relationship_status || 'solteiro');
-      setHeight(profile.height ? profile.height.toString() : '');
-      setLookingFor(profile.looking_for || []);
     }
   }, [profile]);
 
@@ -205,18 +171,7 @@ export default function Profile() {
         ...formData,
         birth_date: formData.birth_date === '' ? null : formData.birth_date,
         avatar_url: avatarUrl,
-        match_enabled: matchEnabled,
-        meet_attendees: meetAttendees,
         show_initials_only: showInitialsOnly,
-        privacy_settings: privacySettings,
-        // Match fields only if match is enabled (or we save them anyway but they are hidden)
-        // Saving them anyway is better for UX if they toggle back
-        match_intention: matchIntention,
-        match_gender_preference: genderPreference,
-        sexuality: sexuality,
-        relationship_status: relationshipStatus,
-        height: height ? parseFloat(height) : undefined,
-        looking_for: lookingFor,
       };
 
       await updateProfile(updates);
@@ -319,22 +274,6 @@ export default function Profile() {
   };
 
   // Toggles
-  const handleToggleMatch = async (checked: boolean) => {
-    if (!checkAccess('ativar/desativar Match')) return;
-
-    try {
-      setMatchEnabled(checked);
-      // Update immediately for better UX or wait for save?
-      // User service implies immediate update for toggles in previous code
-      await updateProfile({ match_enabled: checked });
-      toast.success(checked ? 'Match ativado! 🔥' : 'Match desativado');
-    } catch (err) {
-      console.error('Erro ao atualizar Match:', err);
-      toast.error('Erro ao atualizar status do Match');
-      setMatchEnabled(!checked);
-    }
-  };
-
   const handleToggleInitialsOnly = async (checked: boolean) => {
     try {
       setShowInitialsOnly(checked);
@@ -347,10 +286,10 @@ export default function Profile() {
 
   return (
     <Layout>
-      <div className="container max-w-4xl mx-auto px-4 py-12">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold">Meu Perfil</h1>
-          <div className="flex gap-2">
+      <div className="container max-w-4xl mx-auto px-4 py-8 md:py-12 pb-24 md:pb-12">
+        <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 md:gap-0">
+          <h1 className="text-3xl md:text-4xl font-bold">Meu Perfil</h1>
+          <div className="flex flex-wrap justify-center gap-2">
             {(isAdmin || profile?.roles?.includes('ORGANIZER') || profile?.organizer_status === 'APPROVED') && (
               <Button 
                 onClick={() => navigate('/dashboard/organizador')} 
@@ -385,54 +324,56 @@ export default function Profile() {
           {/* Card de Perfil */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="relative group">
-                    <Avatar className="h-24 w-24 border-4 border-background shadow-xl">
-                      <AvatarImage src={avatarPreview || formData.avatar_url || undefined} className="object-cover" />
-                      <AvatarFallback className="text-2xl">
-                        {getInitials(formData.full_name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    {isEditing && (
-                      <>
-                        <input
-                          type="file"
-                          id="avatar-upload"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleAvatarChange}
-                        />
-                        <label
-                          htmlFor="avatar-upload"
-                          className="absolute bottom-0 right-0 p-2 bg-primary rounded-full text-white shadow-lg cursor-pointer hover:bg-primary/90 transition-transform hover:scale-105"
-                        >
-                          <Camera className="w-4 h-4" />
-                        </label>
-                      </>
+              <div className="flex flex-col items-center text-center space-y-6">
+                <div className="relative group">
+                  <Avatar className="h-32 w-32 border-4 border-background shadow-xl">
+                    <AvatarImage src={avatarPreview || formData.avatar_url || undefined} className="object-cover" />
+                    <AvatarFallback className="text-4xl">
+                      {getInitials(formData.full_name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  {isEditing && (
+                    <>
+                      <input
+                        type="file"
+                        id="avatar-upload"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleAvatarChange}
+                      />
+                      <label
+                        htmlFor="avatar-upload"
+                        className="absolute bottom-0 right-0 p-2.5 bg-primary rounded-full text-white shadow-lg cursor-pointer hover:bg-primary/90 transition-transform hover:scale-105"
+                      >
+                        <Camera className="w-5 h-5" />
+                      </label>
+                    </>
+                  )}
+                </div>
+                
+                <div className="space-y-2 w-full">
+                  <CardTitle className="flex flex-col md:flex-row items-center justify-center gap-2 text-2xl md:text-3xl text-center px-2">
+                    <span className="break-words max-w-full">{formData.full_name || 'Usuário'}</span>
+                    {isAdmin && (
+                      <Badge variant="destructive" className="shrink-0 mt-1 md:mt-0">Admin</Badge>
                     )}
-                  </div>
-                  <div>
-                    <CardTitle className="flex items-center gap-2 text-2xl">
-                      {formData.full_name || 'Usuário'}
-                      {isAdmin && (
-                        <Badge variant="destructive" className="ml-2">Admin</Badge>
-                      )}
-                    </CardTitle>
-                    <div className="text-base text-muted-foreground flex items-center gap-2">
-                       <span className="text-muted-foreground">{profile.email}</span>
-                       {isEmailConfirmed ? (
-                         <Badge variant="outline" className="text-xs font-normal bg-green-500/10 text-green-500 border-green-500/20">Verificado</Badge>
-                       ) : (
-                         <Badge variant="outline" className="text-xs font-normal bg-amber-500/10 text-amber-500 border-amber-500/20">Pendente</Badge>
-                       )}
-                    </div>
+                  </CardTitle>
+                  
+                  <div className="flex flex-wrap items-center justify-center gap-2 text-muted-foreground">
+                     <span>{profile.email}</span>
+                     {isEmailConfirmed ? (
+                       <Badge variant="outline" className="text-xs font-normal bg-green-500/10 text-green-500 border-green-500/20">Verificado</Badge>
+                     ) : (
+                       <Badge variant="outline" className="text-xs font-normal bg-amber-500/10 text-amber-500 border-amber-500/20">Pendente</Badge>
+                     )}
                   </div>
                 </div>
+
                 <Button 
                   variant={isEditing ? "default" : "outline"}
                   onClick={() => isEditing ? handleSave() : setIsEditing(true)}
                   disabled={isUploading}
+                  className="min-w-[200px]"
                 >
                   {isUploading ? 'Salvando...' : isEditing ? 'Salvar Alterações' : 'Editar Perfil'}
                 </Button>
@@ -491,7 +432,7 @@ export default function Profile() {
               ) : (
                 <div className="space-y-2">
                   <h3 className="font-semibold text-sm text-muted-foreground">Sobre</h3>
-                  <p className="text-base leading-relaxed">
+                  <p className="text-base leading-relaxed break-words">
                     {formData.bio || 'Nenhuma biografia adicionada ainda.'}
                   </p>
                 </div>
@@ -499,190 +440,7 @@ export default function Profile() {
             </CardContent>
           </Card>
 
-          {/* Configurações de Privacidade e Match */}
-          <Card className="border-primary/20">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Heart className="w-5 h-5 text-primary" />
-                Match & Conheça a Galera
-              </CardTitle>
-              <CardDescription>
-                Configure como você aparece para outras pessoas nos eventos
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Toggle Principal */}
-              <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
-                <div className="space-y-1">
-                  <Label htmlFor="match-mode" className="text-base font-semibold">Ativar Match / Conheça a Galera</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Permite que outros participantes vejam seu perfil completo e intenções
-                  </p>
-                </div>
-                <Switch 
-                  id="match-mode" 
-                  checked={matchEnabled}
-                  onCheckedChange={handleToggleMatch}
-                />
-              </div>
 
-              {matchEnabled ? (
-                <div className="space-y-6 animate-in fade-in slide-in-from-top-4">
-                  <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-100 dark:border-blue-900">
-                    <div className="flex gap-2 text-blue-700 dark:text-blue-300">
-                      <Lock className="w-4 h-4 mt-0.5" />
-                      <p className="text-sm">
-                        Suas informações de Match só são visíveis para outros participantes que também ativaram o recurso nos eventos que você participa.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-6">
-                    {/* Intenção */}
-                    <div className="space-y-3">
-                      <Label>O que você busca?</Label>
-                      <ToggleGroup type="multiple" value={lookingFor} onValueChange={setLookingFor} className="justify-start flex-wrap">
-                        <ToggleGroupItem value="amizade" variant="outline">🤝 Amizade</ToggleGroupItem>
-                        <ToggleGroupItem value="paquera" variant="outline">💘 Paquera</ToggleGroupItem>
-                        <ToggleGroupItem value="networking" variant="outline">💼 Networking</ToggleGroupItem>
-                        <ToggleGroupItem value="festa" variant="outline">🎉 Festa</ToggleGroupItem>
-                      </ToggleGroup>
-                    </div>
-
-                    {/* Preferência */}
-                    <div className="space-y-3">
-                      <Label>Interesse em:</Label>
-                      <RadioGroup value={genderPreference} onValueChange={(v: any) => setGenderPreference(v)}>
-                        <div className="flex gap-4">
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="homens" id="pref-homens" />
-                            <Label htmlFor="pref-homens">Homens</Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="mulheres" id="pref-mulheres" />
-                            <Label htmlFor="pref-mulheres">Mulheres</Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="todos" id="pref-todos" />
-                            <Label htmlFor="pref-todos">Todos</Label>
-                          </div>
-                        </div>
-                      </RadioGroup>
-                    </div>
-
-                    {/* Altura */}
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2">
-                        <Ruler className="w-4 h-4" /> Altura (m)
-                      </Label>
-                      <Input 
-                        type="number" 
-                        step="0.01" 
-                        placeholder="Ex: 1.75" 
-                        value={height}
-                        onChange={(e) => setHeight(e.target.value)}
-                      />
-                    </div>
-
-                    {/* Idade (Calculada) */}
-                    <div className="space-y-2">
-                      <Label>Idade</Label>
-                      <Input 
-                        value={calculateAge(formData.birth_date) ? `${calculateAge(formData.birth_date)} anos` : 'Data de nascimento não informada'} 
-                        disabled 
-                        className="bg-muted"
-                      />
-                    </div>
-
-                    {/* Status de Relacionamento */}
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2">
-                        <Users className="w-4 h-4" /> Status
-                      </Label>
-                      <Select value={relationshipStatus} onValueChange={setRelationshipStatus}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="solteiro">Solteiro(a)</SelectItem>
-                          <SelectItem value="namorando">Namorando</SelectItem>
-                          <SelectItem value="casado">Casado(a)</SelectItem>
-                          <SelectItem value="enrolado">Enrolado(a)</SelectItem>
-                          <SelectItem value="aberto">Relacionamento Aberto</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Sexualidade */}
-                    <div className="space-y-2">
-                      <Label>Sexualidade</Label>
-                      <Select value={sexuality} onValueChange={setSexuality}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="heterossexual">Heterossexual</SelectItem>
-                          <SelectItem value="homossexual">Homossexual</SelectItem>
-                          <SelectItem value="bissexual">Bissexual</SelectItem>
-                          <SelectItem value="pansexual">Pansexual</SelectItem>
-                          <SelectItem value="assexual">Assexual</SelectItem>
-                          <SelectItem value="outro">Outro</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Controles de Privacidade */}
-                  <div className="pt-6 border-t mt-6">
-                    <h4 className="text-base font-semibold mb-4 flex items-center gap-2">
-                      <Shield className="w-4 h-4 text-primary" />
-                      Privacidade dos Dados
-                    </h4>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                        <Label htmlFor="show-age" className="cursor-pointer">Mostrar Idade</Label>
-                        <Switch 
-                          id="show-age" 
-                          checked={privacySettings.show_age}
-                          onCheckedChange={(checked) => setPrivacySettings(prev => ({ ...prev, show_age: checked }))}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                        <Label htmlFor="show-height" className="cursor-pointer">Mostrar Altura</Label>
-                        <Switch 
-                          id="show-height" 
-                          checked={privacySettings.show_height}
-                          onCheckedChange={(checked) => setPrivacySettings(prev => ({ ...prev, show_height: checked }))}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                        <Label htmlFor="show-relationship" className="cursor-pointer">Mostrar Status de Relacionamento</Label>
-                        <Switch 
-                          id="show-relationship" 
-                          checked={privacySettings.show_relationship}
-                          onCheckedChange={(checked) => setPrivacySettings(prev => ({ ...prev, show_relationship: checked }))}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Save Button for Match Fields if not in main edit mode */}
-                  {!isEditing && (
-                    <div className="flex justify-end pt-4">
-                      <Button onClick={handleSave} disabled={isUploading}>
-                        Salvar Preferências de Match
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="p-6 text-center text-muted-foreground bg-muted/20 rounded-lg border border-dashed">
-                  <p>Ative o Match para preencher seu perfil de conexão e ver quem vai aos eventos.</p>
-                  <p className="text-sm mt-2">Quando desativado, você aparece como "Participante" (Anônimo).</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
 
           {/* Outras Configurações */}
           <Card>
@@ -690,10 +448,10 @@ export default function Profile() {
               <CardTitle>Outras Configurações</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-               <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="anonymous">Anonimato Total</Label>
-                  <p className="text-sm text-muted-foreground">
+               <div className="flex items-center justify-between gap-4">
+                <div className="space-y-1 flex-1">
+                  <Label htmlFor="anonymous" className="text-base font-medium">Anonimato Total</Label>
+                  <p className="text-sm text-muted-foreground leading-snug">
                     Ocultar meu nome completo mesmo com Match ativo (usar iniciais)
                   </p>
                 </div>

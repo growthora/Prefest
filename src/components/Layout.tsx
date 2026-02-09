@@ -18,7 +18,9 @@ import {
   Utensils,
   Star,
   Compass,
-  Mic
+  Mic,
+  SlidersHorizontal,
+  Flame
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ROUTE_PATHS } from '@/lib';
@@ -26,7 +28,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { Footer } from '@/components/Footer';
 import { Notifications } from '@/components/Notifications';
-import { FloatingChat } from '@/components/FloatingChat';
 import { ProfileMenu } from '@/components/ProfileMenu';
 import { CreateEventModal } from '@/components/CreateEventModal';
 import { AuthModal } from '@/components/AuthModal';
@@ -45,15 +46,10 @@ interface LayoutProps {
 
 export function Layout({ children, showTopBanner = false, fullWidth = false }: LayoutProps) {
   const { user, profile } = useAuth();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const location = useLocation();
+  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  
-  const currentStateValue = searchParams.get("state");
   const currentQuery = searchParams.get("q") || "";
-  const currentLocation = BRAZIL_STATES.find(s => s.value === currentStateValue)?.label || 'Qualquer lugar';
-
   const [searchTerm, setSearchTerm] = useState(currentQuery);
 
   // Sync internal state with URL params
@@ -76,11 +72,6 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
     navigate(`${ROUTE_PATHS.EXPLORE}?${params.toString()}`);
   };
 
-  // Close mobile menu on route change
-  useEffect(() => {
-    setIsMenuOpen(false);
-  }, [location.pathname]);
-
   const navLinks = [
     { name: 'Início', path: ROUTE_PATHS.HOME, icon: HomeIcon },
     { name: 'Explorar', path: ROUTE_PATHS.EXPLORE, icon: Search },
@@ -95,7 +86,8 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
     { name: "Gastronomia", icon: Utensils },
     { name: "Grátis", icon: Star }
   ];
-return (
+
+  return (
     <div className="min-h-screen bg-background text-foreground flex flex-col selection:bg-primary/30 selection:text-primary font-sans">
       <EmailConfirmationBanner />
       
@@ -115,8 +107,70 @@ return (
         </div>
       )}
 
-      {/* Main Header - White on Desktop to match Sympla */}
-      <header className="sticky top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-100">
+      {/* MOBILE TOP BAR (Search & Filters) */}
+      <div className="md:hidden sticky top-0 z-50 bg-white shadow-sm border-b border-gray-100 pb-2">
+        <div className="flex items-center justify-between px-4 py-3">
+          <Link to={ROUTE_PATHS.HOME} className="flex-shrink-0">
+            <img 
+              src={logoImage} 
+              alt="Pré-fest" 
+              className="h-8 w-auto object-contain" 
+            />
+          </Link>
+          <div className="scale-90 origin-right">
+            <StateSelector />
+          </div>
+        </div>
+        
+        <div className="px-4 pb-2 flex gap-3">
+          <form onSubmit={handleSearch} className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Input 
+              placeholder="Buscar experiências..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 h-10 bg-gray-50 border-gray-200 focus:bg-white transition-colors w-full"
+            />
+          </form>
+          <button 
+            onClick={() => setIsMobileFiltersOpen(!isMobileFiltersOpen)}
+            className={cn(
+              "flex items-center justify-center w-10 h-10 rounded-lg border transition-colors",
+              isMobileFiltersOpen ? "bg-primary text-white border-primary" : "bg-white border-gray-200 text-gray-600"
+            )}
+          >
+            <SlidersHorizontal size={18} />
+          </button>
+        </div>
+
+        {/* Mobile Filters (Categories) */}
+        <AnimatePresence>
+          {isMobileFiltersOpen && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="px-4 pb-3 flex gap-2 overflow-x-auto scrollbar-hide">
+                {categories.map((cat) => (
+                  <Link
+                    key={cat.name}
+                    to={`/explorar-eventos?category=${encodeURIComponent(cat.name)}`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-full text-xs font-medium text-gray-600 whitespace-nowrap active:scale-95 transition-transform"
+                  >
+                    <cat.icon size={12} />
+                    {cat.name}
+                  </Link>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* DESKTOP Header - Hidden on Mobile */}
+      <header className="hidden md:block sticky top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-gray-100">
         <div className="container max-w-7xl mx-auto px-4 h-20 flex items-center justify-between gap-8">
           
           {/* Left Section: Logo & Search & Location */}
@@ -131,7 +185,7 @@ return (
             </Link>
 
             {/* Desktop Search Bar & Location */}
-            <div className="hidden md:flex items-center flex-1 relative shadow-sm hover:shadow-md transition-shadow rounded-lg">
+            <div className="flex items-center flex-1 relative shadow-sm hover:shadow-md transition-shadow rounded-lg">
               <form onSubmit={handleSearch} className="relative flex-1 group z-10">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <Input 
@@ -153,7 +207,7 @@ return (
           <div className="flex items-center gap-6 flex-shrink-0">
             
             {/* Desktop Action Links */}
-            <div className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-600">
+            <div className="flex items-center gap-6 text-sm font-medium text-gray-600">
               <CreateEventModal 
                 trigger={
                   <button className="flex items-center gap-2 hover:text-primary transition-colors">
@@ -174,7 +228,7 @@ return (
             </div>
 
             {/* User Profile / Auth */}
-            <div className="hidden md:block">
+            <div>
               {user ? (
                  <ProfileMenu />
               ) : (
@@ -188,19 +242,11 @@ return (
                  />
               )}
             </div>
-
-            {/* Mobile/Menu Toggle */}
-            <button 
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="text-gray-600 md:hidden p-1"
-            >
-              {isMenuOpen ? <X size={28} /> : <Menu size={28} />}
-            </button>
           </div>
         </div>
 
         {/* Category Navigation Bar (Desktop) */}
-        <div className="hidden md:block bg-primary text-white shadow-md relative z-10">
+        <div className="bg-primary text-white shadow-md relative z-10">
           <div className="container max-w-7xl mx-auto px-4">
             <div className="flex items-center justify-center gap-8 py-3 text-sm font-medium overflow-x-auto scrollbar-hide">
               {categories.map((cat) => (
@@ -219,74 +265,100 @@ return (
         </div>
       </header>
 
-      {/* Mobile Menu Overlay */}
-      <AnimatePresence>
-        {isMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, x: '100%' }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: '100%' }}
-            transition={{ type: "tween", duration: 0.3 }}
-            className="fixed inset-0 z-40 bg-background pt-20 px-6 shadow-2xl"
-          >
-            <div className="flex flex-col gap-6">
-              
-              {/* Mobile Location Selector */}
-              <div className="flex items-center gap-2 text-primary pb-4 border-b border-border/10">
-                <MapPin size={20} />
-                <span className="font-medium text-lg">{currentLocation}</span>
-                <ChevronDown size={18} />
-              </div>
-
-              {navLinks.map((link) => (
-                <Link
-                  key={link.path}
-                  to={link.path}
-                  className="text-xl font-medium text-foreground/80 hover:text-primary transition-colors py-2"
-                >
-                  {link.name}
-                </Link>
-              ))}
-
-              <hr className="border-border/10" />
-
-              <div className="flex flex-col gap-4">
-                 {user ? (
-                    <ProfileMenu />
-                 ) : (
-                    <AuthModal 
-                      trigger={
-                        <button className="w-full py-3 rounded-lg border border-primary text-primary font-bold hover:bg-primary/5 transition-colors">
-                          Entrar / Cadastrar
-                        </button>
-                      }
-                    />
-                 )}
-                 
-                 <CreateEventModal 
-                    trigger={
-                      <button className="w-full py-3 rounded-lg bg-primary text-white font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
-                        Criar evento
-                      </button>
-                    }
-                  />
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <main className={cn(
         "flex-1 w-full",
-        !fullWidth && "container max-w-7xl mx-auto px-4 py-8"
+        !fullWidth && "container max-w-7xl mx-auto px-4 py-8",
+        "mb-20 md:mb-0" // Add bottom margin on mobile for fixed nav
       )}>
         {children}
       </main>
 
+      {/* MOBILE BOTTOM NAV */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-50 px-6 py-2 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <div className="flex items-center justify-between">
+          <NavLink 
+            to={ROUTE_PATHS.HOME} 
+            className={({isActive}) => cn(
+              "flex flex-col items-center gap-1 transition-colors",
+              isActive ? "text-primary" : "text-gray-400 hover:text-gray-600"
+            )}
+          >
+            <HomeIcon size={24} />
+            <span className="text-[10px] font-medium">Início</span>
+          </NavLink>
+
+          <NavLink 
+            to={ROUTE_PATHS.EXPLORE} 
+            className={({isActive}) => cn(
+              "flex flex-col items-center gap-1 transition-colors",
+              isActive ? "text-primary" : "text-gray-400 hover:text-gray-600"
+            )}
+          >
+            <Compass size={24} />
+            <span className="text-[10px] font-medium">Explorar</span>
+          </NavLink>
+
+          <div className="-mt-8">
+            <CreateEventModal 
+              trigger={
+                <button className="flex flex-col items-center justify-center w-14 h-14 bg-primary text-white rounded-full shadow-lg hover:bg-primary/90 transition-transform active:scale-95">
+                  <PlusCircle size={28} />
+                </button>
+              }
+            />
+          </div>
+
+          {user ? (
+            <NavLink 
+              to={ROUTE_PATHS.MATCHES} 
+              className={({isActive}) => cn(
+                "flex flex-col items-center gap-1 transition-colors",
+                isActive ? "text-primary" : "text-gray-400 hover:text-gray-600"
+              )}
+            >
+              {({ isActive }) => (
+                <>
+                  <Flame size={24} className={isActive ? "fill-primary text-primary" : ""} />
+                  <span className="text-[10px] font-medium">Match</span>
+                </>
+              )}
+            </NavLink>
+          ) : (
+            <AuthModal 
+              trigger={
+                <button className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600">
+                  <Flame size={24} />
+                  <span className="text-[10px] font-medium">Match</span>
+                </button>
+              }
+            />
+          )}
+
+          {user ? (
+            <NavLink 
+              to="/perfil" 
+              className={({isActive}) => cn(
+                "flex flex-col items-center gap-1 transition-colors",
+                isActive ? "text-primary" : "text-gray-400 hover:text-gray-600"
+              )}
+            >
+              <User size={24} />
+              <span className="text-[10px] font-medium">Perfil</span>
+            </NavLink>
+          ) : (
+            <AuthModal 
+              trigger={
+                <button className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600">
+                  <User size={24} />
+                  <span className="text-[10px] font-medium">Entrar</span>
+                </button>
+              }
+            />
+          )}
+        </div>
+      </div>
+
       <Footer />
-      
-      {/* Floating Chat */}
-      {user && <FloatingChat />}
       
       {/* Location Popup - Global Floating Notification */}
       <LocationPopup />

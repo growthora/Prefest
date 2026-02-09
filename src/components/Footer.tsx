@@ -48,29 +48,6 @@ export function Footer() {
 
   return (
     <footer className="bg-background border-t border-border/40">
-      {/* Newsletter Section */}
-      <div className="border-b border-border/40 bg-muted/20">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="text-center md:text-left max-w-lg">
-              <h3 className="text-2xl font-bold tracking-tight mb-2">Fique por dentro das novidades</h3>
-              <p className="text-muted-foreground">
-                Receba as melhores dicas de eventos, promoções exclusivas e novidades da Prefest diretamente no seu e-mail.
-              </p>
-            </div>
-            <div className="w-full md:w-auto flex flex-col sm:flex-row gap-3">
-              <Input 
-                placeholder="Seu melhor e-mail" 
-                className="min-w-[280px] bg-background border-border/60 focus:ring-primary"
-              />
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-8 shadow-lg shadow-primary/20">
-                Inscrever-se
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 lg:gap-8 mb-16">
           {/* Brand Column */}

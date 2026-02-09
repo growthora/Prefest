@@ -1,14 +1,32 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Calendar, MapPin, Clock, Users, ChevronLeft, Share2, Heart, Sparkles, UserPlus, Eye, EyeOff } from 'lucide-react';
-import { motion } from 'framer-motion';
+import {
+  Calendar,
+  MapPin,
+  Clock,
+  Users,
+  ChevronLeft,
+  Share2,
+  Heart,
+  Sparkles,
+  UserPlus,
+  Eye,
+  EyeOff,
+  Flame,
+  MessageCircle,
+  Ticket
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Layout } from '@/components/Layout';
 import { TicketPurchase } from '@/components/TicketPurchase';
 import { ProfileModal } from '@/components/ProfileModal';
+import { MatchInterface } from '@/components/MatchCards';
 import { Event, ROUTE_PATHS } from '@/lib/index';
-import { eventService, type Event as SupabaseEvent } from '@/services/event.service';
+import { eventService, type Event as SupabaseEvent, MatchCandidate } from '@/services/event.service';
+import { likeService } from '@/services/like.service';
 import { IMAGES } from '@/assets/images';
 import { useAuth } from '@/hooks/useAuth';
+import { useMatch } from '@/hooks/useMatch';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,9 +56,65 @@ export default function EventDetails() {
   const [isLiked, setIsLiked] = useState(false);
   const [isLoadingLike, setIsLoadingLike] = useState(false);
 
+  // Match Interface State
+  const [showMatchOverlay, setShowMatchOverlay] = useState(false);
+  const [lastMatchedUser, setLastMatchedUser] = useState<string | null>(null);
+  const [lastMatchedUserName, setLastMatchedUserName] = useState<string>('');
+  const [lastMatchedUserPhoto, setLastMatchedUserPhoto] = useState<string>('');
+  const { likeUser, skipUser, currentQueue, loading: loadingMatchQueue } = useMatch(event?.id);
+
+  // Match Queue State (local to avoid conflicts with hook's auto-removal)
+  const [matchQueue, setMatchQueue] = useState<any[]>([]);
+  const [loadingMatchCandidates, setLoadingMatchCandidates] = useState(false);
+
   useEffect(() => {
     loadEvent();
   }, [slug]);
+
+  useEffect(() => {
+    if (activeTab === 'attendees' && event?.id && profile?.meet_attendees) {
+      loadMatchCandidates();
+    }
+  }, [activeTab, event?.id, profile?.meet_attendees]);
+
+  const loadMatchCandidates = async () => {
+    if (!event?.id || !user) return;
+    try {
+      setLoadingMatchCandidates(true);
+      // Try to get match candidates, fallback to attendees if method missing
+      let candidates = [];
+      try {
+        // @ts-ignore - Assuming method exists as in MatchEvent
+        candidates = await eventService.getMatchCandidates(event.id);
+      } catch (e) {
+        console.warn('getMatchCandidates failed, using getEventAttendees', e);
+        candidates = await eventService.getEventAttendees(event.id);
+      }
+
+      // Filter current user and map to User interface
+      const mapped = candidates
+        .filter((c: any) => c.id !== user.id && c.user_id !== user.id)
+        .map((c: any) => ({
+          id: c.id || c.user_id,
+          name: c.full_name || c.name || 'Usuário',
+          photo: c.avatar_url || c.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.id || c.user_id}`,
+          age: c.age || 25,
+          bio: c.bio || '',
+          vibes: c.vibes || [],
+          isSingleMode: c.single_mode || false,
+          showInitialsOnly: c.show_initials_only || false,
+          matchIntention: c.match_intention || 'amizade',
+          genderPreference: c.match_gender_preference,
+          sexuality: c.sexuality
+        }));
+      
+      setMatchQueue(mapped);
+    } catch (error) {
+      console.error('Error loading match candidates:', error);
+    } finally {
+      setLoadingMatchCandidates(false);
+    }
+  };
 
   // Check like status when event and user are loaded
   useEffect(() => {
@@ -258,6 +332,51 @@ export default function EventDetails() {
     }
   };
 
+  const handleLikeMatch = async (userId: string) => {
+    if (!event?.id || !user?.id) {
+      toast.error('Erro ao processar like');
+      return;
+    }
+
+    try {
+      console.log('👍 Dando like em:', userId);
+      
+      // Registrar o like no banco de dados
+      const likeResult = await likeService.likeUser(userId, event.id);
+      
+      // Encontrar o usuário que recebeu o like para pegar o nome e foto
+      const likedUser = attendees.find(p => p.user_id === userId); // attendees uses user_id
+      
+      if (likeResult.is_match) {
+        // É um match!
+        console.log('💕 É um match!');
+        setLastMatchedUser(userId);
+        setLastMatchedUserName(likedUser?.name || 'Alguém');
+        setLastMatchedUserPhoto(likedUser?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`);
+        setShowMatchOverlay(true);
+        toast.success('É um Match! 💕');
+      } else {
+        console.log('✅ Like enviado');
+        toast.success('Like enviado! ❤️');
+      }
+      
+      // Removed likeUser(userId) to prevent queue from shifting and double-skipping
+      // The MatchInterface handles navigation internally
+    } catch (error: any) {
+      console.error('❌ Erro ao dar like:', error);
+      
+      if (error.code === '23505') {
+        toast.info('Você já curtiu esta pessoa');
+      } else {
+        toast.error('Erro ao processar like');
+      }
+    }
+  };
+
+  const handleSkipMatch = (userId: string) => {
+    skipUser(userId);
+  };
+
   const handlePurchase = async (singleMode: boolean, ticketTypeId?: string, totalPaid?: number) => {
     if (!user || !event) {
       toast.error('Você precisa estar logado para comprar ingressos');
@@ -308,42 +427,45 @@ export default function EventDetails() {
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto px-4 py-8 lg:py-12">
+      <div className="max-w-6xl mx-auto px-4 py-6 lg:py-12">
         {/* Back Button */}
         <motion.div
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
-          className="mb-6"
+          className="mb-4 lg:mb-6"
         >
           <Button
             variant="ghost"
             size="sm"
             onClick={() => navigate(-1)}
-            className="text-muted-foreground hover:text-foreground -ml-2"
+            className="text-muted-foreground hover:text-foreground -ml-2 text-xs lg:text-sm"
           >
-            <ChevronLeft className="w-4 h-4 mr-2" />
+            <ChevronLeft className="w-4 h-4 mr-1 lg:mr-2" />
             Voltar para eventos
           </Button>
         </motion.div>
 
         {/* Tabs Navigation */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-8 bg-card/50 border border-border/40">
-            <TabsTrigger value="details" className="data-[state=active]:bg-primary data-[state=active]:text-white">
+          <TabsList className="grid w-full grid-cols-2 mb-6 lg:mb-8 bg-card/50 border border-border/40 h-auto p-1">
+            <TabsTrigger 
+              value="details" 
+              className="data-[state=active]:bg-primary data-[state=active]:text-white py-2 lg:py-1.5 text-xs lg:text-sm"
+            >
               Detalhes do Evento
             </TabsTrigger>
             <TabsTrigger 
               value="attendees" 
-              className="data-[state=active]:bg-primary data-[state=active]:text-white flex items-center gap-2"
+              className="data-[state=active]:bg-primary data-[state=active]:text-white flex items-center gap-2 py-2 lg:py-1.5 text-xs lg:text-sm"
             >
               {event?.event_type === 'formal' ? (
                 <>
-                  <Sparkles size={16} />
+                  <Sparkles size={14} className="lg:w-4 lg:h-4" />
                   Networking
                 </>
               ) : (
                 <>
-                  <Users size={16} className="fill-current" />
+                  <Users size={14} className="fill-current lg:w-4 lg:h-4" />
                   Conheça a Galera
                 </>
               )}
@@ -407,37 +529,37 @@ export default function EventDetails() {
                 ))}
               </div>
 
-              <h1 className="text-4xl lg:text-5xl font-bold tracking-tight text-foreground">
+              <h1 className="text-2xl md:text-3xl lg:text-5xl font-bold tracking-tight text-foreground">
                 {event.title}
               </h1>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex items-center gap-3 p-4 rounded-xl bg-card/40 border border-border/40">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:gap-4">
+                <div className="flex items-center gap-3 p-3 lg:p-4 rounded-xl bg-card/40 border border-border/40">
                   <div className="p-2.5 rounded-lg bg-primary/10">
-                    <Calendar className="w-5 h-5 text-primary" />
+                    <Calendar className="w-4 h-4 lg:w-5 lg:h-5 text-primary" />
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Data</p>
+                    <p className="text-[10px] lg:text-xs text-muted-foreground uppercase tracking-wide">Data</p>
                     <p className="text-sm font-medium">{event.date}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 p-4 rounded-xl bg-card/40 border border-border/40">
+                <div className="flex items-center gap-3 p-3 lg:p-4 rounded-xl bg-card/40 border border-border/40">
                   <div className="p-2.5 rounded-lg bg-primary/10">
-                    <Clock className="w-5 h-5 text-primary" />
+                    <Clock className="w-4 h-4 lg:w-5 lg:h-5 text-primary" />
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Horário</p>
+                    <p className="text-[10px] lg:text-xs text-muted-foreground uppercase tracking-wide">Horário</p>
                     <p className="text-sm font-medium">Portões abrem às {event.time}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 p-4 rounded-xl bg-card/40 border border-border/40 md:col-span-2">
+                <div className="flex items-center gap-3 p-3 lg:p-4 rounded-xl bg-card/40 border border-border/40 md:col-span-2">
                   <div className="p-2.5 rounded-lg bg-primary/10">
-                    <MapPin className="w-5 h-5 text-primary" />
+                    <MapPin className="w-4 h-4 lg:w-5 lg:h-5 text-primary" />
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Local</p>
+                    <p className="text-[10px] lg:text-xs text-muted-foreground uppercase tracking-wide">Local</p>
                     <p className="text-sm font-medium">{event.location}</p>
                     <p className="text-xs text-muted-foreground">{event.address}</p>
                   </div>
@@ -510,7 +632,7 @@ export default function EventDetails() {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
             >
-              {/* Header and Controls */}
+              {/* Header */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card/30 p-6 rounded-xl border border-border/40">
                 <div>
                   <h3 className="text-2xl font-bold flex items-center gap-2">
@@ -518,7 +640,7 @@ export default function EventDetails() {
                     Quem vai
                   </h3>
                   <p className="text-muted-foreground mt-1">
-                    {attendees.length} pessoas na lista • {attendees.filter(a => a.is_visible).length} visíveis
+                    {attendees.length} pessoas confirmadas
                   </p>
                 </div>
 
@@ -529,7 +651,7 @@ export default function EventDetails() {
                         {profile?.meet_attendees ? 'Você está visível' : 'Você está invisível'}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {profile?.meet_attendees ? 'Outros podem ver seu perfil' : 'Aparece como "Participante"'}
+                        {profile?.meet_attendees ? 'Outros podem ver seu perfil' : 'Ative para ver quem vai'}
                       </p>
                     </div>
                     <Button 
@@ -545,7 +667,7 @@ export default function EventDetails() {
                       ) : (
                         <>
                           <Eye size={16} />
-                          Ficar Visível
+                          Ativar Conheça a Galera
                         </>
                       )}
                     </Button>
@@ -553,88 +675,52 @@ export default function EventDetails() {
                 )}
               </div>
 
-              {!user && (
-                <div className="bg-primary/5 border border-primary/20 rounded-xl p-6 text-center">
-                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <UserPlus className="w-6 h-6 text-primary" />
+              {!user ? (
+                <div className="bg-primary/5 border border-primary/20 rounded-xl p-8 text-center">
+                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <UserPlus className="w-8 h-8 text-primary" />
                   </div>
-                  <h4 className="font-semibold text-lg mb-2">Faça login para ver quem vai!</h4>
-                  <p className="text-muted-foreground mb-4 max-w-md mx-auto">
+                  <h4 className="font-semibold text-xl mb-2">Faça login para ver quem vai!</h4>
+                  <p className="text-muted-foreground mb-6 max-w-md mx-auto">
                     Entre na sua conta para interagir com outros participantes e aparecer na lista.
                   </p>
-                  <Button onClick={() => navigate('/login')}>Fazer Login</Button>
+                  <Button onClick={() => navigate('/login')} size="lg" className="px-8">Fazer Login</Button>
                 </div>
-              )}
-
-              {/* List */}
-              {loadingAttendees ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                    <div key={i} className="h-48 bg-muted/20 animate-pulse rounded-xl" />
-                  ))}
-                </div>
-              ) : attendees.length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {attendees.map((participant) => (
-                    <motion.div
-                      key={participant.user_id}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className={`relative group overflow-hidden rounded-xl border transition-all hover:shadow-md cursor-pointer ${
-                        participant.is_visible 
-                          ? 'bg-card border-border/50 hover:border-primary/50' 
-                          : 'bg-muted/30 border-transparent'
-                      }`}
-                      onClick={() => {
-                        // Adaptar estrutura de dados para o modal
-                        setSelectedAttendee({
-                          ...participant,
-                          id: participant.user_id,
-                          photo: participant.avatar_url,
-                          // Garantir que campos opcionais existam se necessário
-                        });
-                      }}
-                    >
-                      <div className="p-4 flex flex-col items-center text-center h-full">
-                        <Avatar className={`w-20 h-20 mb-3 ${!participant.is_visible && 'opacity-50'}`}>
-                          <AvatarImage src={participant.avatar_url} />
-                          <AvatarFallback>
-                            {participant.name.substring(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        
-                        <div className="flex-1 w-full">
-                          <h4 className="font-medium truncate w-full" title={participant.name}>
-                            {participant.name}
-                          </h4>
-                          {participant.is_visible && participant.bio && (
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                              {participant.bio}
-                            </p>
-                          )}
-                          {!participant.is_visible && (
-                            <p className="text-xs text-muted-foreground mt-1 italic">
-                              Perfil oculto
-                            </p>
-                          )}
-                        </div>
-
-                        {participant.is_visible && user && participant.user_id !== user.id && (
-                          <div className="mt-3 w-full pt-3 border-t border-border/40 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button size="sm" variant="ghost" className="w-full text-xs h-7">
-                              Ver Perfil
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  ))}
+              ) : !profile?.meet_attendees ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center bg-card/30 rounded-xl border border-border/40 p-8">
+                   <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6 relative">
+                     <Flame className="w-10 h-10 text-primary animate-pulse" />
+                     <Sparkles className="absolute -top-2 -right-2 w-6 h-6 text-yellow-400 animate-bounce" />
+                   </div>
+                   <h3 className="text-2xl font-bold mb-3">Conheça a Galera!</h3>
+                   <p className="text-muted-foreground max-w-md mb-8 text-lg">
+                     Ative o modo "Conheça a Galera" para ver quem mais vai neste evento, dar matches e fazer novas conexões antes mesmo da festa começar!
+                   </p>
+                   <Button 
+                     size="lg" 
+                     className="gap-2 text-lg px-8 py-6 rounded-xl shadow-xl shadow-primary/20 hover:shadow-primary/40 transition-all hover:scale-105"
+                     onClick={handleToggleMeetAttendees}
+                   >
+                     <Eye size={20} />
+                     Ativar Agora
+                   </Button>
+                   <p className="text-xs text-muted-foreground mt-4">
+                     Ao ativar, seu perfil também ficará visível para outros participantes.
+                   </p>
                 </div>
               ) : (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Users className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                  <p>Ninguém confirmou presença publicamente ainda.</p>
-                  <p className="text-sm">Seja o primeiro a aparecer na lista!</p>
+                <div className="py-4">
+                   {loadingMatchCandidates ? (
+                     <div className="flex justify-center py-20">
+                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                     </div>
+                   ) : (
+                     <MatchInterface 
+                       queue={matchQueue}
+                       onLike={handleLikeMatch}
+                       onSkip={handleSkipMatch}
+                     />
+                   )}
                 </div>
               )}
             </motion.div>
@@ -646,6 +732,116 @@ export default function EventDetails() {
           onClose={() => setSelectedAttendee(null)}
           user={selectedAttendee}
         />
+
+        {/* Match Overlay */}
+        <AnimatePresence>
+          {showMatchOverlay && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.1 }}
+              className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background/95 backdrop-blur-xl p-8 text-center overflow-hidden"
+            >
+              {/* Efeito de confete/brilho de fundo */}
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,105,180,0.1),transparent_50%)]" />
+              
+              {/* Fotos dos usuários lado a lado */}
+              <motion.div 
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                className="relative flex items-center justify-center mb-8 z-10"
+              >
+                {/* Foto do usuário atual (você) */}
+                <div className="relative">
+                  <motion.div 
+                    animate={{ scale: [1, 1.05, 1] }}
+                    transition={{ repeat: Infinity, duration: 2 }}
+                    className="absolute -inset-3 bg-gradient-to-br from-primary/40 to-pink-500/40 blur-xl rounded-full"
+                  />
+                  <div className="relative w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-4 border-primary shadow-2xl">
+                    <img 
+                      src={profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
+                      alt="Você"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+
+                {/* Ícone de chama no meio */}
+                <motion.div
+                  initial={{ scale: 0, rotate: -180 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ delay: 0.4, type: "spring", stiffness: 300 }}
+                  className="relative mx-[-15px] z-20"
+                >
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-pink-500 to-red-500 flex items-center justify-center shadow-2xl border-4 border-background">
+                    <Flame className="w-8 h-8 text-white fill-white" />
+                  </div>
+                </motion.div>
+
+                {/* Foto do usuário que deu match */}
+                <div className="relative">
+                  <motion.div 
+                    animate={{ scale: [1, 1.05, 1] }}
+                    transition={{ repeat: Infinity, duration: 2, delay: 0.5 }}
+                    className="absolute -inset-3 bg-gradient-to-br from-pink-500/40 to-primary/40 blur-xl rounded-full"
+                  />
+                  <div className="relative w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-4 border-pink-500 shadow-2xl">
+                    <img 
+                      src={lastMatchedUserPhoto}
+                      alt={lastMatchedUserName}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+              </motion.div>
+              
+              <motion.h2 
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.6 }}
+                className="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-red-500 to-primary mb-2 tracking-tighter italic"
+              >
+                IT'S A MATCH!
+              </motion.h2>
+              
+              <motion.p 
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.7 }}
+                className="text-muted-foreground mb-8 text-lg"
+              >
+                Você e <span className="text-foreground font-bold">{lastMatchedUserName}</span> curtiram um ao outro! 💕
+              </motion.p>
+
+              <motion.div 
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.8 }}
+                className="flex flex-col w-full max-w-sm gap-3"
+              >
+                <Button 
+                  onClick={() => {
+                    setShowMatchOverlay(false);
+                    toast.success('Sistema de chat será implementado em breve!');
+                  }}
+                  className="bg-gradient-to-r from-pink-500 to-primary hover:from-pink-600 hover:to-primary/90 text-white py-6 rounded-xl font-bold text-lg shadow-xl"
+                >
+                  <MessageCircle className="w-5 h-5 mr-2" />
+                  Enviar Mensagem
+                </Button>
+                <Button 
+                  variant="ghost"
+                  onClick={() => setShowMatchOverlay(false)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  Continuar Swiping
+                </Button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </Layout>
   );

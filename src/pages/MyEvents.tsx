@@ -102,23 +102,23 @@ export default function MyEvents() {
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto px-4 py-8 lg:py-12">
+      <div className="max-w-6xl mx-auto px-4 py-6 lg:py-12">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
+          className="mb-6 lg:mb-8"
         >
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 lg:gap-6 mb-6 lg:mb-8">
             <div>
-              <h1 className="text-4xl font-bold tracking-tight mb-2">Meus Eventos</h1>
-              <p className="text-muted-foreground">
+              <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight mb-2">Meus Eventos</h1>
+              <p className="text-sm lg:text-base text-muted-foreground">
                 Gerencie seus ingressos e conecte-se com outros participantes
               </p>
             </div>
             
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 w-full md:w-auto">
               <Select value={filter} onValueChange={setFilter}>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-full md:w-48">
                   <Filter className="w-4 h-4 mr-2" />
                   <SelectValue placeholder="Filtrar eventos" />
                 </SelectTrigger>

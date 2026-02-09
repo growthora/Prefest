@@ -11,6 +11,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { validateCPF, formatCPF, formatDate, validateBirthDate } from '@/utils/validators';
 import { ROUTE_PATHS } from '@/lib/index';
 import { Info } from 'lucide-react';
+import { IMAGES } from '@/assets/images';
+import { authService } from '@/services/auth.service';
 
 export const LoginForm = () => {
   const { signIn, signUp, isLoading, error } = useAuth();
@@ -62,6 +64,18 @@ export const LoginForm = () => {
     
     try {
       setResendLoading(true);
+      // Note: authService is not imported directly here but was used in the original code? 
+      // Wait, looking at the original code, authService was used in handleResendEmail but I don't see the import in the Read output.
+      // Ah, I missed checking the imports carefully. 
+      // Let me check if authService is available or if I need to import it.
+      // In the original file snippet:
+      // 65: await authService.resendConfirmationEmail(formData.email);
+      // But I don't see `import { authService } ...` in the top lines I read (1-15).
+      // I should double check imports.
+      // Assuming it needs to be imported from services/auth.service
+      
+      // Let's comment this out for a second and check if I need to add the import.
+      // I'll add the import to be safe.
       await authService.resendConfirmationEmail(formData.email);
       setLocalError(null);
       setSuccessMessage('E-mail de confirmação reenviado! Verifique sua caixa de entrada e spam.');
@@ -108,8 +122,6 @@ export const LoginForm = () => {
       const [day, month, year] = formData.birthDate.split('/');
       const formattedBirthDate = `${year}-${month}-${day}`;
       
-      // Verificar se e-mail ou CPF já existem antes de tentar criar a conta
-      // Isso evita o erro genérico "Database error saving new user"
       try {
         const checkResult = await authService.checkRegistrationData(formData.email, formData.cpf);
         
@@ -124,7 +136,6 @@ export const LoginForm = () => {
         }
       } catch (checkErr) {
         console.warn('Erro ao verificar disponibilidade de dados:', checkErr);
-        // Continua o fluxo normal se a verificação falhar (fallback)
       }
 
       await signUp(formData.email, formData.password, formData.fullName, formData.cpf, formattedBirthDate, isOrganizer);
@@ -153,26 +164,27 @@ export const LoginForm = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="text-2xl">Bem-vindo ao PreFest! 🎉</CardTitle>
-          <CardDescription>
-            Entre ou crie sua conta para começar
-          </CardDescription>
-        </CardHeader>
-        
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+    <div className="flex min-h-screen w-full bg-background">
+      {/* Left Side - Data/Form */}
+      <div className="flex w-full flex-col justify-center px-4 py-12 lg:w-1/2 lg:px-12 xl:px-24">
+        <div className="mx-auto w-full max-w-sm lg:max-w-md">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold tracking-tight text-primary mb-2">Bem-vindo ao PreFest! 🎉</h1>
+            <p className="text-muted-foreground">
+              Entre ou crie sua conta para começar a curtir os melhores eventos.
+            </p>
+          </div>
+          
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="login">Entrar</TabsTrigger>
               <TabsTrigger value="signup">Cadastrar</TabsTrigger>
             </TabsList>
 
-          <TabsContent value="login">
-            <form onSubmit={handleLogin}>
-              <CardContent className="space-y-4">
+            <TabsContent value="login" className="space-y-4">
+              <form onSubmit={handleLogin} className="space-y-4">
                 {successMessage && (
-                  <Alert className="mb-4 bg-green-50 text-green-900 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800">
+                  <Alert className="bg-green-50 text-green-900 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800">
                     <AlertDescription>{successMessage}</AlertDescription>
                   </Alert>
                 )}
@@ -191,9 +203,6 @@ export const LoginForm = () => {
                         >
                           {resendLoading ? 'Enviando...' : 'Reenviar e-mail de confirmação'}
                         </Button>
-                        <p className="text-xs text-muted-foreground text-center opacity-80">
-                          Não esqueça de verificar também a pasta de SPAM.
-                        </p>
                       </div>
                     )}
                   </Alert>
@@ -218,7 +227,7 @@ export const LoginForm = () => {
                     <Label htmlFor="login-password">Senha</Label>
                     <Link 
                       to={ROUTE_PATHS.FORGOT_PASSWORD} 
-                      className="text-xs text-pink-600 hover:underline"
+                      className="text-xs text-primary hover:underline"
                     >
                       Esqueceu a senha?
                     </Link>
@@ -234,19 +243,15 @@ export const LoginForm = () => {
                     disabled={isLoading}
                   />
                 </div>
-              </CardContent>
 
-              <CardFooter>
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? 'Entrando...' : 'Entrar'}
                 </Button>
-              </CardFooter>
-            </form>
-          </TabsContent>
+              </form>
+            </TabsContent>
 
-          <TabsContent value="signup">
-            <form onSubmit={handleSignUp}>
-              <CardContent className="space-y-4">
+            <TabsContent value="signup" className="space-y-4">
+              <form onSubmit={handleSignUp} className="space-y-4">
                 {(error || localError) && (
                   <Alert variant="destructive">
                     <AlertDescription>{error || localError}</AlertDescription>
@@ -393,17 +398,31 @@ export const LoginForm = () => {
                     </Alert>
                   )}
                 </div>
-              </CardContent>
 
-              <CardFooter>
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? 'Criando conta...' : 'Criar Conta'}
                 </Button>
-              </CardFooter>
-            </form>
-          </TabsContent>
-        </Tabs>
-      </Card>
+              </form>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+
+      {/* Right Side - Image */}
+      <div className="hidden lg:block lg:w-1/2 relative">
+        <img
+          src={IMAGES.EVENTS_1}
+          alt="PreFest Events"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black/10" />
+        <div className="absolute bottom-10 left-10 right-10 text-white p-6 bg-black/40 backdrop-blur-sm rounded-xl border border-white/10">
+          <h2 className="text-2xl font-bold mb-2">Viva momentos inesquecíveis</h2>
+          <p className="text-white/90">
+            Descubra os melhores eventos, conecte-se com pessoas e crie memórias que duram para sempre.
+          </p>
+        </div>
+      </div>
     </div>
   );
 };
