@@ -640,7 +640,7 @@ export class EventService {
       .from('event_participants')
       .select('*, event:events(*)')
       .eq('user_id', userId)
-      .eq('status', 'valid')
+      // Removido filtro de status para mostrar histórico completo
       .order('joined_at', { ascending: false });
 
     if (error) throw error;

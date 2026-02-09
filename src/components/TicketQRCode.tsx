@@ -11,6 +11,7 @@ interface TicketQRCodeProps {
   ticketToken: string;
   ticketCode?: string;
   status: string;
+  checkInAt?: string;
   eventTitle: string;
   eventDate: string;
   eventLocation: string;
@@ -22,6 +23,7 @@ export default function TicketQRCode({
   ticketToken,
   ticketCode,
   status,
+  checkInAt,
   eventTitle, 
   eventDate, 
   eventLocation 
@@ -29,6 +31,12 @@ export default function TicketQRCode({
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
 
   useEffect(() => {
+    if (status === 'used' || status === 'canceled' || status === 'invalid') {
+       // Não gerar QR Code para ingressos inválidos/usados para evitar confusão
+       setQrCodeUrl('');
+       return;
+    }
+
     if (ticketCode) {
       const size = 300;
       const url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(ticketCode)}&format=png`;
@@ -45,7 +53,7 @@ export default function TicketQRCode({
       const url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(payload)}&format=png`;
       setQrCodeUrl(url);
     }
-  }, [ticketId, eventId, ticketToken, ticketCode]);
+  }, [ticketId, eventId, ticketToken, ticketCode, status]);
 
   const downloadQRCode = () => {
     if (!qrCodeUrl) return;
@@ -92,7 +100,7 @@ export default function TicketQRCode({
   const statusInfo = getStatusInfo(status || 'valid');
 
   return (
-    <Card className="overflow-hidden border-none shadow-lg bg-card">
+    <Card className={`overflow-hidden border-none shadow-lg bg-card ${status === 'used' ? 'opacity-75' : ''}`}>
       <CardHeader className="bg-primary/5 pb-4">
         <div className="flex justify-between items-start gap-4">
            <div className="flex-1">
@@ -109,8 +117,13 @@ export default function TicketQRCode({
         </div>
       </CardHeader>
       <CardContent className="pt-6 flex flex-col items-center">
-        <div className="bg-white p-4 rounded-xl shadow-sm border mb-6">
-          {qrCodeUrl ? (
+        <div className="bg-white p-4 rounded-xl shadow-sm border mb-6 relative">
+          {status === 'used' ? (
+            <div className="w-48 h-48 flex flex-col items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
+               <CheckCircle2 className="w-16 h-16 text-green-500 mb-2" />
+               <span className="text-sm font-medium text-gray-500">Check-in Realizado</span>
+            </div>
+          ) : qrCodeUrl ? (
             <img src={qrCodeUrl} alt="QR Code do Ingresso" className="w-48 h-48 object-contain" />
           ) : (
             <Skeleton className="w-48 h-48" />
@@ -122,10 +135,22 @@ export default function TicketQRCode({
              <p>{ticketCode ? `CÓD: ${ticketCode}` : `ID: ${ticketId.slice(0, 8)}...`}</p>
            </div>
            
-           <Button onClick={downloadQRCode} variant="outline" className="w-full gap-2">
-             <Download className="w-4 h-4" />
-             Baixar Ingresso
-           </Button>
+           {status === 'used' ? (
+              <div className="p-3 bg-orange-50 text-orange-800 rounded-lg text-sm border border-orange-100">
+                <p className="font-medium">Ingresso confirmado!</p>
+                {checkInAt && (
+                  <p className="text-xs mt-1">
+                    Usado em: {new Date(checkInAt).toLocaleString('pt-BR')}
+                  </p>
+                )}
+                <p className="text-xs mt-1">Este ingresso já foi utilizado e não pode ser validado novamente.</p>
+              </div>
+            ) : (
+             <Button onClick={downloadQRCode} variant="outline" className="w-full gap-2" disabled={!qrCodeUrl}>
+               <Download className="w-4 h-4" />
+               Baixar Ingresso
+             </Button>
+           )}
         </div>
       </CardContent>
     </Card>

@@ -13,6 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { normalizeTicketCode, validateTicketCodeFormat, extractQrCodeValue } from '@/utils/ticket-utils';
 
 interface ScanResult {
   success: boolean;
@@ -61,11 +62,16 @@ export function Scanner() {
     }
   };
 
-  const handleScan = async (detectedCodes: IDetectedBarcode[]) => {
+  const handleScan = async (detectedCodes: any[]) => {
     if (pauseScanner || validating || !selectedEventId) return;
 
-    const code = detectedCodes[0]?.rawValue;
-    if (!code) return;
+    // Use robust extraction
+    const code = extractQrCodeValue(detectedCodes);
+    
+    if (!code) {
+      console.log('No code detected or empty value');
+      return;
+    }
 
     // Prevent duplicate rapid scans of the same code
     if (code === lastScannedCode) return;
@@ -137,15 +143,14 @@ export function Scanner() {
         }
       } else {
         // 2. Simple Code Validation (New format: PF-XXXX-XXXX)
-        // Normalize for code format (uppercase, trim)
-        const normalizedCode = cleanCode.toUpperCase();
+        // Normalize for code format (uppercase, remove spaces)
+        const normalizedCode = normalizeTicketCode(cleanCode);
         
         // Regex validation for format PF-XXXX-XXXX
-        const codeRegex = /^PF-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
-        if (!codeRegex.test(normalizedCode)) {
+        if (!validateTicketCodeFormat(normalizedCode)) {
           setScanResult({
             success: false,
-            message: `Formato de código inválido: ${normalizedCode}`,
+            message: `Formato de código inválido: ${normalizedCode || 'vazio'}`,
             code: 'INVALID_FORMAT'
           });
           playErrorSound();
@@ -154,7 +159,7 @@ export function Scanner() {
         
         if (!selectedEventId || !user?.id) return;
 
-        console.log('Validating simple code:', normalizedCode);
+        console.log('Validating simple code:', normalizedCode, 'Original:', qrDataString);
         const result = await eventService.validateTicketScan(normalizedCode, selectedEventId, user.id);
         setScanResult(result);
 
@@ -185,10 +190,11 @@ export function Scanner() {
     setScanResult(null);
     setPauseScanner(true);
     
-    // Normalize input
-    const normalizedCode = code.trim().toUpperCase();
+    // Normalize input using shared utility
+    const normalizedCode = normalizeTicketCode(code);
 
     try {
+      console.log('Manual validation:', normalizedCode);
       // Use validateTicketScan for manual entry too
       const result = await eventService.validateTicketScan(normalizedCode, selectedEventId, user.id);
       setScanResult(result);

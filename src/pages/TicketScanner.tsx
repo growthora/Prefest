@@ -27,6 +27,7 @@ import { Layout } from '@/components/Layout';
 import { ROUTE_PATHS } from '@/lib/index';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { normalizeTicketCode, validateTicketCodeFormat, extractQrCodeValue } from '@/utils/ticket-utils';
 
 interface ValidationResult {
   success: boolean;
@@ -113,8 +114,10 @@ export default function TicketScanner() {
   const handleScan = async (detectedCodes: any[]) => {
     if (!scanning || processing || !user || !selectedEvent) return;
     
-    if (detectedCodes && detectedCodes.length > 0) {
-      const rawValue = detectedCodes[0].rawValue;
+    // Use robust extraction
+    const rawValue = extractQrCodeValue(detectedCodes);
+    
+    if (rawValue) {
       await processTicket(rawValue);
     }
   };
@@ -162,14 +165,14 @@ export default function TicketScanner() {
         }
       } else {
         // 2. Simple Code Validation (New format: PF-XXXX-XXXX)
-        const normalizedCode = cleanCode.toUpperCase();
+        // Normalize for code format (uppercase, remove spaces)
+        const normalizedCode = normalizeTicketCode(cleanCode);
         
         // Regex validation for format PF-XXXX-XXXX
-        const codeRegex = /^PF-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
-        if (!codeRegex.test(normalizedCode)) {
+        if (!validateTicketCodeFormat(normalizedCode)) {
           const errorResult = {
             success: false,
-            message: `Formato de código inválido: ${normalizedCode}`,
+            message: `Formato de código inválido: ${normalizedCode || 'vazio'}`,
             code: 'INVALID_FORMAT'
           };
           setLastResult(errorResult);
@@ -178,7 +181,7 @@ export default function TicketScanner() {
           return;
         }
 
-        console.log('Validating simple code:', normalizedCode);
+        console.log('Validating simple code:', normalizedCode, 'Original:', rawValue);
 
         const result = await eventService.validateTicketScan(
           normalizedCode,
@@ -215,10 +218,11 @@ export default function TicketScanner() {
     setIsManualDialogOpen(false);
     setScanning(false); // Stop scanner while validating
 
-    // Normalize input
-    const normalizedCode = manualCode.trim().toUpperCase();
+    // Normalize input using shared utility
+    const normalizedCode = normalizeTicketCode(manualCode);
 
     try {
+      console.log('Manual validation:', normalizedCode);
       const result = await eventService.validateTicketScan(
         normalizedCode,
         selectedEvent.id, // Enforce validation against SELECTED event
