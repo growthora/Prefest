@@ -2,6 +2,15 @@ import { supabase } from '../lib/supabase';
 import { storageService } from './storage.service';
 import type { TicketType } from '@/components/CreateEventForm';
 import { generateSlug } from '@/utils/slugify';
+import { differenceInYears } from 'date-fns';
+
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  icon: string | null;
+  is_active: boolean;
+}
 
 export interface Event {
   id: string;
@@ -9,12 +18,15 @@ export interface Event {
   title: string;
   description: string | null;
   event_date: string;
+  end_at: string | null;
   location: string;
   state: string | null;
   city: string | null;
   event_type: 'festive' | 'formal';
   image_url: string | null;
   category: string | null;
+  category_id: string | null;
+  status: 'draft' | 'published';
   price: number;
   max_participants: number | null;
   current_participants: number;
@@ -51,21 +63,50 @@ export interface EventParticipant {
   security_token?: string;
 }
 
+export interface MatchCandidate {
+  id: string;
+  full_name: string;
+  avatar_url: string | null;
+  bio: string | null;
+  age: number | null;
+  height: number | null;
+  relationship_status: string | null;
+  match_intention: string | null;
+  vibes: string[] | null;
+  last_seen: string | null;
+  is_online: boolean;
+}
+
 export interface CreateEventData {
   title: string;
   description: string;
   event_date: string;
+  end_at?: string;
   location: string;
   state?: string;
   city?: string;
   event_type: 'festive' | 'formal';
   image_url?: string;
   category?: string;
+  category_id?: string;
+  status?: 'draft' | 'published';
   price: number;
   max_participants?: number;
 }
 
-class EventService {
+export class EventService {
+  // Buscar todas as categorias
+  async getCategories(): Promise<Category[]> {
+    const { data, error } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('is_active', true)
+      .order('name');
+
+    if (error) throw error;
+    return data || [];
+  }
+
   // Criar novo evento
   async createEvent(eventData: CreateEventData, creatorId: string): Promise<Event> {
     // Converter event_date para manter o horário local correto
@@ -78,6 +119,16 @@ class EventService {
       const offsetMins = (Math.abs(offset) % 60).toString().padStart(2, '0');
       const offsetSign = offset >= 0 ? '+' : '-';
       eventDateToSave = `${eventData.event_date}:00${offsetSign}${offsetHours}:${offsetMins}`;
+    }
+
+    let endAtToSave = eventData.end_at;
+    if (eventData.end_at && !eventData.end_at.includes('Z') && !eventData.end_at.includes('+')) {
+      const date = new Date(eventData.end_at);
+      const offset = -date.getTimezoneOffset();
+      const offsetHours = Math.floor(Math.abs(offset) / 60).toString().padStart(2, '0');
+      const offsetMins = (Math.abs(offset) % 60).toString().padStart(2, '0');
+      const offsetSign = offset >= 0 ? '+' : '-';
+      endAtToSave = `${eventData.end_at}:00${offsetSign}${offsetHours}:${offsetMins}`;
     }
 
     // Gerar slug único
@@ -98,6 +149,7 @@ class EventService {
         ...eventData,
         slug,
         event_date: eventDateToSave,
+        end_at: endAtToSave,
         creator_id: creatorId,
       })
       .select()
@@ -269,10 +321,12 @@ class EventService {
   }
 
   // Buscar participantes do evento (para substituir mocks)
-  async getEventParticipants(eventId: string, limit = 5): Promise<any[]> {
+  async getEventParticipants(eventId: string, limit = 100): Promise<any[]> {
     const { data, error } = await supabase
       .from('event_participants')
       .select(`
+        id,
+        status,
         user_id,
         user:profiles!event_participants_user_id_fkey!inner(
           id,
@@ -281,7 +335,6 @@ class EventService {
         )
       `)
       .eq('event_id', eventId)
-      .eq('status', 'valid') // Filter only valid tickets
       .limit(limit);
 
     if (error) {
@@ -290,9 +343,11 @@ class EventService {
     }
 
     return data.map((p: any) => ({
-      id: p.user.id,
+      id: p.id, // Usando ID do ingresso para garantir unicidade
+      userId: p.user.id,
       name: p.user.full_name || 'Usuário',
       avatar_url: p.user.avatar_url,
+      status: p.status
     }));
   }
 
@@ -548,6 +603,23 @@ class EventService {
     return singles;
   }
 
+  // Buscar candidatos de match de forma segura via RPC
+  async getMatchCandidates(eventId: string): Promise<MatchCandidate[]> {
+    console.log('🔍 [EventService] Buscando candidatos de match via RPC para evento:', eventId);
+    
+    const { data, error } = await supabase.rpc('get_match_candidates', {
+      event_uuid: eventId
+    });
+
+    if (error) {
+      console.error('❌ [EventService] Erro ao buscar candidatos:', error);
+      throw error;
+    }
+
+    console.log('✅ [EventService] Candidatos encontrados:', data?.length || 0);
+    return data || [];
+  }
+
   async getEventAttendees(eventId: string): Promise<any[]> {
     const { data, error } = await supabase.rpc('get_event_attendees', {
       event_uuid: eventId
@@ -593,7 +665,7 @@ class EventService {
     const { data, error } = await supabase.rpc('validate_ticket', {
       p_ticket_id: ticketId,
       p_event_id: eventId,
-      p_token: token,
+      p_security_token: token,
       p_validated_by: validatorId
     });
 
@@ -626,6 +698,84 @@ class EventService {
 
     if (error) throw error;
     return data;
+  }
+
+  // Buscar perfil público de um usuário (com filtro de privacidade)
+  async getPublicProfile(userId: string): Promise<any> {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select(`
+        id,
+        full_name,
+        bio,
+        avatar_url,
+        meet_attendees,
+        match_enabled,
+        single_mode,
+        show_initials_only,
+        match_intention,
+        match_gender_preference,
+        sexuality,
+        looking_for,
+        height,
+        relationship_status,
+        birth_date,
+        vibes,
+        last_seen
+      `)
+      .eq('id', userId)
+      .single();
+
+    if (error) throw error;
+    if (!profile) return null;
+
+    // Se o perfil não estiver configurado para aparecer na lista ("meet_attendees"),
+    // ou se não tiver permissão explícita, tratar como privado.
+    // NOTA: A lógica exata de "privacidade" depende dos requisitos.
+    // Aqui assumimos que se meet_attendees for false, é privado.
+    const isVisible = profile.meet_attendees || profile.match_enabled || profile.single_mode;
+
+    if (!isVisible) {
+      return {
+        id: profile.id,
+        name: profile.full_name,
+        photo: profile.avatar_url,
+        is_visible: false
+      };
+    }
+
+    // Calcular idade se birth_date existir
+    let age = null;
+    if (profile.birth_date) {
+        age = differenceInYears(new Date(), new Date(profile.birth_date));
+    }
+
+    // Calcular is_online baseado no last_seen (ex: < 5 minutos)
+    let isOnline = false;
+    if (profile.last_seen) {
+        const lastSeenDate = new Date(profile.last_seen);
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        isOnline = lastSeenDate > fiveMinutesAgo;
+    }
+
+    // Retornar perfil completo se visível
+    return {
+      id: profile.id,
+      name: profile.full_name,
+      photo: profile.avatar_url,
+      bio: profile.bio,
+      age: age,
+      height: profile.height,
+      relationshipStatus: profile.relationship_status,
+      matchIntention: profile.match_intention,
+      sexuality: profile.sexuality,
+      genderPreference: profile.match_gender_preference,
+      vibes: profile.vibes || [],
+      lookingFor: profile.looking_for || [],
+      lastSeen: profile.last_seen,
+      isOnline: isOnline,
+      is_visible: true
+    };
   }
 
   // --- Sistema de Likes / Favoritos ---

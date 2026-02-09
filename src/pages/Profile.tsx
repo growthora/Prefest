@@ -47,6 +47,14 @@ export default function Profile() {
   const [meetAttendees, setMeetAttendees] = useState(false);
   const [showInitialsOnly, setShowInitialsOnly] = useState(false);
   
+  // Privacy Settings
+  const [privacySettings, setPrivacySettings] = useState({
+    show_age: true,
+    show_height: true,
+    show_instagram: false,
+    show_relationship: true
+  });
+  
   // Match Specific Fields
   const [matchIntention, setMatchIntention] = useState<'paquera' | 'amizade'>('paquera');
   const [genderPreference, setGenderPreference] = useState<'homens' | 'mulheres' | 'todos'>('todos');
@@ -143,6 +151,10 @@ export default function Profile() {
       setMeetAttendees(profile.meet_attendees || false);
       setShowInitialsOnly(profile.show_initials_only || false);
       
+      if (profile.privacy_settings) {
+        setPrivacySettings(profile.privacy_settings);
+      }
+      
       setMatchIntention(profile.match_intention || 'paquera');
       setGenderPreference(profile.match_gender_preference || 'todos');
       setSexuality(profile.sexuality || 'heterossexual');
@@ -187,10 +199,12 @@ export default function Profile() {
 
       const updates = {
         ...formData,
+        birth_date: formData.birth_date === '' ? null : formData.birth_date,
         avatar_url: avatarUrl,
         match_enabled: matchEnabled,
         meet_attendees: meetAttendees,
         show_initials_only: showInitialsOnly,
+        privacy_settings: privacySettings,
         // Match fields only if match is enabled (or we save them anyway but they are hidden)
         // Saving them anyway is better for UX if they toggle back
         match_intention: matchIntention,
@@ -605,6 +619,40 @@ export default function Profile() {
                           <SelectItem value="outro">Outro</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+                  </div>
+
+                  {/* Controles de Privacidade */}
+                  <div className="pt-6 border-t mt-6">
+                    <h4 className="text-base font-semibold mb-4 flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-primary" />
+                      Privacidade dos Dados
+                    </h4>
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                        <Label htmlFor="show-age" className="cursor-pointer">Mostrar Idade</Label>
+                        <Switch 
+                          id="show-age" 
+                          checked={privacySettings.show_age}
+                          onCheckedChange={(checked) => setPrivacySettings(prev => ({ ...prev, show_age: checked }))}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                        <Label htmlFor="show-height" className="cursor-pointer">Mostrar Altura</Label>
+                        <Switch 
+                          id="show-height" 
+                          checked={privacySettings.show_height}
+                          onCheckedChange={(checked) => setPrivacySettings(prev => ({ ...prev, show_height: checked }))}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                        <Label htmlFor="show-relationship" className="cursor-pointer">Mostrar Status de Relacionamento</Label>
+                        <Switch 
+                          id="show-relationship" 
+                          checked={privacySettings.show_relationship}
+                          onCheckedChange={(checked) => setPrivacySettings(prev => ({ ...prev, show_relationship: checked }))}
+                        />
+                      </div>
                     </div>
                   </div>
 

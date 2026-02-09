@@ -1,15 +1,19 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { eventService, type Event } from '@/services/event.service';
 import { dashboardService, type SalesChartData } from '@/services/dashboard.service';
 import { DashboardEmptyState } from '@/components/dashboard/DashboardEmptyState';
 import { DashboardLoader } from '@/components/dashboard/DashboardLoader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DollarSign, Ticket, Users, Calendar } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { DollarSign, Ticket, Users, Calendar, QrCode } from 'lucide-react';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { ROUTE_PATHS } from '@/lib/index';
 
 export function Overview() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [hasEvents, setHasEvents] = useState(false);
   const [stats, setStats] = useState<{
@@ -82,7 +86,13 @@ export function Overview() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <h1 className="text-3xl font-bold tracking-tight">Visão Geral</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold tracking-tight">Visão Geral</h1>
+        <Button onClick={() => navigate(ROUTE_PATHS.ORGANIZER_SCANNER)}>
+          <QrCode className="mr-2 h-4 w-4" />
+          Scanner
+        </Button>
+      </div>
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>

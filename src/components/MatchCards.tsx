@@ -1,33 +1,49 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
-import { Heart, X, Info, Sparkles, MapPin, Zap } from 'lucide-react';
+import { Heart, X, Info, Sparkles, MapPin, Zap, Ruler, Users, Clock } from 'lucide-react';
 import { User, VibeType } from '@/lib/index';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { ProfileModal } from '@/components/ProfileModal';
 import { springPresets } from '@/lib/motion';
 import { cn } from '@/lib/utils';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface MatchCardProps {
   user: User;
   onLike: () => void;
   onSkip: () => void;
+  onDetails: () => void;
   isTop?: boolean;
 }
 
-export function MatchCard({ user, onLike, onSkip, isTop = false }: MatchCardProps) {
+export function MatchCard({ user, onLike, onSkip, onDetails, isTop = false }: MatchCardProps) {
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-25, 25]);
   const opacity = useTransform(x, [-200, -150, 0, 150, 200], [0, 1, 1, 1, 0]);
   const likeOpacity = useTransform(x, [50, 150], [0, 1]);
   const skipOpacity = useTransform(x, [-150, -50], [1, 0]);
+  
+  // Ref para rastrear se estamos arrastando ou clicando
+  const isDragging = React.useRef(false);
 
   const handleDragEnd = (_: any, info: any) => {
+    // Pequeno delay para resetar o flag de drag e evitar clique acidental logo após soltar
+    setTimeout(() => {
+        isDragging.current = false;
+    }, 100);
+
     if (info.offset.x > 100) {
       onLike();
     } else if (info.offset.x < -100) {
       onSkip();
     }
+  };
+
+  const handleDragStart = () => {
+    isDragging.current = true;
   };
 
   const displayName = user.showInitialsOnly 
@@ -60,10 +76,18 @@ export function MatchCard({ user, onLike, onSkip, isTop = false }: MatchCardProp
       drag={isTop ? "x" : false}
       dragConstraints={{ left: 0, right: 0 }}
       onDragEnd={handleDragEnd}
+      onDragStart={handleDragStart}
       className="absolute inset-0 cursor-grab active:cursor-grabbing"
       transition={springPresets.gentle}
     >
-      <Card className="relative w-full h-full overflow-hidden border-none bg-zinc-900 shadow-2xl rounded-3xl">
+      <Card 
+        className="relative w-full h-full overflow-hidden border-none bg-zinc-900 shadow-2xl rounded-3xl cursor-pointer"
+        onClick={() => {
+            if (isTop && !isDragging.current) {
+                onDetails();
+            }
+        }}
+      >
         {/* Background Image with Overlay */}
         <div className="absolute inset-0">
           <img 
@@ -89,12 +113,33 @@ export function MatchCard({ user, onLike, onSkip, isTop = false }: MatchCardProp
           <span className="text-white/50 text-4xl font-black uppercase tracking-widest">SKIP</span>
         </motion.div>
 
+        {/* Status Indicator */}
+        <div className="absolute top-4 left-4 z-30">
+            {user.isOnline ? (
+                <Badge className="bg-green-500/80 text-white hover:bg-green-500 border-none backdrop-blur-md shadow-lg flex gap-1.5 pl-1.5 pr-2.5 py-1">
+                    <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                    </span>
+                    Online
+                </Badge>
+            ) : user.lastSeen ? (
+                <Badge className="bg-black/40 text-white/90 hover:bg-black/60 border-white/10 backdrop-blur-md shadow-lg flex gap-1.5 pl-1.5 pr-2.5 py-1">
+                     <Clock className="w-3 h-3 text-orange-400" />
+                     {formatDistanceToNow(new Date(user.lastSeen), { addSuffix: true, locale: ptBR })}
+                </Badge>
+            ) : null}
+        </div>
+
         {/* Content */}
         <div className="absolute bottom-0 left-0 right-0 p-8 space-y-4">
           <div className="flex items-end justify-between">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <h3 className="text-3xl font-bold text-white">{displayName}, {user.age}</h3>
+                <h3 className="text-3xl font-bold text-white">
+                    {displayName}
+                    {user.age && `, ${user.age}`}
+                </h3>
                 
                 {/* Badge de Sexualidade */}
                 {user.sexuality && (
@@ -119,7 +164,15 @@ export function MatchCard({ user, onLike, onSkip, isTop = false }: MatchCardProp
               </div>
               <p className="text-zinc-300 text-sm line-clamp-2 max-w-[90%]">{user.bio}</p>
             </div>
-            <Button size="icon" variant="secondary" className="rounded-full bg-white/10 backdrop-blur-md border-white/20 hover:bg-white/20 shrink-0">
+            <Button 
+                size="icon" 
+                variant="secondary" 
+                className="rounded-full bg-white/10 backdrop-blur-md border-white/20 hover:bg-white/20 shrink-0"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onDetails();
+                }}
+            >
               <Info size={20} className="text-white" />
             </Button>
           </div>
@@ -158,6 +211,7 @@ interface MatchInterfaceProps {
 
 export function MatchInterface({ queue, onLike, onSkip }: MatchInterfaceProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   const handleLike = (userId: string) => {
     onLike(userId);
@@ -183,6 +237,7 @@ export function MatchInterface({ queue, onLike, onSkip }: MatchInterfaceProps) {
                 isTop={idx === 0}
                 onLike={() => handleLike(user.id)}
                 onSkip={() => handleSkip(user.id)}
+                onDetails={() => setSelectedUser(user)}
               />
             )).reverse()}
           </div>
@@ -230,6 +285,21 @@ export function MatchInterface({ queue, onLike, onSkip }: MatchInterfaceProps) {
           </Button>
         </div>
       )}
+
+      {/* Details Sheet */}
+      <ProfileModal 
+        isOpen={!!selectedUser} 
+        onClose={() => setSelectedUser(null)}
+        user={selectedUser || undefined}
+        onLike={(id) => {
+            handleLike(id);
+            setSelectedUser(null);
+        }}
+        onSkip={(id) => {
+            handleSkip(id);
+            setSelectedUser(null);
+        }}
+      />
     </div>
   );
 }

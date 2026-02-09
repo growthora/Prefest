@@ -26,6 +26,7 @@ export const ROUTE_PATHS = {
   ORGANIZER_PARTICIPANTS: '/dashboard/organizador/participantes',
   ORGANIZER_PAYMENTS: '/dashboard/organizador/pagamentos',
   ORGANIZER_SETTINGS: '/dashboard/organizador/configuracoes',
+  ORGANIZER_SCANNER: '/dashboard/organizador/scanner',
   TICKET_SCANNER: '/scanner',
 } as const;
 
@@ -41,7 +42,7 @@ export type VibeType =
 export interface User {
   id: string;
   name: string;
-  age: number;
+  age: number | null;
   bio: string;
   photo: string;
   vibes?: VibeType[];
@@ -50,8 +51,13 @@ export interface User {
   matchIntention?: 'paquera' | 'amizade';
   genderPreference?: 'homens' | 'mulheres' | 'todos';
   sexuality?: string;
+  lookingFor?: string[];
   badges?: string[];
   compatibilityScore?: number;
+  height?: number | null;
+  relationshipStatus?: string | null;
+  isOnline?: boolean;
+  lastSeen?: string | null;
   location?: {
     lat: number;
     lng: number;

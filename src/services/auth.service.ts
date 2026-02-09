@@ -37,6 +37,13 @@ export interface Profile {
   looking_for?: string[];
   height?: number;
   relationship_status?: string;
+  last_seen?: string;
+  privacy_settings?: {
+    show_age: boolean;
+    show_height: boolean;
+    show_instagram: boolean;
+    show_relationship: boolean;
+  };
   created_at: string;
   updated_at: string;
 }

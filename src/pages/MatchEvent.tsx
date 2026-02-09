@@ -4,10 +4,10 @@ import { Layout } from '@/components/Layout';
 import { MatchInterface } from '@/components/MatchCards';
 import { useMatch } from '@/hooks/useMatch';
 import { useAuth } from '@/hooks/useAuth';
-import { eventService } from '@/services/event.service';
+import { eventService, MatchCandidate } from '@/services/event.service';
 import { likeService } from '@/services/like.service';
 import { toast } from 'sonner';
-import { ROUTE_PATHS, APP_CONFIG } from '@/lib/index';
+import { ROUTE_PATHS, APP_CONFIG, User } from '@/lib/index';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Sparkles, 
@@ -43,7 +43,7 @@ const MatchEvent: React.FC = () => {
   const [lastMatchedUser, setLastMatchedUser] = useState<string | null>(null);
   const [lastMatchedUserName, setLastMatchedUserName] = useState<string>('');
   const [lastMatchedUserPhoto, setLastMatchedUserPhoto] = useState<string>('');
-  const [eventParticipants, setEventParticipants] = useState<any[]>([]);
+  const [eventParticipants, setEventParticipants] = useState<MatchCandidate[]>([]);
   const [eventType, setEventType] = useState<'festive' | 'formal'>('festive');
   const [loading, setLoading] = useState(true);
 
@@ -63,10 +63,10 @@ const MatchEvent: React.FC = () => {
           console.log('🎯 Tipo do evento:', event.event_type);
         }
         
-        const participants = await eventService.getEventSingles(id);
+        const participants = await eventService.getMatchCandidates(id);
         
         // Filtrar o próprio usuário da lista
-        const filtered = participants.filter((p: any) => p.id !== user.id);
+        const filtered = participants.filter((p) => p.id !== user.id);
         setEventParticipants(filtered);
         console.log('✅ Participantes carregados:', filtered.length);
       } catch (error) {
@@ -222,17 +222,21 @@ const MatchEvent: React.FC = () => {
                 id: p.id,
                 name: p.full_name || 'Usuário',
                 photo: p.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${p.id}`,
-                age: 25, // Pode adicionar campo idade no perfil depois
+                age: p.age,
                 bio: p.bio || 'Olá! Estou ansioso para esse evento! 🎉',
                 location: undefined,
-                vibes: [],
+                vibes: (p.vibes || []).map(v => v as any),
                 interests: [],
                 badges: [],
-                isSingleMode: p.single_mode,
-                showInitialsOnly: p.show_initials_only || false,
-                matchIntention: p.match_intention || 'paquera',
-                genderPreference: p.match_gender_preference || 'todos',
-                sexuality: p.sexuality || 'heterossexual'
+                isSingleMode: true,
+                showInitialsOnly: false,
+                matchIntention: (p.match_intention as any) || 'paquera',
+                genderPreference: 'todos',
+                sexuality: 'heterossexual',
+                height: p.height,
+                relationshipStatus: p.relationship_status,
+                isOnline: p.is_online,
+                lastSeen: p.last_seen
               }))} 
               onLike={handleLike} 
               onSkip={handleSkip} 

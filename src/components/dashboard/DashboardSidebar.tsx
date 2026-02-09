@@ -10,7 +10,8 @@ import {
   Home, 
   ChevronLeft,
   ChevronRight,
-  LogOut
+  LogOut,
+  QrCode
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -124,6 +125,12 @@ export function DashboardSidebar({ isCollapsed, toggleSidebar }: DashboardSideba
           icon={Users} 
           label="Participantes" 
           to={ROUTE_PATHS.ORGANIZER_PARTICIPANTS} 
+          isCollapsed={isCollapsed} 
+        />
+        <SidebarItem 
+          icon={QrCode} 
+          label="Scanner" 
+          to={ROUTE_PATHS.ORGANIZER_SCANNER} 
           isCollapsed={isCollapsed} 
         />
         <SidebarItem 

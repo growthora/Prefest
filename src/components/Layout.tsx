@@ -168,10 +168,6 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
                     <Calendar size={18} />
                     <span>Meus eventos</span>
                   </Link>
-                  <Link to="/meus-ingressos" className="flex items-center gap-2 hover:text-primary transition-colors">
-                    <Ticket size={18} />
-                    <span>Meus ingressos</span>
-                  </Link>
                 </>
               )}
             </div>

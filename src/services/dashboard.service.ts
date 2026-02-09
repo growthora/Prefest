@@ -162,9 +162,9 @@ export const dashboardService = {
       // 3. Buscar vendas no período
       const { data: sales, error } = await supabase
         .from('event_participants')
-        .select('created_at, total_paid')
+        .select('joined_at, total_paid')
         .in('event_id', eventIds)
-        .gte('created_at', startDate.toISOString())
+        .gte('joined_at', startDate.toISOString())
         .eq('status', 'valid');
 
       if (error) throw error;
@@ -181,7 +181,7 @@ export const dashboardService = {
       }
 
       sales?.forEach(sale => {
-        const date = new Date(sale.created_at);
+        const date = new Date(sale.joined_at);
         const key = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
         
         if (salesMap.has(key)) {

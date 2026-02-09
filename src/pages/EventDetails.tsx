@@ -4,6 +4,7 @@ import { Calendar, MapPin, Clock, Users, ChevronLeft, Share2, Heart, Sparkles, U
 import { motion } from 'framer-motion';
 import { Layout } from '@/components/Layout';
 import { TicketPurchase } from '@/components/TicketPurchase';
+import { ProfileModal } from '@/components/ProfileModal';
 import { Event, ROUTE_PATHS } from '@/lib/index';
 import { eventService, type Event as SupabaseEvent } from '@/services/event.service';
 import { IMAGES } from '@/assets/images';
@@ -29,6 +30,7 @@ export default function EventDetails() {
   // New state for Conheça a Galera
   const [attendees, setAttendees] = useState<any[]>([]);
   const [loadingAttendees, setLoadingAttendees] = useState(false);
+  const [selectedAttendee, setSelectedAttendee] = useState<any>(null);
   
   // Like state
   const [isLiked, setIsLiked] = useState(false);
@@ -44,6 +46,33 @@ export default function EventDetails() {
       checkLikeStatus();
     }
   }, [user, event?.id]);
+
+  // Fetch full profile details when attendee is selected
+  useEffect(() => {
+    const fetchFullProfile = async () => {
+      if (selectedAttendee && selectedAttendee.is_visible && !selectedAttendee.age) {
+        try {
+          // Use ID from mapped object
+          const userId = selectedAttendee.id || selectedAttendee.user_id;
+          if (!userId) return;
+
+          const fullProfile = await eventService.getPublicProfile(userId);
+          if (fullProfile) {
+            setSelectedAttendee((prev: any) => ({
+              ...prev,
+              ...fullProfile
+            }));
+          }
+        } catch (err) {
+          console.error("Error fetching full profile", err);
+        }
+      }
+    };
+
+    if (selectedAttendee) {
+      fetchFullProfile();
+    }
+  }, [selectedAttendee?.id]);
 
   const checkLikeStatus = async () => {
     if (!event?.id || !user) return;
@@ -547,11 +576,20 @@ export default function EventDetails() {
                       key={participant.user_id}
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      className={`relative group overflow-hidden rounded-xl border transition-all hover:shadow-md ${
+                      className={`relative group overflow-hidden rounded-xl border transition-all hover:shadow-md cursor-pointer ${
                         participant.is_visible 
-                          ? 'bg-card border-border/50' 
+                          ? 'bg-card border-border/50 hover:border-primary/50' 
                           : 'bg-muted/30 border-transparent'
                       }`}
+                      onClick={() => {
+                        // Adaptar estrutura de dados para o modal
+                        setSelectedAttendee({
+                          ...participant,
+                          id: participant.user_id,
+                          photo: participant.avatar_url,
+                          // Garantir que campos opcionais existam se necessário
+                        });
+                      }}
                     >
                       <div className="p-4 flex flex-col items-center text-center h-full">
                         <Avatar className={`w-20 h-20 mb-3 ${!participant.is_visible && 'opacity-50'}`}>
@@ -598,6 +636,12 @@ export default function EventDetails() {
             </motion.div>
           </TabsContent>
         </Tabs>
+
+        <ProfileModal 
+          isOpen={!!selectedAttendee}
+          onClose={() => setSelectedAttendee(null)}
+          user={selectedAttendee}
+        />
       </div>
     </Layout>
   );

@@ -40,6 +40,7 @@ import { Sales } from "@/pages/dashboard/Sales";
 import { Participants } from "@/pages/dashboard/Participants";
 import { Payments } from "@/pages/dashboard/Payments";
 import { Settings } from "@/pages/dashboard/Settings";
+import Scanner from "@/pages/dashboard/organizer/Scanner";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -106,6 +107,7 @@ const AppRoutes = () => {
           <Route path="participantes" element={<Participants />} />
           <Route path="pagamentos" element={<Payments />} />
           <Route path="configuracoes" element={<Settings />} />
+          <Route path="scanner" element={<Scanner />} />
         </Route>
       </Route>
       

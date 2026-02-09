@@ -94,6 +94,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  // Update last_seen every 5 minutes
+  useEffect(() => {
+    if (!user) return;
+
+    const updateLastSeen = async () => {
+      try {
+        await authService.updateProfile(user.id, { last_seen: new Date().toISOString() });
+      } catch (err) {
+        console.error('Error updating last_seen:', err);
+      }
+    };
+
+    updateLastSeen(); // Initial update
+    const interval = setInterval(updateLastSeen, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [user]);
+
   const signIn = async (email: string, password: string) => {
     try {
       setIsLoading(true);
