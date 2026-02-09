@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirme seu e-mail - Prefest</title>
+    <style>
+        /* Reset de estilos para compatibilidade com clientes de e-mail */
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100% !important;
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+            font-family: Arial, Helvetica, sans-serif;
+            background-color: #f6f6f6;
+        }
+        img {
+            border: 0;
+            height: auto;
+            line-height: 100%;
+            outline: none;
+            text-decoration: none;
+            display: block;
+        }
+        table {
+            border-collapse: collapse;
+            mso-table-lspace: 0pt;
+            mso-table-rspace: 0pt;
+        }
+        /* Estilos responsivos */
+        @media only screen and (max-width: 600px) {
+            .container {
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+            .content {
+                padding: 20px !important;
+            }
+            .button {
+                width: 100% !important;
+                display: block !important;
+                text-align: center !important;
+            }
+        }
+    </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f6f6f6;">
+    <!-- Tabela Principal Container -->
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f6f6f6;">
+        <tr>
+            <td align="center" style="padding: 40px 0;">
+                <!-- Card do E-mail -->
+                <table border="0" cellpadding="0" cellspacing="0" width="600" class="container" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); max-width: 600px; width: 100%;">
+                    
+                    <!-- Imagem de Topo (Hero) -->
+                    <tr>
+                        <td align="center" style="width: 100%;">
+                            <!-- Placeholder para a imagem fornecida -->
+                            <img src="{{image_url}}" alt="Prefest" width="600" style="width: 100%; max-width: 100%; height: auto; display: block; background-color: #1a1a1a; color: #ffffff; font-family: sans-serif; text-align: center;" />
+                        </td>
+                    </tr>
+
+                    <!-- Conteúdo Principal -->
+                    <tr>
+                        <td class="content" style="padding: 40px 30px;">
+                            <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                                <!-- Nome da Plataforma -->
+                                <tr>
+                                    <td align="center" style="padding-bottom: 20px;">
+                                        <h2 style="margin: 0; color: #1a1a1a; font-size: 24px; font-weight: bold; letter-spacing: -0.5px;">Prefest</h2>
+                                    </td>
+                                </tr>
+
+                                <!-- Título -->
+                                <tr>
+                                    <td align="center" style="padding-bottom: 20px;">
+                                        <h1 style="margin: 0; color: #333333; font-size: 28px; font-weight: bold;">Confirme seu e-mail</h1>
+                                    </td>
+                                </tr>
+
+                                <!-- Texto de Boas-vindas -->
+                                <tr>
+                                    <td align="center" style="padding-bottom: 30px; color: #666666; font-size: 16px; line-height: 24px;">
+                                        <p style="margin: 0;">Olá!</p>
+                                        <p style="margin: 10px 0 0 0;">Sua conta na <strong>Prefest</strong> foi criada com sucesso.</p>
+                                        <p style="margin: 10px 0 0 0;">Para garantir sua segurança e liberar todas as funcionalidades da plataforma (como criar eventos, comprar ingressos e interagir), precisamos que você confirme seu endereço de e-mail.</p>
+                                    </td>
+                                </tr>
+
+                                <!-- Botão de Ação -->
+                                <tr>
+                                    <td align="center" style="padding-bottom: 30px;">
+                                        <table border="0" cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td align="center" bgcolor="#ff007f" style="border-radius: 6px;">
+                                                    <a href="{{ .ConfirmationURL }}" target="_blank" class="button" style="display: inline-block; padding: 16px 32px; font-family: Arial, sans-serif; font-size: 16px; font-weight: bold; color: #ffffff; text-decoration: none; border-radius: 6px; background-color: #ff007f; border: 1px solid #ff007f;">
+                                                        Confirmar meu e-mail
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+
+                                <!-- Aviso de Segurança -->
+                                <tr>
+                                    <td align="center" style="border-top: 1px solid #eeeeee; padding-top: 20px; color: #999999; font-size: 13px; line-height: 20px;">
+                                        <p style="margin: 0;">Se você não criou uma conta na Prefest, por favor ignore este e-mail. Nenhuma ação é necessária.</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td align="center" style="background-color: #f9f9f9; padding: 20px; color: #999999; font-size: 12px;">
+                            <p style="margin: 0;">&copy; 2026 Prefest. Todos os direitos reservados.</p>
+                            <p style="margin: 5px 0 0 0;">Este é um e-mail automático, por favor não responda.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

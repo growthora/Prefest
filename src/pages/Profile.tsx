@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Shield, Camera, Lock, User as UserIcon, Heart, Ruler, Users, Key, FileText, AlertTriangle, LayoutDashboard, Ticket } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { supabase } from "@/lib/supabase";
 import { storageService } from "@/services/storage.service";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,8 @@ import { Event, ROUTE_PATHS } from "@/lib/index";
 import { toast } from "sonner";
 
 export default function Profile() {
-  const { profile, isAuthenticated, isAdmin, updateProfile, user } = useAuth();
+  const { profile, isAuthenticated, isAdmin, updateProfile, user, isEmailConfirmed } = useAuth();
+  const { checkAccess } = useFeatureAccess();
   const navigate = useNavigate();
   const location = useLocation();
   const [isEditing, setIsEditing] = useState(false);
@@ -169,6 +171,8 @@ export default function Profile() {
   }
 
   const handleSave = async () => {
+    if (!checkAccess('salvar alterações do perfil')) return;
+
     try {
       setIsUploading(true);
       let avatarUrl = formData.avatar_url;
@@ -316,6 +320,8 @@ export default function Profile() {
 
   // Toggles
   const handleToggleMatch = async (checked: boolean) => {
+    if (!checkAccess('ativar/desativar Match')) return;
+
     try {
       setMatchEnabled(checked);
       // Update immediately for better UX or wait for save?
@@ -415,7 +421,11 @@ export default function Profile() {
                     </CardTitle>
                     <div className="text-base text-muted-foreground flex items-center gap-2">
                        <span className="text-muted-foreground">{profile.email}</span>
-                       <Badge variant="outline" className="text-xs font-normal">Verificado</Badge>
+                       {isEmailConfirmed ? (
+                         <Badge variant="outline" className="text-xs font-normal bg-green-500/10 text-green-500 border-green-500/20">Verificado</Badge>
+                       ) : (
+                         <Badge variant="outline" className="text-xs font-normal bg-amber-500/10 text-amber-500 border-amber-500/20">Pendente</Badge>
+                       )}
                     </div>
                   </div>
                 </div>

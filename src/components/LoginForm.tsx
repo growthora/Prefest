@@ -17,6 +17,9 @@ export const LoginForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [localError, setLocalError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showResend, setShowResend] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
   const [formData, setFormData] = useState({
     email: '',
@@ -37,12 +40,37 @@ export const LoginForm = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLocalError(null);
+    setSuccessMessage(null);
 
     try {
       await signIn(formData.email, formData.password);
       navigate(location.state?.returnTo || '/');
     } catch (err) {
-      setLocalError(err instanceof Error ? err.message : 'Erro ao fazer login');
+      let message = err instanceof Error ? err.message : 'Erro ao fazer login';
+      
+      if (message.toLowerCase().includes('email not confirmed')) {
+        message = 'Seu e-mail ainda não foi confirmado.';
+        setShowResend(true);
+      }
+      
+      setLocalError(message);
+    }
+  };
+
+  const handleResendEmail = async () => {
+    if (!formData.email) return;
+    
+    try {
+      setResendLoading(true);
+      await authService.resendConfirmationEmail(formData.email);
+      setLocalError(null);
+      setSuccessMessage('E-mail de confirmação reenviado! Verifique sua caixa de entrada e spam.');
+      setShowResend(false);
+    } catch (err) {
+      setLocalError('Erro ao reenviar e-mail. Tente novamente.');
+      setSuccessMessage(null);
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -80,10 +108,32 @@ export const LoginForm = () => {
       const [day, month, year] = formData.birthDate.split('/');
       const formattedBirthDate = `${year}-${month}-${day}`;
       
+      // Verificar se e-mail ou CPF já existem antes de tentar criar a conta
+      // Isso evita o erro genérico "Database error saving new user"
+      try {
+        const checkResult = await authService.checkRegistrationData(formData.email, formData.cpf);
+        
+        if (checkResult.email_exists) {
+          setLocalError('Este e-mail já está cadastrado. Tente fazer login.');
+          return;
+        }
+        
+        if (checkResult.cpf_exists) {
+          setLocalError('Este CPF já está cadastrado. Entre em contato com o suporte se acredita ser um erro.');
+          return;
+        }
+      } catch (checkErr) {
+        console.warn('Erro ao verificar disponibilidade de dados:', checkErr);
+        // Continua o fluxo normal se a verificação falhar (fallback)
+      }
+
       await signUp(formData.email, formData.password, formData.fullName, formData.cpf, formattedBirthDate, isOrganizer);
-      navigate(location.state?.returnTo || '/');
+      setSuccessMessage('Cadastro realizado com sucesso! Verifique seu e-mail para confirmar a conta.');
+      setActiveTab('login');
+      setLocalError(null);
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : 'Erro ao criar conta');
+      setSuccessMessage(null);
     }
   };
 
@@ -121,9 +171,31 @@ export const LoginForm = () => {
           <TabsContent value="login">
             <form onSubmit={handleLogin}>
               <CardContent className="space-y-4">
+                {successMessage && (
+                  <Alert className="mb-4 bg-green-50 text-green-900 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800">
+                    <AlertDescription>{successMessage}</AlertDescription>
+                  </Alert>
+                )}
+
                 {(error || localError) && (
-                  <Alert variant="destructive">
+                  <Alert variant="destructive" className="flex flex-col gap-2">
                     <AlertDescription>{error || localError}</AlertDescription>
+                    {showResend && (
+                      <div className="flex flex-col gap-2 mt-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={handleResendEmail}
+                          disabled={resendLoading}
+                          className="w-full border-destructive/50 text-destructive hover:bg-destructive/10"
+                        >
+                          {resendLoading ? 'Enviando...' : 'Reenviar e-mail de confirmação'}
+                        </Button>
+                        <p className="text-xs text-muted-foreground text-center opacity-80">
+                          Não esqueça de verificar também a pasta de SPAM.
+                        </p>
+                      </div>
+                    )}
                   </Alert>
                 )}
 

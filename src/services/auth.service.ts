@@ -49,6 +49,17 @@ export interface Profile {
 }
 
 class AuthService {
+  // Verificar dados de registro
+  async checkRegistrationData(email: string, cpf: string) {
+    const { data, error } = await supabase.rpc('check_registration_data', {
+      check_email: email,
+      check_cpf: cpf
+    });
+
+    if (error) throw error;
+    return data as { email_exists: boolean; cpf_exists: boolean };
+  }
+
   // Cadastro de novo usuário
   async signUp({ email, password, fullName, cpf, birthDate, isOrganizer = false }: SignUpData) {
     const { data, error } = await supabase.auth.signUp({
@@ -164,6 +175,19 @@ class AuthService {
   async updatePassword(password: string) {
     const { data, error } = await supabase.auth.updateUser({
       password: password
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  // Reenviar email de confirmação
+  async resendConfirmationEmail(email: string) {
+    const { data, error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email,
+      options: {
+        emailRedirectTo: window.location.origin
+      }
     });
     if (error) throw error;
     return data;

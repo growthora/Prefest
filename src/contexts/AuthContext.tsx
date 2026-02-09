@@ -10,12 +10,14 @@ interface AuthContextType {
   authStatus: AuthStatus;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isEmailConfirmed: boolean;
   isLoading: boolean; // Mantido para compatibilidade, mas authStatus é preferível para carregamento inicial
   error: string | null;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string, cpf: string, birthDate: string, isOrganizer?: boolean) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<void>;
+  resendConfirmation: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -101,8 +103,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updateLastSeen = async () => {
       try {
         await authService.updateProfile(user.id, { last_seen: new Date().toISOString() });
-      } catch (err) {
-        console.error('Error updating last_seen:', err);
+      } catch (err: any) {
+        // Ignora erro PGRST116 (Result contains 0 rows) que ocorre quando:
+        // 1. O usuário foi deletado do banco mas ainda está logado no frontend
+        // 2. RLS impede a atualização
+        if (err?.code !== 'PGRST116') {
+          console.error('Error updating last_seen:', err);
+        }
       }
     };
 
@@ -198,6 +205,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const resendConfirmation = async () => {
+    if (!user?.email) return;
+    try {
+      setIsLoading(true);
+      await authService.resendConfirmationEmail(user.email);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao reenviar email';
+      throw new Error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -206,12 +226,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         authStatus,
         isAuthenticated: !!user,
         isAdmin: profile?.role === 'admin',
+        isEmailConfirmed: !!user?.email_confirmed_at,
         isLoading,
         error,
         signIn,
         signUp,
         signOut,
         updateProfile,
+        resendConfirmation,
       }}
     >
       {children}

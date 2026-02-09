@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { User, Match, Message, APP_CONFIG } from '@/lib/index';
 import { useAuth } from '@/contexts/AuthContext';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { likeService } from '@/services/like.service';
 import { toast } from 'sonner';
 
@@ -9,6 +10,7 @@ import { toast } from 'sonner';
  */
 export function useMatch(eventId?: string) {
   const { user, profile, updateProfile } = useAuth();
+  const { checkAccess } = useFeatureAccess();
   
   const [matches, setMatches] = useState<Match[]>([]);
   const [currentQueue, setCurrentQueue] = useState<User[]>([]);
@@ -94,6 +96,8 @@ export function useMatch(eventId?: string) {
   }, [user, isSingleMode, updateProfile]);
 
   const likeUser = useCallback(async (targetUserId: string) => {
+    if (!checkAccess('dar like')) return false;
+
     if (!user || !eventId) return false;
     
     // Remover da fila localmente para feedback instantâneo

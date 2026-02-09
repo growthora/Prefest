@@ -35,6 +35,7 @@ import logoImage from '@/assets/PHOTO-2026-02-02-13-32-10_-_cópia-removebg-prev
 import { Input } from '@/components/ui/input';
 import { StateSelector } from '@/components/StateSelector';
 import { BRAZIL_STATES } from '@/constants/states';
+import { EmailConfirmationBanner } from '@/components/EmailConfirmationBanner';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -94,11 +95,11 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
     { name: "Gastronomia", icon: Utensils },
     { name: "Grátis", icon: Star }
   ];
-
-  return (
+return (
     <div className="min-h-screen bg-background text-foreground flex flex-col selection:bg-primary/30 selection:text-primary font-sans">
+      <EmailConfirmationBanner />
       
-      {/* Top Banner - Only shown on Mobile if requested, hidden on Desktop per reference */}
+      {/* Top Banner */}
       {showTopBanner && (
         <div className="bg-[#1F222A] text-white py-2 px-4 flex md:hidden justify-between items-center text-sm z-50 relative">
           <div className="flex items-center gap-4">

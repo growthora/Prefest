@@ -9,6 +9,7 @@ import { Event, ROUTE_PATHS } from '@/lib/index';
 import { eventService, type Event as SupabaseEvent } from '@/services/event.service';
 import { IMAGES } from '@/assets/images';
 import { useAuth } from '@/hooks/useAuth';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -21,6 +22,7 @@ export default function EventDetails() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const { user, profile, updateProfile } = useAuth();
+  const { checkAccess } = useFeatureAccess();
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('details');
@@ -149,6 +151,8 @@ export default function EventDetails() {
   };
 
   const handleToggleMeetAttendees = async () => {
+    if (!checkAccess('aparecer na lista de participantes')) return;
+
     if (!user || !profile) {
       toast.error('Você precisa estar logado para ativar essa função');
       return;

@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/lib/index';
 import { PlusCircle, UserPlus, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
@@ -21,6 +22,7 @@ interface CreateEventModalProps {
 export function CreateEventModal({ trigger }: CreateEventModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { user, profile } = useAuth();
+  const { checkAccess } = useFeatureAccess();
   const navigate = useNavigate();
 
   const handleCreateAccount = () => {
@@ -29,6 +31,7 @@ export function CreateEventModal({ trigger }: CreateEventModalProps) {
   };
 
   const handleCreateNow = () => {
+    if (!checkAccess('criar um evento')) return;
     setIsOpen(false);
     navigate(ROUTE_PATHS.CREATE_EVENT);
   };
