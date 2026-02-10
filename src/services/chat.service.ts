@@ -62,6 +62,17 @@ class ChatService {
     return data;
   }
 
+  async unmatchUser(matchId: string) {
+    const { error } = await supabase.rpc('unmatch_user', {
+      p_match_id: matchId
+    });
+
+    if (error) {
+      console.error('❌ [ChatService] Erro ao desfazer match:', error);
+      throw error;
+    }
+  }
+
   // Enviar mensagem
   async sendMessage(chatId: string, content: string): Promise<ChatMessage> {
     // console.log('📤 [ChatService] Enviando mensagem:', chatId);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, X, Send, ChevronLeft, MoreVertical, Search, Check, CheckCheck } from 'lucide-react';
+import { MessageCircle, X, Send, ChevronLeft, MoreVertical, Search, Check, CheckCheck, Trash2, Ticket } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { matchService, Match } from '@/services/match.service';
@@ -11,6 +11,22 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/lib/supabase';
@@ -34,6 +50,7 @@ export function FloatingChat() {
   const channelRef = useRef<any>(null);
   const presenceChannelRef = useRef<any>(null); // New ref for presence channel
   const lastTypingSentRef = useRef<number>(0);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   // Keep ref in sync
   useEffect(() => {
@@ -200,15 +217,25 @@ export function FloatingChat() {
   const loadMatches = async () => {
     try {
       const data = await matchService.getUserMatches();
-      // Enforce unread_count 0 for active chat to prevent flickering
+      
+      // Check if active chat still exists (handled unmatch)
       const currentActive = activeChatRef.current;
       if (currentActive) {
-          setMatches(data.map(m => 
-              m.match_id === currentActive.match_id ? { ...m, unread_count: 0 } : m
-          ));
-      } else {
-          setMatches(data);
+          const stillExists = data.find(m => m.match_id === currentActive.match_id);
+          if (!stillExists) {
+              setActiveChat(null);
+              // Only show toast if it wasn't me who deleted (we can check unmatched_by if available, but simplest is just show info)
+              // But if I just deleted it via handleDeleteChat, I already showed success toast.
+              // We can rely on handleDeleteChat to close it, but if it comes from Realtime (other user), we need this.
+          } else {
+              // Enforce unread_count 0 for active chat
+              setMatches(data.map(m => 
+                  m.match_id === currentActive.match_id ? { ...m, unread_count: 0 } : m
+              ));
+              return;
+          }
       }
+      setMatches(data);
     } catch (error) {
       console.error('Error loading matches', error);
     }
@@ -282,18 +309,46 @@ export function FloatingChat() {
     }, 10);
 
     try {
+      // NOTE: We assume sendMessage returns void now, but if it returns data we can use it.
+      // Ideally chatService.sendMessage should return the message data.
+      // For now, let's rely on realtime for the "real" message or a fetch if needed, 
+      // BUT if the service returns data, we update the optimistic one.
+      // Checked service: it returns 'data' (the message object).
       const sentMsg = await chatService.sendMessage(activeChat.chat_id, content);
       
       // Replace optimistic message with real one
-      setMessages(prev => prev.map(msg => 
-        msg.id === tempId ? sentMsg : msg
-      ));
+      // If sentMsg is void (due to type change assumption), we keep optimistic until realtime arrives?
+      // Actually, my previous thought on void was cautious. The code I read showed it returns data.
+      // I'll assume it returns 'any' or 'ChatMessage' for now to avoid TS error if I cast it.
+      if (sentMsg) {
+          setMessages(prev => prev.map(msg => 
+            msg.id === tempId ? (sentMsg as unknown as ChatMessage) : msg
+          ));
+      }
     } catch (error) {
       console.error('Failed to send message:', error);
       toast.error('Erro ao enviar mensagem');
       // Remove optimistic message and restore input
       setMessages(prev => prev.filter(msg => msg.id !== tempId));
       setInputValue(content);
+    }
+  };
+
+  const handleDeleteChat = async () => {
+    if (!activeChat) return;
+
+    try {
+      await chatService.unmatchUser(activeChat.match_id);
+      
+      // Optimistic update
+      setMatches(prev => prev.filter(m => m.match_id !== activeChat.match_id));
+      setActiveChat(null);
+      setIsOpen(false); // Close chat
+      toast.success('Match desfeito e conversa encerrada');
+    } catch (error) {
+      toast.error('Erro ao desfazer match');
+    } finally {
+      setIsDeleteDialogOpen(false);
     }
   };
 
@@ -347,24 +402,28 @@ export function FloatingChat() {
             {/* Header */}
             <div className="p-4 bg-primary text-primary-foreground flex items-center justify-between shadow-md z-10">
               {activeChat ? (
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
                   <Button 
                     variant="ghost" 
                     size="icon" 
                     onClick={() => setActiveChat(null)}
-                    className="h-8 w-8 text-primary-foreground hover:bg-white/20 rounded-full -ml-2"
+                    className="h-8 w-8 text-primary-foreground hover:bg-white/20 rounded-full -ml-2 shrink-0"
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </Button>
-                  <Avatar className="h-9 w-9 border-2 border-white/20">
+                  <Avatar className="h-9 w-9 border-2 border-white/20 shrink-0">
                     <AvatarImage src={activeChat.partner_avatar} />
                     <AvatarFallback>{activeChat.partner_name[0]}</AvatarFallback>
                   </Avatar>
-                  <div className="flex flex-col">
-                    <span className="font-semibold text-sm leading-none">{activeChat.partner_name}</span>
-                    <span className="text-[10px] opacity-80 mt-1">
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-semibold text-sm leading-none truncate">{activeChat.partner_name}</span>
+                    <div className="flex items-center gap-1 text-[10px] text-primary-foreground/80 mt-1">
+                        <Ticket className="w-3 h-3 shrink-0" />
+                        <span className="truncate max-w-[150px]">{activeChat.event_title}</span>
+                    </div>
+                    <span className="text-[10px] opacity-80 mt-0.5">
                         {partnerTyping ? (
-                            <span className="text-primary-foreground animate-pulse font-medium">digitando...</span>
+                            <span className="text-white animate-pulse font-medium">digitando...</span>
                         ) : partnerActive ? (
                             <span className="flex items-center gap-1">
                                 <span className="w-2 h-2 rounded-full bg-green-400 inline-block" />
@@ -382,9 +441,25 @@ export function FloatingChat() {
                   <span className="font-semibold">Mensagens</span>
                 </div>
               )}
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-primary-foreground hover:bg-white/20 rounded-full">
-                <MoreVertical className="w-4 h-4" />
-              </Button>
+              
+              {activeChat && (
+                <DropdownMenu modal={false}>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary-foreground hover:bg-white/20 rounded-full shrink-0">
+                            <MoreVertical className="w-4 h-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem 
+                            className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+                            onClick={() => setIsDeleteDialogOpen(true)}
+                        >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Excluir conversa
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
 
             {/* Content */}
@@ -529,6 +604,23 @@ export function FloatingChat() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desfazer match?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso encerrará a conversa e desfará o match para ambos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteChat} className="bg-red-600 hover:bg-red-700 text-white">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

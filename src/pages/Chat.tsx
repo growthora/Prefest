@@ -4,13 +4,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Send, 
   ArrowLeft, 
-  Info, 
+  MoreVertical, 
   Sparkles, 
   Clock, 
   ShieldCheck,
   Music,
   Check,
-  CheckCheck
+  CheckCheck,
+  Trash2,
+  Ticket
 } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { chatService, ChatMessage } from '@/services/chat.service';
@@ -20,8 +22,25 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 const ICEBREAKERS = [
   "Qual música você está mais ansioso para ouvir hoje? 🎶",
@@ -47,6 +66,7 @@ export default function Chat() {
   const channelRef = useRef<any>(null);
   const presenceChannelRef = useRef<any>(null);
   const lastTypingSentRef = useRef<number>(0);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   // Carregar dados do match e chat
   useEffect(() => {
@@ -144,8 +164,25 @@ export default function Chat() {
         presenceChannelRef.current = presenceChannel;
     }
 
+    // 4. Subscribe to Match Status (Unmatch)
+    const matchSub = supabase
+      .channel(`match_status:${matchId}`)
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'matches', 
+        filter: `id=eq.${matchId}` 
+      }, (payload) => {
+        if (payload.new.status === 'inactive') {
+          toast.info('O match foi desfeito.');
+          navigate('/matches');
+        }
+      })
+      .subscribe();
+
     return () => {
       channel.unsubscribe();
+      matchSub.unsubscribe();
       if (presenceChannelRef.current) presenceChannelRef.current.unsubscribe();
       channelRef.current = null;
       presenceChannelRef.current = null;
@@ -153,7 +190,7 @@ export default function Chat() {
       // Clear presence on unmount/change
       chatService.updatePresence(null);
     };
-  }, [chatId, user, match]);
+  }, [chatId, user, match, matchId, navigate]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -216,17 +253,34 @@ export default function Chat() {
     setMessages(prev => [...prev, optimisticMsg]);
 
     try {
+      // Note: same assumption as FloatingChat - if sendMessage returns data, update optimistic.
       const sentMsg = await chatService.sendMessage(chatId, content);
       
       // Replace optimistic message
-      setMessages(prev => prev.map(msg => 
-        msg.id === tempId ? sentMsg : msg
-      ));
+      if (sentMsg) {
+          setMessages(prev => prev.map(msg => 
+            msg.id === tempId ? (sentMsg as unknown as ChatMessage) : msg
+          ));
+      }
     } catch (error) {
       toast.error('Erro ao enviar mensagem');
       // Remove optimistic message and restore input
       setMessages(prev => prev.filter(msg => msg.id !== tempId));
       setInputValue(content);
+    }
+  };
+
+  const handleDeleteChat = async () => {
+    if (!match?.match_id) return;
+
+    try {
+      await chatService.unmatchUser(match.match_id);
+      toast.success('Match desfeito e conversa encerrada');
+      navigate('/matches');
+    } catch (error) {
+      toast.error('Erro ao desfazer match');
+    } finally {
+      setIsDeleteDialogOpen(false);
     }
   };
 
@@ -265,7 +319,11 @@ export default function Chat() {
                 <h3 className="font-semibold text-sm leading-tight flex items-center gap-2">
                   {match.partner_name}
                 </h3>
-                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-widest">
+                <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
+                   <Ticket className="w-3 h-3" />
+                   <span className="truncate max-w-[200px]">{match.event_title}</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-widest mt-1">
                   {partnerTyping ? (
                       <span className="text-primary animate-pulse font-bold">digitando...</span>
                   ) : partnerActive ? (
@@ -285,9 +343,22 @@ export default function Chat() {
           </div>
           
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <Info className="w-5 h-5 text-muted-foreground" />
-            </Button>
+            <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="rounded-full">
+                        <MoreVertical className="w-5 h-5 text-muted-foreground" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuItem 
+                        className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+                        onClick={() => setIsDeleteDialogOpen(true)}
+                    >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Excluir conversa
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 
@@ -381,6 +452,22 @@ export default function Chat() {
           </form>
         </footer>
       </div>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Desfazer match?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso encerrará a conversa e desfará o match para ambos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteChat} className="bg-red-600 hover:bg-red-700 text-white">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }

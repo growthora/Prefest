@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 export interface Match {
   match_id: string;
   event_id: string;
+  event_title: string;
   partner_id: string;
   partner_name: string;
   partner_avatar: string;
