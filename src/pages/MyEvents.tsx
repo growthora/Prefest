@@ -36,7 +36,7 @@ export default function MyEvents() {
   const [userEvents, setUserEvents] = useState<UserEvent[]>([]);
   const [userTickets, setUserTickets] = useState<TicketWithEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('events');
+  const [activeTab, setActiveTab] = useState('tickets');
 
   useEffect(() => {
     loadData();

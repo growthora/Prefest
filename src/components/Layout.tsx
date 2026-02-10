@@ -298,41 +298,51 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
             <span className="text-[10px] font-medium">Explorar</span>
           </NavLink>
 
-          <div className="-mt-8">
-            <CreateEventModal 
-              trigger={
-                <button className="flex flex-col items-center justify-center w-14 h-14 bg-primary text-white rounded-full shadow-lg hover:bg-primary/90 transition-transform active:scale-95">
-                  <PlusCircle size={28} />
-                </button>
-              }
-            />
-          </div>
-
           {user ? (
-            <NavLink 
-              to={ROUTE_PATHS.MATCHES} 
-              className={({isActive}) => cn(
-                "flex flex-col items-center gap-1 transition-colors",
-                isActive ? "text-primary" : "text-gray-400 hover:text-gray-600"
-              )}
-            >
-              {({ isActive }) => (
-                <>
-                  <Flame size={24} className={isActive ? "fill-primary text-primary" : ""} />
-                  <span className="text-[10px] font-medium">Match</span>
-                </>
-              )}
-            </NavLink>
+            <div className="-mt-8 relative group">
+              <NavLink 
+                to={ROUTE_PATHS.MATCHES} 
+                className={({isActive}) => cn(
+                  "flex items-center justify-center w-16 h-16 rounded-full border-4 border-white shadow-xl transition-all duration-300 bg-primary text-white",
+                  isActive 
+                    ? "scale-110 shadow-primary/50" 
+                    : "hover:bg-primary/90 hover:scale-105"
+                )}
+              >
+                {({ isActive }) => (
+                  <Flame 
+                    size={32} 
+                    className={cn(
+                      "transition-all duration-300 fill-white",
+                      isActive ? "animate-pulse" : ""
+                    )} 
+                    strokeWidth={isActive ? 0 : 2}
+                  />
+                )}
+              </NavLink>
+            </div>
           ) : (
-            <AuthModal 
-              trigger={
-                <button className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600">
-                  <Flame size={24} />
-                  <span className="text-[10px] font-medium">Match</span>
-                </button>
-              }
-            />
+            <div className="-mt-8 relative">
+              <AuthModal 
+                trigger={
+                  <button className="flex items-center justify-center w-16 h-16 rounded-full border-4 border-white shadow-xl bg-primary text-white hover:bg-primary/90 transition-all duration-300 hover:scale-105">
+                    <Flame size={32} className="fill-white" strokeWidth={2} />
+                  </button>
+                }
+              />
+            </div>
           )}
+
+          <NavLink 
+            to={ROUTE_PATHS.MY_EVENTS} 
+            className={({isActive}) => cn(
+              "flex flex-col items-center gap-1 transition-colors",
+              isActive ? "text-primary" : "text-gray-400 hover:text-gray-600"
+            )}
+          >
+            <Ticket size={24} />
+            <span className="text-[10px] font-medium">Ingressos</span>
+          </NavLink>
 
           {user ? (
             <NavLink 
