@@ -8,7 +8,9 @@ import {
   Sparkles, 
   Clock, 
   ShieldCheck,
-  Music
+  Music,
+  Check,
+  CheckCheck
 } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { chatService, ChatMessage } from '@/services/chat.service';
@@ -39,6 +41,12 @@ export default function Chat() {
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [partnerTyping, setPartnerTyping] = useState(false);
+  const [partnerActive, setPartnerActive] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout>();
+  const channelRef = useRef<any>(null);
+  const presenceChannelRef = useRef<any>(null);
+  const lastTypingSentRef = useRef<number>(0);
 
   // Carregar dados do match e chat
   useEffect(() => {
@@ -67,6 +75,9 @@ export default function Chat() {
         const msgs = await chatService.getMessages(cid);
         setMessages(msgs);
 
+        // Mark as read immediately
+        chatService.markMessagesAsRead(cid);
+
       } catch (error) {
         console.error('Erro ao carregar chat:', error);
         toast.error('Erro ao carregar conversa');
@@ -78,18 +89,71 @@ export default function Chat() {
     loadData();
   }, [matchId, user, navigate]);
 
-  // Realtime Subscription
+  // Realtime Subscription & Presence
   useEffect(() => {
     if (!chatId) return;
 
-    const subscription = chatService.subscribeToMessages(chatId, (newMsg) => {
-      setMessages(prev => [...prev, newMsg]);
-    });
+    // 1. Update my presence
+    chatService.updatePresence(chatId);
+
+    // 2. Subscribe to Chat Messages
+    const channel = chatService.subscribeToChat(
+        chatId,
+        (newMsg) => {
+            setMessages(prev => {
+                // Deduplicate logic
+                const exists = prev.some(m => m.id === newMsg.id);
+                if (exists) {
+                    return prev.map(m => m.id === newMsg.id ? { ...m, ...newMsg } : m);
+                }
+                setPartnerTyping(false); // Clear typing
+                return [...prev, newMsg];
+            });
+
+            // Mark as read immediately if message is not mine and has INSERT event (implied by service logic)
+            if (newMsg.sender_id !== user?.id && (!newMsg.status || newMsg.status === 'sent')) {
+                chatService.markMessagesAsRead(chatId);
+            }
+        },
+        (payload) => {
+             // Handle typing event
+             if (payload.userId !== user?.id) {
+                 setPartnerTyping(payload.isTyping);
+                 
+                 // Clear typing indicator after 3 seconds if no more events
+                 if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                 if (payload.isTyping) {
+                     typingTimeoutRef.current = setTimeout(() => setPartnerTyping(false), 3000);
+                 }
+             }
+        }
+    );
+
+    channelRef.current = channel;
+
+    // 3. Subscribe to Partner Presence
+    if (match?.partner_id) {
+        // Initial fetch
+        chatService.getPresence(match.partner_id).then(activeChatId => {
+             setPartnerActive(activeChatId === chatId);
+        });
+
+        const presenceChannel = chatService.subscribeToPartnerPresence(match.partner_id, (activeChatId) => {
+            setPartnerActive(activeChatId === chatId);
+        });
+        presenceChannelRef.current = presenceChannel;
+    }
 
     return () => {
-      subscription.unsubscribe();
+      channel.unsubscribe();
+      if (presenceChannelRef.current) presenceChannelRef.current.unsubscribe();
+      channelRef.current = null;
+      presenceChannelRef.current = null;
+      
+      // Clear presence on unmount/change
+      chatService.updatePresence(null);
     };
-  }, [chatId]);
+  }, [chatId, user, match]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -109,26 +173,71 @@ export default function Chat() {
 
   if (!match) return null;
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setInputValue(e.target.value);
+      
+      if (chatId && channelRef.current) {
+          const now = Date.now();
+          if (now - lastTypingSentRef.current > 2000) {
+              chatService.sendTyping(channelRef.current, true);
+              lastTypingSentRef.current = now;
+          }
+      }
+  };
+
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!inputValue.trim() || !chatId) return;
 
+    const content = inputValue;
+    setInputValue(''); // Limpar input imediatamente (optimistic UI)
+    
+    // Stop typing
+    if (channelRef.current) {
+        chatService.sendTyping(channelRef.current, false);
+    }
+
+    // Optimistic Update
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg: ChatMessage = {
+        id: tempId,
+        chat_id: chatId,
+        sender_id: user?.id || '',
+        content: content,
+        created_at: new Date().toISOString(),
+        status: 'sent',
+        sender: {
+            id: user?.id || '',
+            full_name: user?.user_metadata?.full_name || 'Eu',
+            avatar_url: user?.user_metadata?.avatar_url || '' 
+        }
+    };
+
+    setMessages(prev => [...prev, optimisticMsg]);
+
     try {
-      const content = inputValue;
-      setInputValue(''); // Limpar input imediatamente (optimistic UI)
+      const sentMsg = await chatService.sendMessage(chatId, content);
       
-      await chatService.sendMessage(chatId, content);
-      // A mensagem será adicionada via subscription ou reload, 
-      // mas para feedback imediato poderíamos adicionar aqui se quiséssemos.
-      // O subscription já cuida disso.
+      // Replace optimistic message
+      setMessages(prev => prev.map(msg => 
+        msg.id === tempId ? sentMsg : msg
+      ));
     } catch (error) {
       toast.error('Erro ao enviar mensagem');
-      setInputValue(inputValue); // Restaurar em caso de erro
+      // Remove optimistic message and restore input
+      setMessages(prev => prev.filter(msg => msg.id !== tempId));
+      setInputValue(content);
     }
   };
 
   const formatTime = (isoString: string) => {
     return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const getStatusIcon = (status?: 'sent' | 'delivered' | 'seen') => {
+      if (status === 'seen') return <CheckCheck className="w-3 h-3 text-blue-500" />;
+      if (status === 'delivered') return <CheckCheck className="w-3 h-3 text-muted-foreground" />;
+      return <Check className="w-3 h-3 text-muted-foreground" />;
   };
 
   return (
@@ -157,8 +266,19 @@ export default function Chat() {
                   {match.partner_name}
                 </h3>
                 <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-widest">
-                  <Clock className="w-3 h-3 text-primary" />
-                  <span>Expira em breve</span>
+                  {partnerTyping ? (
+                      <span className="text-primary animate-pulse font-bold">digitando...</span>
+                  ) : partnerActive ? (
+                      <span className="flex items-center gap-1 text-green-500 font-medium normal-case tracking-normal">
+                          <span className="w-2 h-2 rounded-full bg-green-500 inline-block animate-pulse" />
+                          Online
+                      </span>
+                  ) : (
+                      <>
+                        <Clock className="w-3 h-3 text-primary" />
+                        <span>Expira em breve</span>
+                      </>
+                  )}
                 </div>
               </div>
             </div>
@@ -202,11 +322,18 @@ export default function Chat() {
                       }`}
                     >
                       <p>{msg.content}</p>
-                      <span className={`text-[10px] mt-1 block opacity-60 ${
-                        isMe ? 'text-right' : 'text-left'
-                      }`}>
-                        {formatTime(msg.created_at)}
-                      </span>
+                      <div className={`flex items-center gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                        <span className={`text-[10px] opacity-60 ${
+                            isMe ? 'text-primary-foreground/80' : 'text-muted-foreground'
+                        }`}>
+                            {formatTime(msg.created_at)}
+                        </span>
+                        {isMe && (
+                            <span className="opacity-80">
+                                {getStatusIcon(msg.status)}
+                            </span>
+                        )}
+                      </div>
                     </div>
                   </motion.div>
                 );
@@ -239,7 +366,7 @@ export default function Chat() {
           >
             <Input 
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
+              onChange={handleInputChange}
               placeholder="Escreva algo interessante..."
               className="bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0 h-10 text-sm"
             />

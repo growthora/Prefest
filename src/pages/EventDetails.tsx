@@ -28,6 +28,7 @@ import { eventService, type Event as SupabaseEvent, MatchCandidate } from '@/ser
 import { likeService } from '@/services/like.service';
 import { matchService } from '@/services/match.service';
 import { chatService } from '@/services/chat.service';
+import { supabase } from '@/lib/supabase';
 import { IMAGES } from '@/assets/images';
 import { useAuth } from '@/hooks/useAuth';
 import { useMatch } from '@/hooks/useMatch';

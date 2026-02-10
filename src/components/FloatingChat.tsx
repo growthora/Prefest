@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, X, Send, ChevronLeft, MoreVertical, Search } from 'lucide-react';
+import { MessageCircle, X, Send, ChevronLeft, MoreVertical, Search, Check, CheckCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { matchService, Match } from '@/services/match.service';
@@ -27,6 +27,18 @@ export function FloatingChat() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+  const activeChatRef = useRef<Match | null>(null);
+  const [partnerTyping, setPartnerTyping] = useState(false);
+  const [partnerActive, setPartnerActive] = useState(false); // New state for presence
+  const typingTimeoutRef = useRef<NodeJS.Timeout>();
+  const channelRef = useRef<any>(null);
+  const presenceChannelRef = useRef<any>(null); // New ref for presence channel
+  const lastTypingSentRef = useRef<number>(0);
+
+  // Keep ref in sync
+  useEffect(() => {
+    activeChatRef.current = activeChat;
+  }, [activeChat]);
 
   // Load matches
   useEffect(() => {
@@ -59,7 +71,7 @@ export function FloatingChat() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => {
         loadMatches();
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
         loadMatches();
       })
       .subscribe();
@@ -74,24 +86,106 @@ export function FloatingChat() {
     if (activeChat) {
       loadMessages(activeChat.chat_id);
       
+      // Update Presence: I am now in this chat
+      chatService.updatePresence(activeChat.chat_id);
+      
       // Mark as opened
       if (!activeChat.chat_opened) {
         matchService.markChatOpened(activeChat.match_id);
       }
 
-      // Realtime messages
-      const subscription = chatService.subscribeToMessages(activeChat.chat_id, (newMsg) => {
-        setMessages(prev => [...prev, newMsg]);
-        // Scroll to bottom
-        setTimeout(() => {
-            if (scrollRef.current) {
-                scrollRef.current.scrollIntoView({ behavior: 'smooth' });
+      // Mark messages as read immediately on open (for existing messages)
+      chatService.markMessagesAsRead(activeChat.chat_id);
+      
+      // Optimistic: Clear unread count locally
+      setMatches(prev => prev.map(m => 
+        m.match_id === activeChat.match_id 
+          ? { ...m, unread_count: 0 } 
+          : m
+      ));
+
+      // Realtime messages & typing
+      const channel = chatService.subscribeToChat(
+          activeChat.chat_id, 
+          (payload, eventType) => {
+            // Handle INSERT and UPDATE
+            if (eventType === 'INSERT') {
+                const newMsg = payload;
+                setMessages(prev => {
+                    // Deduplicate logic
+                    const exists = prev.some(m => m.id === newMsg.id);
+                    if (exists) return prev;
+                    
+                    setPartnerTyping(false); // Clear typing
+
+                    // If message is from partner, we need to add sender info locally
+                    // because payload doesn't have relations
+                    let msgWithSender = { ...newMsg };
+                    if (newMsg.sender_id === activeChat.partner_id) {
+                         msgWithSender.sender = {
+                             id: activeChat.partner_id,
+                             full_name: activeChat.partner_name,
+                             avatar_url: activeChat.partner_avatar
+                         };
+                    } else if (newMsg.sender_id === user?.id) {
+                         msgWithSender.sender = {
+                             id: user.id,
+                             full_name: user.user_metadata?.full_name || 'Eu',
+                             avatar_url: user.user_metadata?.avatar_url || ''
+                         };
+                    }
+
+                    return [...prev, msgWithSender];
+                });
+
+                // Scroll to bottom
+                setTimeout(() => {
+                    if (scrollRef.current) {
+                        scrollRef.current.scrollIntoView({ behavior: 'smooth' });
+                    }
+                }, 100);
+            } else if (eventType === 'UPDATE') {
+                const updatedMsg = payload;
+                setMessages(prev => prev.map(m => m.id === updatedMsg.id ? { ...m, ...updatedMsg } : m));
             }
-        }, 100);
-      });
+          },
+          (payload) => {
+              // Handle typing event
+              if (payload.userId !== user?.id) {
+                  setPartnerTyping(payload.isTyping);
+                  
+                  // Clear typing indicator after 3 seconds if no more events
+                  if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                  if (payload.isTyping) {
+                      typingTimeoutRef.current = setTimeout(() => setPartnerTyping(false), 3000);
+                  }
+              }
+          }
+      );
+
+      channelRef.current = channel;
+      
+      // Subscribe to Partner Presence
+      if (activeChat.partner_id) {
+          // Initial fetch
+          chatService.getPresence(activeChat.partner_id).then(activeChatId => {
+               setPartnerActive(activeChatId === activeChat.chat_id);
+          });
+
+          const presenceChannel = chatService.subscribeToPartnerPresence(activeChat.partner_id, (activeChatId) => {
+              // Strictly check if they are in THIS chat
+              setPartnerActive(activeChatId === activeChat.chat_id);
+          });
+          presenceChannelRef.current = presenceChannel;
+      }
 
       return () => {
-        subscription.unsubscribe();
+        channel.unsubscribe();
+        if (presenceChannelRef.current) presenceChannelRef.current.unsubscribe();
+        channelRef.current = null;
+        presenceChannelRef.current = null;
+        // Update Presence: I left the chat
+        chatService.updatePresence(null);
       };
     }
   }, [activeChat]);
@@ -106,7 +200,15 @@ export function FloatingChat() {
   const loadMatches = async () => {
     try {
       const data = await matchService.getUserMatches();
-      setMatches(data);
+      // Enforce unread_count 0 for active chat to prevent flickering
+      const currentActive = activeChatRef.current;
+      if (currentActive) {
+          setMatches(data.map(m => 
+              m.match_id === currentActive.match_id ? { ...m, unread_count: 0 } : m
+          ));
+      } else {
+          setMatches(data);
+      }
     } catch (error) {
       console.error('Error loading matches', error);
     }
@@ -124,17 +226,73 @@ export function FloatingChat() {
     }
   };
 
+  const getStatusIcon = (status?: 'sent' | 'delivered' | 'seen') => {
+    if (status === 'seen') return <CheckCheck className="w-3 h-3 text-blue-500" />;
+    if (status === 'delivered') return <CheckCheck className="w-3 h-3 text-muted-foreground" />;
+    return <Check className="w-3 h-3 text-muted-foreground" />;
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setInputValue(e.target.value);
+      
+      if (activeChat && channelRef.current) {
+          const now = Date.now();
+          if (now - lastTypingSentRef.current > 2000) {
+              chatService.sendTyping(channelRef.current, true);
+              lastTypingSentRef.current = now;
+          }
+      }
+  };
+
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!inputValue.trim() || !activeChat) return;
+    if (!inputValue.trim() || !activeChat || !user) return;
 
     const content = inputValue;
     setInputValue('');
+    
+    // Stop typing indicator
+    if (channelRef.current) {
+        chatService.sendTyping(channelRef.current, false);
+    }
+
+    // Optimistic Update
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg: ChatMessage = {
+        id: tempId,
+        chat_id: activeChat.chat_id,
+        sender_id: user.id,
+        content: content,
+        created_at: new Date().toISOString(),
+        status: 'sent',
+        sender: {
+            id: user.id,
+            full_name: 'Eu', // Placeholder
+            avatar_url: '' 
+        }
+    };
+
+    setMessages(prev => [...prev, optimisticMsg]);
+    
+    // Force scroll
+    setTimeout(() => {
+        if (scrollRef.current) {
+            scrollRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, 10);
 
     try {
-      await chatService.sendMessage(activeChat.chat_id, content);
+      const sentMsg = await chatService.sendMessage(activeChat.chat_id, content);
+      
+      // Replace optimistic message with real one
+      setMessages(prev => prev.map(msg => 
+        msg.id === tempId ? sentMsg : msg
+      ));
     } catch (error) {
+      console.error('Failed to send message:', error);
       toast.error('Erro ao enviar mensagem');
+      // Remove optimistic message and restore input
+      setMessages(prev => prev.filter(msg => msg.id !== tempId));
       setInputValue(content);
     }
   };
@@ -204,7 +362,18 @@ export function FloatingChat() {
                   </Avatar>
                   <div className="flex flex-col">
                     <span className="font-semibold text-sm leading-none">{activeChat.partner_name}</span>
-                    <span className="text-[10px] opacity-80 mt-1">Online</span>
+                    <span className="text-[10px] opacity-80 mt-1">
+                        {partnerTyping ? (
+                            <span className="text-primary-foreground animate-pulse font-medium">digitando...</span>
+                        ) : partnerActive ? (
+                            <span className="flex items-center gap-1">
+                                <span className="w-2 h-2 rounded-full bg-green-400 inline-block" />
+                                Online
+                            </span>
+                        ) : (
+                            'Offline'
+                        )}
+                    </span>
                   </div>
                 </div>
               ) : (
@@ -255,11 +424,18 @@ export function FloatingChat() {
                               }`}
                             >
                               <p>{msg.content}</p>
-                              <span className={`text-[10px] mt-1 block opacity-60 ${
-                                isMe ? 'text-primary-foreground/80 text-right' : 'text-muted-foreground text-left'
-                              }`}>
-                                {formatTime(msg.created_at)}
-                              </span>
+                              <div className={`flex items-center gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                <span className={`text-[10px] opacity-60 ${
+                                    isMe ? 'text-primary-foreground/80' : 'text-muted-foreground'
+                                }`}>
+                                    {formatTime(msg.created_at)}
+                                </span>
+                                {isMe && (
+                                    <span className="opacity-80">
+                                        {getStatusIcon(msg.status)}
+                                    </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         );
@@ -269,84 +445,85 @@ export function FloatingChat() {
                   </div>
 
                   {/* Input Area */}
-                  <div className="p-3 bg-background border-t border-border">
-                    <form 
-                      onSubmit={handleSendMessage}
-                      className="flex items-center gap-2 bg-secondary/50 rounded-full px-4 py-2 border border-border/50 focus-within:border-primary/50 transition-colors"
+                  <form onSubmit={handleSendMessage} className="p-3 bg-background border-t flex gap-2">
+                    <Input
+                      value={inputValue}
+                      onChange={handleInputChange}
+                      placeholder="Digite sua mensagem..."
+                      className="flex-1 rounded-full bg-secondary/20 border-0 focus-visible:ring-1"
+                    />
+                    <Button 
+                      type="submit" 
+                      size="icon" 
+                      disabled={!inputValue.trim()}
+                      className="rounded-full w-10 h-10 shrink-0"
                     >
-                      <input
-                        value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
-                        placeholder="Digite uma mensagem..."
-                        className="flex-1 bg-transparent border-none outline-none text-sm placeholder:text-muted-foreground"
-                      />
-                      <button 
-                        type="submit" 
-                        disabled={!inputValue.trim()}
-                        className="text-primary hover:text-primary/80 disabled:opacity-50 transition-colors"
-                      >
-                        <Send className="w-5 h-5" />
-                      </button>
-                    </form>
-                  </div>
+                      <Send className="w-4 h-4" />
+                    </Button>
+                  </form>
                 </>
               ) : (
-                /* Matches List View */
-                <div className="h-full flex flex-col">
-                    <div className="p-3 bg-background border-b border-border/50">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <Input 
-                                placeholder="Buscar conversas..." 
-                                className="pl-9 h-9 bg-secondary/50 border-transparent focus:bg-background"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
+                /* Matches List */
+                <>
+                  <div className="p-3 bg-background border-b">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input 
+                        placeholder="Buscar conversas..." 
+                        className="pl-9 h-9 bg-secondary/20 border-0"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                      />
                     </div>
+                  </div>
+                  
                   <ScrollArea className="flex-1">
-                    {filteredMatches.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-40 text-center px-6">
-                            <span className="text-4xl mb-2">😴</span>
-                            <p className="text-sm font-medium">Nenhuma conversa ainda</p>
-                            <p className="text-xs text-muted-foreground mt-1">Dê match em eventos para começar a conversar!</p>
-                        </div>
+                    {matches.length === 0 ? (
+                      <div className="p-8 text-center text-muted-foreground text-sm">
+                        Nenhuma conversa ainda.
+                        <br />
+                        Dê match em eventos para começar!
+                      </div>
                     ) : (
-                        <div className="divide-y divide-border/30">
+                      <div className="divide-y divide-border/50">
                         {filteredMatches.map((match) => (
-                            <button
+                          <button
                             key={match.match_id}
                             onClick={() => setActiveChat(match)}
-                            className="w-full p-4 flex items-center gap-3 hover:bg-secondary/30 transition-colors text-left"
-                            >
+                            className="w-full p-4 flex items-center gap-3 hover:bg-secondary/10 transition-colors text-left"
+                          >
                             <div className="relative">
                                 <Avatar className="h-12 w-12 border border-border">
-                                <AvatarImage src={match.partner_avatar} />
-                                <AvatarFallback>{match.partner_name[0]}</AvatarFallback>
+                                    <AvatarImage src={match.partner_avatar} />
+                                    <AvatarFallback>{match.partner_name[0]}</AvatarFallback>
                                 </Avatar>
-                                {(match.unread_count || 0) > 0 && (
+                                {match.unread_count > 0 && (
                                     <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-primary-foreground text-xs font-bold rounded-full flex items-center justify-center border-2 border-background">
                                         {match.unread_count}
                                     </span>
                                 )}
                             </div>
                             <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between mb-0.5">
-                                <span className="font-medium text-sm truncate">{match.partner_name}</span>
-                                <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
-                                    {formatTime(match.last_message_time || match.created_at)}
-                                </span>
-                                </div>
-                                <p className="text-xs text-muted-foreground truncate">
-                                {match.last_message || 'Nova conexão! Diga oi 👋'}
+                              <div className="flex justify-between items-baseline mb-1">
+                                <span className="font-semibold text-sm truncate">{match.partner_name}</span>
+                                {match.last_message_at && (
+                                  <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
+                                    {formatTime(match.last_message_at)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <p className={`text-xs truncate max-w-[180px] ${match.unread_count > 0 ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
+                                    {match.last_message || 'Inicie a conversa'}
                                 </p>
+                              </div>
                             </div>
-                            </button>
+                          </button>
                         ))}
-                        </div>
+                      </div>
                     )}
                   </ScrollArea>
-                </div>
+                </>
               )}
             </div>
           </motion.div>

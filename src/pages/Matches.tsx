@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,6 +29,7 @@ import { toast } from 'sonner';
 
 import { matchService, Match as ServiceMatch } from '@/services/match.service';
 import { chatService } from '@/services/chat.service';
+import { supabase } from '@/lib/supabase';
 
 export default function Matches() {
   const { user, profile, updateProfile } = useAuth();
@@ -52,29 +53,108 @@ export default function Matches() {
     }
   }, [profile]);
 
-  useEffect(() => {
-    const loadData = async () => {
-      if (!user) return;
-      try {
-        setLoading(true);
-        const userMatches = await matchService.getUserMatches();
-        setMatches(userMatches);
+  const loadMatches = async () => {
+    if (!user) return;
+    try {
+      // Don't set loading to true here to avoid flickering on realtime updates
+      const userMatches = await matchService.getUserMatches();
+      setMatches(userMatches);
+    } catch (error) {
+      console.error("Error loading match data", error);
+      // Only show error toast on initial load or manual refresh, not background updates
+    }
+  };
 
-        // Load events (mock for now or real service if available)
-        try {
-           const events = await eventService.getEvents();
-           setMyEvents(events.slice(0, 3));
-        } catch (e) {
-           console.log('Erro ao carregar eventos', e);
-        }
-      } catch (error) {
-        console.error("Error loading match data", error);
-        toast.error('Erro ao carregar matches');
+  useEffect(() => {
+    const initData = async () => {
+      if (!user) return;
+      setLoading(true);
+      await loadMatches();
+      
+      // Load events (mock for now or real service if available)
+      try {
+         const events = await eventService.getEvents();
+         setMyEvents(events.slice(0, 3));
+      } catch (e) {
+         console.log('Erro ao carregar eventos', e);
       } finally {
         setLoading(false);
       }
     };
-    loadData();
+    initData();
+  }, [user]);
+
+  // Realtime subscription for matches and messages
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase.channel('matches-list-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages'
+        },
+        async (payload) => {
+          // Handle new messages optimistically
+          if (payload.eventType === 'INSERT') {
+            const newMessage = payload.new;
+            
+            setMatches(currentMatches => {
+              const matchIndex = currentMatches.findIndex(m => m.chat_id === newMessage.chat_id);
+              
+              if (matchIndex === -1) {
+                // If match not found, it might be a new match/chat, so reload everything
+                loadMatches();
+                return currentMatches;
+              }
+
+              // Create a new array to avoid mutation
+              const updatedMatches = [...currentMatches];
+              const matchToUpdate = { ...updatedMatches[matchIndex] };
+              
+              // Update last message details
+              matchToUpdate.last_message = newMessage.content;
+              matchToUpdate.last_message_time = newMessage.created_at;
+              
+              // Increment unread count if message is not from current user
+              if (newMessage.sender_id !== user.id) {
+                matchToUpdate.unread_count = (matchToUpdate.unread_count || 0) + 1;
+              }
+
+              // Move updated match to top
+              updatedMatches.splice(matchIndex, 1);
+              updatedMatches.unshift(matchToUpdate);
+              
+              return updatedMatches;
+            });
+          } 
+          // Handle updates (e.g. messages marked as read)
+          else if (payload.eventType === 'UPDATE') {
+             // For status updates (read/delivered), it's safer to reload to get correct unread counts
+             // We can debounce this if needed, but for now direct reload is safer for consistency
+             loadMatches();
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'matches' // Assuming table name is 'matches' or similar junction table
+        },
+        () => {
+          // Any change to matches (new match, unmatch) -> reload list
+          loadMatches();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const handleSaveSettings = async () => {
@@ -207,17 +287,23 @@ export default function Matches() {
                           <AvatarImage src={match.partner_avatar} />
                           <AvatarFallback>{match.partner_name?.[0]}</AvatarFallback>
                         </Avatar>
-                        {/* Indicador de não lido poderia ser implementado verificando mensagens não lidas */}
+                        {match.unread_count && match.unread_count > 0 ? (
+                          <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground border-2 border-background">
+                            {match.unread_count}
+                          </span>
+                        ) : null}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start">
                           <h4 className="font-semibold text-sm truncate">{match.partner_name}</h4>
-                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                            {new Date(match.created_at).toLocaleDateString()}
-                          </span>
+                          {match.last_message_time && (
+                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                              {new Date(match.last_message_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          )}
                         </div>
-                        <p className="text-xs text-muted-foreground truncate mt-0.5 font-medium">
-                          Toque para conversar
+                        <p className={`text-xs truncate mt-0.5 ${match.unread_count && match.unread_count > 0 ? 'font-bold text-foreground' : 'font-medium text-muted-foreground'}`}>
+                          {match.last_message || 'Toque para conversar'}
                         </p>
                       </div>
                     </div>
