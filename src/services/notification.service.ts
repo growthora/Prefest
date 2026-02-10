@@ -1,70 +1,45 @@
 import { supabase } from '@/lib/supabase';
 
 export interface Notification {
-  id: string; // user_notifications id
-  read: boolean;
+  id: string;
+  type: 'like' | 'match' | 'system';
+  event_id: string;
+  payload: any;
   read_at: string | null;
-  notification: {
-    id: string;
-    type: string;
-    reference_id: string;
-    title: string;
-    message: string;
-    created_at: string;
-  };
+  created_at: string;
 }
 
 export const notificationService = {
-  async getUnread(userId: string): Promise<Notification[]> {
-    const { data, error } = await supabase
-      .from('user_notifications')
-      .select(`
-        id,
-        read,
-        read_at,
-        notification:notifications (
-          id,
-          type,
-          reference_id,
-          title,
-          message,
-          created_at
-        )
-      `)
-      .eq('user_id', userId)
-      .eq('read', false);
+  async listNotifications(): Promise<Notification[]> {
+    const { data, error } = await supabase.rpc('list_notifications');
 
     if (error) throw error;
-    
-    // Supabase returns nested object. Sort by created_at desc in JS.
-    const notifications = (data as any[]).map(item => ({
-      id: item.id,
-      read: item.read,
-      read_at: item.read_at,
-      notification: item.notification
-    }));
-
-    return notifications.sort((a, b) => 
-      new Date(b.notification.created_at).getTime() - new Date(a.notification.created_at).getTime()
-    );
+    return data || [];
   },
 
-  async markAsRead(id: string) {
-    const { error } = await supabase
-      .from('user_notifications')
-      .update({ read: true, read_at: new Date().toISOString() })
-      .eq('id', id);
+  async dismissNotification(id: string) {
+    const { error } = await supabase.rpc('dismiss_notification', {
+      p_notification_id: id
+    });
 
     if (error) throw error;
   },
   
-  async markAllAsRead(userId: string) {
-      const { error } = await supabase
-      .from('user_notifications')
-      .update({ read: true, read_at: new Date().toISOString() })
-      .eq('user_id', userId)
-      .eq('read', false);
-      
-      if (error) throw error;
+  subscribeToNotifications(userId: string, callback: (notification: Notification) => void) {
+    return supabase
+      .channel(`notifications:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${userId}`,
+        },
+        (payload) => {
+          callback(payload.new as Notification);
+        }
+      )
+      .subscribe();
   }
 };

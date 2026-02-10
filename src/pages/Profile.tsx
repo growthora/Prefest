@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { supabase } from "@/lib/supabase";
 import { storageService } from "@/services/storage.service";
+import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -14,8 +15,15 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { EventGrid } from "@/components/EventCards";
+import { ImageCropUploader } from "@/components/ImageCropUploader";
 import { eventService } from "@/services/event.service";
 import { Event, ROUTE_PATHS } from "@/lib/index";
 import { toast } from "sonner";
@@ -39,14 +47,18 @@ export default function Profile() {
     city: '',
     avatar_url: '',
     birth_date: '',
+    sexuality: '',
+    height: '',
+    relationship_status: '',
+    match_intention: '',
+    match_gender_preference: '',
   });
 
   // Privacy States
   const [showInitialsOnly, setShowInitialsOnly] = useState(false);
+  const [matchEnabled, setMatchEnabled] = useState(false);
   
-  // Image Upload State
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string>('');
+  // Image Upload State - Removed manual file state as ImageCropUploader handles it
   const [isUploading, setIsUploading] = useState(false);
 
   // Password Change State
@@ -126,9 +138,15 @@ export default function Profile() {
         city: profile.city || '',
         avatar_url: profile.avatar_url || '',
         birth_date: profile.birth_date || '',
+        sexuality: profile.sexuality || '',
+        height: profile.height ? profile.height.toString() : '',
+        relationship_status: profile.relationship_status || '',
+        match_intention: profile.match_intention || '',
+        match_gender_preference: profile.match_gender_preference || '',
       });
       
       setShowInitialsOnly(profile.show_initials_only || false);
+      setMatchEnabled(profile.match_enabled || false);
     }
   }, [profile]);
 
@@ -141,73 +159,23 @@ export default function Profile() {
 
     try {
       setIsUploading(true);
-      let avatarUrl = formData.avatar_url;
-
-      // Upload Image
-      if (avatarFile) {
-        try {
-          // Upload to 'profiles' folder
-          avatarUrl = await storageService.uploadImage(avatarFile, 'profiles');
-          
-          // Delete old image if it exists and is different (and matches our storage pattern)
-          if (formData.avatar_url && formData.avatar_url !== avatarUrl && formData.avatar_url.includes('supabase')) {
-            try {
-              // Extract path from URL if needed, or pass URL if deleteImage handles it
-              // storageService.deleteImage handles full URL logic usually
-              await storageService.deleteImage(formData.avatar_url);
-            } catch (deleteErr) {
-              console.warn('Erro ao deletar imagem anterior:', deleteErr);
-            }
-          }
-        } catch (uploadErr) {
-          console.error('Erro ao fazer upload da imagem:', uploadErr);
-          toast.error('Erro ao fazer upload da imagem');
-          setIsUploading(false);
-          return;
-        }
-      }
-
+      
       const updates = {
         ...formData,
         birth_date: formData.birth_date === '' ? null : formData.birth_date,
-        avatar_url: avatarUrl,
         show_initials_only: showInitialsOnly,
+        height: formData.height ? parseFloat(formData.height) : null,
       };
 
       await updateProfile(updates);
       toast.success('Perfil atualizado com sucesso!');
       setIsEditing(false);
-      setAvatarFile(null);
-      setAvatarPreview('');
     } catch (err) {
       console.error('Erro ao atualizar perfil:', err);
       toast.error('Erro ao atualizar perfil');
     } finally {
       setIsUploading(false);
     }
-  };
-
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      toast.error('Por favor, selecione um arquivo de imagem válido');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('A imagem deve ter no máximo 5MB');
-      return;
-    }
-
-    setAvatarFile(file);
-    
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setAvatarPreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
   };
 
   const handleUpdatePassword = async () => {
@@ -274,6 +242,17 @@ export default function Profile() {
   };
 
   // Toggles
+  const handleToggleMatchEnabled = async (checked: boolean) => {
+    try {
+      setMatchEnabled(checked);
+      await updateProfile({ match_enabled: checked });
+      toast.success(checked ? 'Você agora participa do sistema de Matches!' : 'Participação em Matches desativada.');
+    } catch (err) {
+      setMatchEnabled(!checked);
+      toast.error('Erro ao atualizar status de match');
+    }
+  };
+
   const handleToggleInitialsOnly = async (checked: boolean) => {
     try {
       setShowInitialsOnly(checked);
@@ -325,29 +304,31 @@ export default function Profile() {
           <Card>
             <CardHeader>
               <div className="flex flex-col items-center text-center space-y-6">
-                <div className="relative group">
-                  <Avatar className="h-32 w-32 border-4 border-background shadow-xl">
-                    <AvatarImage src={avatarPreview || formData.avatar_url || undefined} className="object-cover" />
-                    <AvatarFallback className="text-4xl">
-                      {getInitials(formData.full_name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  {isEditing && (
-                    <>
-                      <input
-                        type="file"
-                        id="avatar-upload"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleAvatarChange}
-                      />
-                      <label
-                        htmlFor="avatar-upload"
-                        className="absolute bottom-0 right-0 p-2.5 bg-primary rounded-full text-white shadow-lg cursor-pointer hover:bg-primary/90 transition-transform hover:scale-105"
-                      >
-                        <Camera className="w-5 h-5" />
-                      </label>
-                    </>
+                <div className="relative group flex justify-center">
+                  {isEditing ? (
+                    <ImageCropUploader
+                      type="profile"
+                      value={formData.avatar_url}
+                      onChange={(url) => setFormData(prev => ({ ...prev, avatar_url: url }))}
+                      className="cursor-pointer"
+                    >
+                      <Avatar className="h-32 w-32 border-4 border-background shadow-xl">
+                        <AvatarImage src={formData.avatar_url || undefined} className="object-cover" />
+                        <AvatarFallback className="text-4xl">
+                          {getInitials(formData.full_name)}
+                        </AvatarFallback>
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
+                           <Camera className="text-white w-8 h-8" />
+                        </div>
+                      </Avatar>
+                    </ImageCropUploader>
+                  ) : (
+                    <Avatar className="h-32 w-32 border-4 border-background shadow-xl">
+                      <AvatarImage src={formData.avatar_url || undefined} className="object-cover" />
+                      <AvatarFallback className="text-4xl">
+                        {getInitials(formData.full_name)}
+                      </AvatarFallback>
+                    </Avatar>
                   )}
                 </div>
                 
@@ -428,13 +409,141 @@ export default function Profile() {
                       rows={3}
                     />
                   </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="height">Altura (m)</Label>
+                      <Input
+                        id="height"
+                        type="number"
+                        step="0.01"
+                        value={formData.height}
+                        onChange={(e) => setFormData({ ...formData, height: e.target.value })}
+                        placeholder="Ex: 1.75"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="sexuality">Sexualidade</Label>
+                      <Select 
+                        value={formData.sexuality} 
+                        onValueChange={(value) => setFormData({ ...formData, sexuality: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="heterossexual">Heterossexual</SelectItem>
+                          <SelectItem value="gay">Gay</SelectItem>
+                          <SelectItem value="lesbica">Lésbica</SelectItem>
+                          <SelectItem value="bissexual">Bissexual</SelectItem>
+                          <SelectItem value="pansexual">Pansexual</SelectItem>
+                          <SelectItem value="assexual">Assexual</SelectItem>
+                          <SelectItem value="queer">Queer</SelectItem>
+                          <SelectItem value="outro">Outro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="relationship_status">Status de Relacionamento</Label>
+                      <Select 
+                        value={formData.relationship_status} 
+                        onValueChange={(value) => setFormData({ ...formData, relationship_status: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="solteiro">Solteiro(a)</SelectItem>
+                          <SelectItem value="casado">Casado(a)</SelectItem>
+                          <SelectItem value="namorando">Namorando</SelectItem>
+                          <SelectItem value="divorciado">Divorciado(a)</SelectItem>
+                          <SelectItem value="viuvo">Viúvo(a)</SelectItem>
+                          <SelectItem value="enrolado">Enrolado(a)</SelectItem>
+                          <SelectItem value="relacionamento_aberto">Relacionamento Aberto</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="match_intention">Intenção no App</Label>
+                      <Select 
+                        value={formData.match_intention} 
+                        onValueChange={(value) => setFormData({ ...formData, match_intention: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="paquera">Paquera / Date</SelectItem>
+                          <SelectItem value="amizade">Amizade</SelectItem>
+                          <SelectItem value="networking">Networking</SelectItem>
+                          <SelectItem value="casual">Algo Casual</SelectItem>
+                          <SelectItem value="serio">Relacionamento Sério</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="match_gender_preference">Interesse em</Label>
+                      <Select 
+                        value={formData.match_gender_preference} 
+                        onValueChange={(value) => setFormData({ ...formData, match_gender_preference: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="todos">Todos</SelectItem>
+                          <SelectItem value="homens">Homens</SelectItem>
+                          <SelectItem value="mulheres">Mulheres</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <h3 className="font-semibold text-sm text-muted-foreground">Sobre</h3>
-                  <p className="text-base leading-relaxed break-words">
-                    {formData.bio || 'Nenhuma biografia adicionada ainda.'}
-                  </p>
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Sobre</h3>
+                    <p className="text-base leading-relaxed break-words">
+                      {formData.bio || 'Nenhuma biografia adicionada ainda.'}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {formData.height && (
+                      <div className="space-y-1">
+                        <h3 className="font-semibold text-xs text-muted-foreground uppercase">Altura</h3>
+                        <p>{formData.height}m</p>
+                      </div>
+                    )}
+                    {formData.sexuality && (
+                      <div className="space-y-1">
+                        <h3 className="font-semibold text-xs text-muted-foreground uppercase">Sexualidade</h3>
+                        <p className="capitalize">{formData.sexuality}</p>
+                      </div>
+                    )}
+                    {formData.relationship_status && (
+                      <div className="space-y-1">
+                        <h3 className="font-semibold text-xs text-muted-foreground uppercase">Status</h3>
+                        <p className="capitalize">{formData.relationship_status.replace('_', ' ')}</p>
+                      </div>
+                    )}
+                    {formData.match_intention && (
+                      <div className="space-y-1">
+                        <h3 className="font-semibold text-xs text-muted-foreground uppercase">Intenção</h3>
+                        <p className="capitalize">{formData.match_intention}</p>
+                      </div>
+                    )}
+                     {formData.match_gender_preference && (
+                      <div className="space-y-1">
+                        <h3 className="font-semibold text-xs text-muted-foreground uppercase">Interesse em</h3>
+                        <p className="capitalize">{formData.match_gender_preference}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -442,17 +551,36 @@ export default function Profile() {
 
 
 
-          {/* Outras Configurações */}
+          {/* Match Settings */}
           <Card>
             <CardHeader>
-              <CardTitle>Outras Configurações</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Heart className="w-5 h-5 text-primary" />
+                Configurações de Match
+              </CardTitle>
+              <CardDescription>Gerencie sua visibilidade e participação no sistema de matches</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-               <div className="flex items-center justify-between gap-4">
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-1 flex-1">
+                  <Label htmlFor="match-enabled" className="text-base font-medium">Participar de Matches</Label>
+                  <p className="text-sm text-muted-foreground leading-snug">
+                    Ative para aparecer na fila de matches dos eventos e conhecer novas pessoas.
+                    Ao desativar, você não será visto por ninguém.
+                  </p>
+                </div>
+                <Switch 
+                  id="match-enabled"
+                  checked={matchEnabled}
+                  onCheckedChange={handleToggleMatchEnabled}
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-4">
                 <div className="space-y-1 flex-1">
                   <Label htmlFor="anonymous" className="text-base font-medium">Anonimato Total</Label>
                   <p className="text-sm text-muted-foreground leading-snug">
-                    Ocultar meu nome completo mesmo com Match ativo (usar iniciais)
+                    Ocultar meu nome completo mesmo com Match ativo (usar apenas iniciais)
                   </p>
                 </div>
                 <Switch 

@@ -3,6 +3,8 @@ import { User, Match, Message, APP_CONFIG } from '@/lib/index';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { likeService } from '@/services/like.service';
+import { matchService } from '@/services/match.service';
+import { chatService } from '@/services/chat.service';
 import { toast } from 'sonner';
 
 /**
@@ -16,8 +18,8 @@ export function useMatch(eventId?: string) {
   const [currentQueue, setCurrentQueue] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Mapear single_mode do profile
-  const isSingleMode = profile?.single_mode || false;
+  // Mapear match_enabled do profile
+  const isSingleMode = profile?.match_enabled || false;
 
   // Carregar matches existentes
   useEffect(() => {
@@ -29,16 +31,20 @@ export function useMatch(eventId?: string) {
   const loadMatches = async () => {
     if (!user) return;
     try {
-      const userMatches = await likeService.getMatches(user.id);
-      // Converter UserLike[] para Match[]
+      const userMatches = await matchService.getUserMatches();
+      // Converter Match (do service) para Match (da UI)
       const mappedMatches: Match[] = userMatches.map(m => ({
-        id: m.id,
+        id: m.match_id,
         eventId: m.event_id,
-        userIds: [m.from_user_id, m.to_user_id],
+        userIds: [user.id, m.partner_id],
         status: 'active',
         createdAt: m.created_at,
         expiresAt: new Date(new Date(m.created_at).getTime() + 24 * 60 * 60 * 1000).toISOString(),
-        // TODO: Buscar última mensagem real
+        partner: {
+            id: m.partner_id,
+            name: m.partner_name,
+            photo: m.partner_avatar,
+        }
       }));
       setMatches(mappedMatches);
     } catch (error) {
@@ -87,10 +93,10 @@ export function useMatch(eventId?: string) {
   const toggleSingleMode = useCallback(async () => {
     if (!user) return;
     try {
-      await updateProfile({ single_mode: !isSingleMode });
-      toast.success(isSingleMode ? 'Modo solteiro desativado' : 'Modo solteiro ativado!');
+      await updateProfile({ match_enabled: !isSingleMode });
+      toast.success(isSingleMode ? 'Modo Match desativado' : 'Modo Match ativado!');
     } catch (error) {
-      console.error('Erro ao atualizar modo solteiro:', error);
+      console.error('Erro ao atualizar modo Match:', error);
       toast.error('Erro ao atualizar status');
     }
   }, [user, isSingleMode, updateProfile]);
@@ -131,19 +137,23 @@ export function useMatch(eventId?: string) {
 
   const getPartnerProfile = useCallback((match: Match) => {
     if (!user) return undefined;
-    const partnerId = match.userIds.find(id => id !== user.id);
-    // Aqui precisaríamos ter o perfil do parceiro carregado
-    // Por enquanto, vamos tentar achar nos matches carregados se trouxemos dados populados
-    // O likeService.getMatches traz 'from_user'. Se eu fui quem deu o like, 'to_user' é o parceiro.
-    // Isso requer ajuste no mapping.
-    return undefined; // Placeholder
+    return match.partner; 
   }, [user]);
 
-  // Envio de mensagem (ainda simulado ou placeholder)
-  const sendMessage = useCallback((matchId: string, content: string) => {
-    console.log('TODO: Implementar envio real de mensagem', { matchId, content });
-    // TODO: Usar service de mensagens real
-  }, []);
+  // Envio de mensagem
+  const sendMessage = useCallback(async (matchId: string, content: string) => {
+    if (!user) return;
+    try {
+        // Primeiro garante que o chat existe
+        const chatId = await chatService.getOrCreateChat(matchId);
+        if (chatId) {
+            await chatService.sendMessage(chatId, user.id, content);
+        }
+    } catch (error) {
+        console.error("Erro ao enviar mensagem", error);
+        toast.error("Erro ao enviar mensagem");
+    }
+  }, [user]);
 
   const stats = useMemo(() => ({
     totalMatches: matches.length,

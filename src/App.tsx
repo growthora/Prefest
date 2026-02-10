@@ -57,6 +57,8 @@ const RedirectToEventDetails = () => {
   return <Navigate to={`/eventos/${slug}`} replace />;
 };
 
+import { NotificationManager } from "@/components/NotificationManager";
+
 const AppRoutes = () => {
   const { authStatus } = useAuth();
 
@@ -65,8 +67,10 @@ const AppRoutes = () => {
   }
 
   return (
-    <Routes>
-      <Route path={ROUTE_PATHS.LOGIN} element={<LoginForm />} />
+    <>
+      <NotificationManager />
+      <Routes>
+        <Route path={ROUTE_PATHS.LOGIN} element={<LoginForm />} />
       <Route path={ROUTE_PATHS.FORGOT_PASSWORD} element={<ForgotPassword />} />
       <Route path={ROUTE_PATHS.UPDATE_PASSWORD} element={<UpdatePassword />} />
       <Route path="/admin" element={<AdminPanel />} />
@@ -115,6 +119,7 @@ const AppRoutes = () => {
       
       <Route path="*" element={<Navigate to={ROUTE_PATHS.HOME} replace />} />
     </Routes>
+    </>
   );
 };
 

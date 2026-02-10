@@ -32,6 +32,8 @@ import { ProfileMenu } from '@/components/ProfileMenu';
 import { CreateEventModal } from '@/components/CreateEventModal';
 import { AuthModal } from '@/components/AuthModal';
 import { LocationPopup } from '@/components/LocationPopup';
+import { FloatingChat } from '@/components/FloatingChat';
+import { MatchPersistentToast } from '@/components/MatchPersistentToast';
 import logoImage from '@/assets/PHOTO-2026-02-02-13-32-10_-_cópia-removebg-preview.png';
 import { Input } from '@/components/ui/input';
 import { StateSelector } from '@/components/StateSelector';
@@ -372,6 +374,8 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
       
       {/* Location Popup - Global Floating Notification */}
       <LocationPopup />
+      <FloatingChat />
+      <MatchPersistentToast />
     </div>
   );
 }

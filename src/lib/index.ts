@@ -100,6 +100,11 @@ export interface Match {
   createdAt: string;
   expiresAt: string;
   lastMessage?: Message;
+  partner?: {
+    id: string;
+    name: string;
+    photo: string;
+  };
 }
 
 export interface AppConfig {

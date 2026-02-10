@@ -14,16 +14,20 @@ import {
   EyeOff,
   Flame,
   MessageCircle,
-  Ticket
+  Ticket,
+  HeartHandshake
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Layout } from '@/components/Layout';
 import { TicketPurchase } from '@/components/TicketPurchase';
 import { ProfileModal } from '@/components/ProfileModal';
 import { MatchInterface } from '@/components/MatchCards';
+import { AttendeesList } from '@/components/AttendeesList';
 import { Event, ROUTE_PATHS } from '@/lib/index';
 import { eventService, type Event as SupabaseEvent, MatchCandidate } from '@/services/event.service';
 import { likeService } from '@/services/like.service';
+import { matchService } from '@/services/match.service';
+import { chatService } from '@/services/chat.service';
 import { IMAGES } from '@/assets/images';
 import { useAuth } from '@/hooks/useAuth';
 import { useMatch } from '@/hooks/useMatch';
@@ -35,6 +39,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import confetti from 'canvas-confetti';
 
 export default function EventDetails() {
   const { slug } = useParams<{ slug: string }>();
@@ -56,11 +61,16 @@ export default function EventDetails() {
   const [isLiked, setIsLiked] = useState(false);
   const [isLoadingLike, setIsLoadingLike] = useState(false);
 
+  // Received Likes State
+  const [receivedLikes, setReceivedLikes] = useState<any[]>([]);
+  const [loadingReceivedLikes, setLoadingReceivedLikes] = useState(false);
+
   // Match Interface State
   const [showMatchOverlay, setShowMatchOverlay] = useState(false);
   const [lastMatchedUser, setLastMatchedUser] = useState<string | null>(null);
   const [lastMatchedUserName, setLastMatchedUserName] = useState<string>('');
   const [lastMatchedUserPhoto, setLastMatchedUserPhoto] = useState<string>('');
+  const [lastMatchChatId, setLastMatchChatId] = useState<string | null>(null);
   const { likeUser, skipUser, currentQueue, loading: loadingMatchQueue } = useMatch(event?.id);
 
   // Match Queue State (local to avoid conflicts with hook's auto-removal)
@@ -72,10 +82,103 @@ export default function EventDetails() {
   }, [slug]);
 
   useEffect(() => {
-    if (activeTab === 'attendees' && event?.id && profile?.meet_attendees) {
+    if (activeTab === 'match' && event?.id && profile?.match_enabled) {
       loadMatchCandidates();
     }
-  }, [activeTab, event?.id, profile?.meet_attendees]);
+  }, [activeTab, event?.id, profile?.match_enabled]);
+
+  useEffect(() => {
+    if (activeTab === 'likes' && event?.id) {
+      loadReceivedLikes();
+
+      // Subscribe to new likes in realtime
+      const subscription = supabase
+        .channel(`likes:${event.id}:${user?.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'likes',
+            filter: `to_user_id=eq.${user?.id}`
+          },
+          (payload) => {
+             console.log('❤️ New like received!', payload);
+             if (payload.new.event_id === event.id) {
+                loadReceivedLikes();
+                toast.info('Você recebeu uma nova curtida! ❤️');
+             }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    }
+  }, [activeTab, event?.id, user?.id]);
+
+  const loadReceivedLikes = async () => {
+    if (!event?.id) return;
+    setLoadingReceivedLikes(true);
+    try {
+      const likes = await likeService.getReceivedLikes(event.id);
+      setReceivedLikes(likes);
+    } catch (error) {
+      console.error('Error loading received likes:', error);
+    } finally {
+      setLoadingReceivedLikes(false);
+    }
+  };
+
+  const handleLikeBack = async (likeId: string, userId: string) => {
+    if (!event?.id) return;
+    try {
+      const result = await likeService.likeUser(userId, event.id);
+      setReceivedLikes(prev => prev.filter(l => l.like_id !== likeId));
+      
+      if (result.status === 'match') {
+        toast.success("It's a Match! 🎉");
+        
+        // Play sound
+        const audio = new Audio('/sounds/match.mp3');
+        audio.play().catch(e => console.log('Audio play failed', e));
+
+        // Confetti
+        confetti({
+            particleCount: 150,
+            spread: 70,
+            origin: { y: 0.6 }
+        });
+
+        // Fetch user details to show in overlay
+        try {
+            const profile = await eventService.getPublicProfile(userId);
+            if (profile) {
+                setLastMatchedUser(userId);
+                setLastMatchedUserName(profile.full_name || 'Alguém');
+                setLastMatchedUserPhoto(profile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`);
+                setLastMatchChatId(result.match_id || null);
+                setShowMatchOverlay(true);
+            }
+        } catch (e) {
+            console.error('Error fetching matched profile', e);
+        }
+      }
+    } catch (error) {
+      toast.error('Erro ao curtir de volta');
+    }
+  };
+
+  const handleIgnoreLike = async (likeId: string) => {
+    try {
+      await likeService.ignoreLike(likeId);
+      setReceivedLikes(prev => prev.filter(l => l.like_id !== likeId));
+      toast.info('Curtida ignorada');
+    } catch (error) {
+      toast.error('Erro ao ignorar');
+    }
+  };
 
   const loadMatchCandidates = async () => {
     if (!event?.id || !user) return;
@@ -93,7 +196,17 @@ export default function EventDetails() {
 
       // Filter current user and map to User interface
       const mapped = candidates
-        .filter((c: any) => c.id !== user.id && c.user_id !== user.id)
+        .filter((c: any) => {
+          // Basic self-filter
+          if (c.id === user.id || c.user_id === user.id) return false;
+          
+          // Privacy filter: Must have match_enabled explicit or implicit via endpoint context
+          // If coming from getMatchCandidates (RPC), it's already filtered.
+          // If coming from fallback getEventAttendees, we must check match_enabled if available
+          if (c.match_enabled === false) return false;
+          
+          return true;
+        })
         .map((c: any) => ({
           id: c.id || c.user_id,
           name: c.full_name || c.name || 'Usuário',
@@ -233,10 +346,25 @@ export default function EventDetails() {
     }
     
     try {
-      const newValue = !profile.meet_attendees;
-      await updateProfile({ meet_attendees: newValue });
-      toast.success(newValue ? 'Você agora aparece na lista!' : 'Você agora está anônimo na lista.');
-      fetchAttendees(); // Refresh list to reflect changes
+      // Toggle based on match_enabled as it is the primary flag for Match System
+      const isEnabled = profile.match_enabled;
+      const newValue = !isEnabled;
+      
+      const updates: any = { 
+          match_enabled: newValue,
+          meet_attendees: newValue, // Sync both for consistency
+          allow_profile_view: newValue // Ensure profile is visible if matching
+      };
+
+      await updateProfile(updates);
+      toast.success(newValue ? 'Você entrou no Match! 🔥' : 'Você ficou invisível. 👻');
+      
+      // Se ativou, recarrega candidatos
+      if (newValue) {
+        loadMatchCandidates();
+      }
+      
+      fetchAttendees(); 
     } catch (error) {
       console.error('Erro ao atualizar configuração:', error);
       toast.error('Erro ao atualizar status');
@@ -345,16 +473,72 @@ export default function EventDetails() {
       const likeResult = await likeService.likeUser(userId, event.id);
       
       // Encontrar o usuário que recebeu o like para pegar o nome e foto
-      const likedUser = attendees.find(p => p.user_id === userId); // attendees uses user_id
+      const likedUser = matchQueue.find(p => p.id === userId); 
       
-      if (likeResult.is_match) {
+      if (likeResult.status === 'already_liked') {
+        toast.info('Você já curtiu esta pessoa');
+        return;
+      }
+
+      if (likeResult.status === 'match' || likeResult.is_match) {
         // É um match!
         console.log('💕 É um match!');
+        
+        // Disparar confetes
+        const duration = 3000;
+        const end = Date.now() + duration;
+
+        const frame = () => {
+          confetti({
+            particleCount: 2,
+            angle: 60,
+            spread: 55,
+            origin: { x: 0 },
+            colors: ['#ff0000', '#ff69b4', '#ffff00']
+          });
+          confetti({
+            particleCount: 2,
+            angle: 120,
+            spread: 55,
+            origin: { x: 1 },
+            colors: ['#ff0000', '#ff69b4', '#ffff00']
+          });
+
+          if (Date.now() < end) {
+            requestAnimationFrame(frame);
+          }
+        };
+        frame();
+
         setLastMatchedUser(userId);
         setLastMatchedUserName(likedUser?.name || 'Alguém');
-        setLastMatchedUserPhoto(likedUser?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`);
+        setLastMatchedUserPhoto(likedUser?.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`);
+        
+        // Resolve Chat ID
+        let chatId = likeResult.chat_id;
+        if (!chatId && likeResult.match_id) {
+           try {
+             chatId = await chatService.getOrCreateChat(likeResult.match_id);
+           } catch (e) {
+             console.error('Error getting chat ID', e);
+           }
+        }
+        setLastMatchChatId(chatId || likeResult.match_id || null);
+
         setShowMatchOverlay(true);
         toast.success('É um Match! 💕');
+        
+        // Tocar som de match se existir
+        const audio = new Audio('/sounds/match.mp3');
+        audio.play().catch(e => console.log('Audio play failed', e));
+
+        // Marcar match como visto imediatamente (UI feedback loop)
+        if (likeResult.match_id) {
+          matchService.markMatchSeen(likeResult.match_id).catch(err => 
+            console.error('Erro ao marcar match como visto:', err)
+          );
+        }
+        
       } else {
         console.log('✅ Like enviado');
         toast.success('Like enviado! ❤️');
@@ -447,28 +631,33 @@ export default function EventDetails() {
 
         {/* Tabs Navigation */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6 lg:mb-8 bg-card/50 border border-border/40 h-auto p-1">
+          <TabsList className="grid w-full grid-cols-4 mb-6 lg:mb-8 bg-card/50 border border-border/40 h-auto p-1">
             <TabsTrigger 
               value="details" 
               className="data-[state=active]:bg-primary data-[state=active]:text-white py-2 lg:py-1.5 text-xs lg:text-sm"
             >
-              Detalhes do Evento
+              Detalhes
             </TabsTrigger>
             <TabsTrigger 
               value="attendees" 
               className="data-[state=active]:bg-primary data-[state=active]:text-white flex items-center gap-2 py-2 lg:py-1.5 text-xs lg:text-sm"
             >
-              {event?.event_type === 'formal' ? (
-                <>
-                  <Sparkles size={14} className="lg:w-4 lg:h-4" />
-                  Networking
-                </>
-              ) : (
-                <>
-                  <Users size={14} className="fill-current lg:w-4 lg:h-4" />
-                  Conheça a Galera
-                </>
-              )}
+              <Users size={14} className="fill-current lg:w-4 lg:h-4" />
+              Galera
+            </TabsTrigger>
+            <TabsTrigger 
+              value="likes" 
+              className="data-[state=active]:bg-primary data-[state=active]:text-white flex items-center gap-2 py-2 lg:py-1.5 text-xs lg:text-sm"
+            >
+              <Heart size={14} className="lg:w-4 lg:h-4" />
+              Curtidas
+            </TabsTrigger>
+            <TabsTrigger 
+              value="match" 
+              className="data-[state=active]:bg-primary data-[state=active]:text-white flex items-center gap-2 py-2 lg:py-1.5 text-xs lg:text-sm"
+            >
+              <HeartHandshake size={14} className="lg:w-4 lg:h-4" />
+              Match
             </TabsTrigger>
           </TabsList>
 
@@ -626,6 +815,94 @@ export default function EventDetails() {
           </div>
           </TabsContent>
 
+          <TabsContent value="likes" className="mt-0 min-h-[50vh]">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              {/* Header */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card/30 p-6 rounded-xl border border-border/40">
+                <div>
+                  <h3 className="text-2xl font-bold flex items-center gap-2">
+                    <Heart className="w-6 h-6 text-primary" />
+                    Curtidas Recebidas
+                  </h3>
+                  <p className="text-muted-foreground mt-1">
+                    Veja quem curtiu você neste evento!
+                  </p>
+                </div>
+              </div>
+
+              {loadingReceivedLikes ? (
+                <div className="flex justify-center py-12">
+                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : receivedLikes.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground flex flex-col items-center">
+                  <Heart className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                  <p className="mb-2">Nenhuma curtida nova por enquanto.</p>
+                  <p className="text-sm mb-6">Participe do Match para ser visto e encontrar pessoas!</p>
+                  
+                  {user && (
+                    <Button 
+                      onClick={() => {
+                        setActiveTab('match');
+                        // If not enabled, the match tab will show the big CTA
+                      }}
+                      variant="outline"
+                      className="gap-2 border-primary/50 text-primary hover:bg-primary/5"
+                    >
+                      <HeartHandshake size={16} />
+                      Ir para o Match
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {receivedLikes.map((like) => (
+                    <div key={like.like_id} className="bg-card border border-border/50 rounded-xl p-4 flex items-center gap-4 relative overflow-hidden group">
+                      <div className="relative">
+                        <Avatar className="h-16 w-16 border-2 border-primary/20 blur-sm">
+                          <AvatarImage src={`https://ui-avatars.com/api/?name=User&background=random`} />
+                          <AvatarFallback>?</AvatarFallback>
+                        </Avatar>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <EyeOff className="w-6 h-6 text-white drop-shadow-md" />
+                        </div>
+                      </div>
+                      
+                      <div className="flex-1 min-w-0 z-10">
+                        <h4 className="font-semibold text-sm mb-1">Alguém curtiu você!</h4>
+                        <p className="text-xs text-muted-foreground">No evento {event?.title}</p>
+                        
+                        <div className="flex gap-2 mt-3">
+                          <Button 
+                            size="sm" 
+                            className="h-8 flex-1 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white border-0"
+                            onClick={() => handleLikeBack(like.like_id, like.from_user_id)}
+                          >
+                            <Heart className="w-3 h-3 mr-1.5 fill-current" />
+                            Curtir
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="h-8 px-3"
+                            onClick={() => handleIgnoreLike(like.like_id)}
+                          >
+                            <span className="sr-only">Ignorar</span>
+                            <span className="text-xs">Ignorar</span>
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          </TabsContent>
+
           <TabsContent value="attendees" className="mt-0 min-h-[50vh]">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -643,31 +920,58 @@ export default function EventDetails() {
                     {attendees.length} pessoas confirmadas
                   </p>
                 </div>
+              </div>
+
+              <AttendeesList 
+                attendees={attendees}
+                loading={loadingAttendees}
+                onSelectAttendee={setSelectedAttendee}
+              />
+            </motion.div>
+          </TabsContent>
+
+          <TabsContent value="match" className="mt-0 min-h-[50vh]">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              {/* Header */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card/30 p-6 rounded-xl border border-border/40">
+                <div>
+                  <h3 className="text-2xl font-bold flex items-center gap-2">
+                    <HeartHandshake className="w-6 h-6 text-primary" />
+                    Match
+                  </h3>
+                  <p className="text-muted-foreground mt-1">
+                    Encontre sua companhia para o evento
+                  </p>
+                </div>
 
                 {user && (
                   <div className="flex items-center gap-4">
                     <div className="text-right hidden md:block">
                       <p className="text-sm font-medium">
-                        {profile?.meet_attendees ? 'Você está visível' : 'Você está invisível'}
+                        {profile?.match_enabled ? 'Você está visível' : 'Você está invisível'}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {profile?.meet_attendees ? 'Outros podem ver seu perfil' : 'Ative para ver quem vai'}
+                        {profile?.match_enabled ? 'Outros podem ver seu perfil' : 'Ative para participar do Match'}
                       </p>
                     </div>
                     <Button 
-                      variant={profile?.meet_attendees ? "outline" : "default"}
+                      variant={profile?.match_enabled ? "outline" : "default"}
                       onClick={handleToggleMeetAttendees}
                       className="gap-2"
                     >
-                      {profile?.meet_attendees ? (
+                      {profile?.match_enabled ? (
                         <>
                           <EyeOff size={16} />
-                          Ficar Invisível
+                          Sair do Match
                         </>
                       ) : (
                         <>
                           <Eye size={16} />
-                          Ativar Conheça a Galera
+                          Entrar no Match
                         </>
                       )}
                     </Button>
@@ -680,32 +984,32 @@ export default function EventDetails() {
                   <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
                     <UserPlus className="w-8 h-8 text-primary" />
                   </div>
-                  <h4 className="font-semibold text-xl mb-2">Faça login para ver quem vai!</h4>
+                  <h4 className="font-semibold text-xl mb-2">Faça login para dar Match!</h4>
                   <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                    Entre na sua conta para interagir com outros participantes e aparecer na lista.
+                    Entre na sua conta para interagir com outros participantes.
                   </p>
                   <Button onClick={() => navigate('/login')} size="lg" className="px-8">Fazer Login</Button>
                 </div>
-              ) : !profile?.meet_attendees ? (
+              ) : !profile?.match_enabled ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center bg-card/30 rounded-xl border border-border/40 p-8">
                    <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6 relative">
                      <Flame className="w-10 h-10 text-primary animate-pulse" />
                      <Sparkles className="absolute -top-2 -right-2 w-6 h-6 text-yellow-400 animate-bounce" />
                    </div>
-                   <h3 className="text-2xl font-bold mb-3">Conheça a Galera!</h3>
+                   <h3 className="text-2xl font-bold mb-3">Participe do Match!</h3>
                    <p className="text-muted-foreground max-w-md mb-8 text-lg">
-                     Ative o modo "Conheça a Galera" para ver quem mais vai neste evento, dar matches e fazer novas conexões antes mesmo da festa começar!
+                     Ative o modo Match para encontrar pessoas com interesses em comum que também vão ao evento.
                    </p>
                    <Button 
                      size="lg" 
                      className="gap-2 text-lg px-8 py-6 rounded-xl shadow-xl shadow-primary/20 hover:shadow-primary/40 transition-all hover:scale-105"
                      onClick={handleToggleMeetAttendees}
                    >
-                     <Eye size={20} />
-                     Ativar Agora
+                     <HeartHandshake size={20} />
+                     Entrar no Match Agora
                    </Button>
                    <p className="text-xs text-muted-foreground mt-4">
-                     Ao ativar, seu perfil também ficará visível para outros participantes.
+                     Ao ativar, seu perfil ficará visível para outros participantes na aba de Match.
                    </p>
                 </div>
               ) : (
@@ -824,7 +1128,13 @@ export default function EventDetails() {
                 <Button 
                   onClick={() => {
                     setShowMatchOverlay(false);
-                    toast.success('Sistema de chat será implementado em breve!');
+                    if (lastMatchChatId) {
+                        // Marcar interação iniciada antes de navegar
+                        matchService.markChatOpened(lastMatchChatId).catch(console.error);
+                        navigate(`/chat/${lastMatchChatId}`);
+                    } else {
+                        toast.error('Erro ao redirecionar para o chat');
+                    }
                   }}
                   className="bg-gradient-to-r from-pink-500 to-primary hover:from-pink-600 hover:to-primary/90 text-white py-6 rounded-xl font-bold text-lg shadow-xl"
                 >

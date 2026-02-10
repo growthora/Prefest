@@ -8,6 +8,7 @@ import { userService, type UserWithStats, type CreateUserData, type UpdateUserDa
 import { storageService } from '@/services/storage.service';
 import { eventRequestService, type EventRequest } from '@/services/event-request.service';
 import type { Profile } from '@/services/auth.service';
+import { ImageCropUploader } from '@/components/ImageCropUploader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -86,11 +87,7 @@ export const AdminPanel = () => {
   });
 
   const [userUpdate, setUserUpdate] = useState<UpdateUserData>({});
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string>('');
-  const [isUploading, setIsUploading] = useState(false);
-  const [editImageFile, setEditImageFile] = useState<File | null>(null);
-  const [editImagePreview, setEditImagePreview] = useState<string>('');
+  // Image handling is now done via ImageCropUploader which returns the URL directly
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -214,32 +211,6 @@ export const AdminPanel = () => {
     }
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Validar tipo de arquivo
-      if (!file.type.startsWith('image/')) {
-        toast.error('Por favor, selecione uma imagem válida');
-        return;
-      }
-
-      // Validar tamanho (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('A imagem deve ter no máximo 5MB');
-        return;
-      }
-
-      setImageFile(file);
-      
-      // Criar preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const handleDeleteCoupon = async (couponId: string) => {
     if (!await confirm({
       title: 'Deletar Cupom',
@@ -261,40 +232,7 @@ export const AdminPanel = () => {
 
   const handleEditEvent = (event: Event) => {
     setEditingEvent(event);
-    setEditImageFile(null);
-    setEditImagePreview('');
     setIsEditDialogOpen(true);
-  };
-
-  const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validar tipo de arquivo
-    if (!file.type.startsWith('image/')) {
-      toast.error('Por favor, selecione um arquivo de imagem válido');
-      return;
-    }
-
-    // Validar tamanho do arquivo (máximo 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('A imagem deve ter no máximo 5MB');
-      return;
-    }
-
-    setEditImageFile(file);
-    
-    // Criar preview
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setEditImagePreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleRemoveEditImage = () => {
-    setEditImageFile(null);
-    setEditImagePreview('');
   };
 
   const handleUpdateEvent = async (e: React.FormEvent) => {
@@ -303,38 +241,13 @@ export const AdminPanel = () => {
 
     try {
       setIsLoading(true);
-      setIsUploading(true);
-      let imageUrl = editingEvent.image_url;
-      const oldImageUrl = editingEvent.image_url;
-
-      // Se houver um arquivo de imagem selecionado, fazer upload primeiro
-      if (editImageFile) {
-        try {
-          imageUrl = await storageService.uploadImage(editImageFile, 'events');
-          
-          // Se havia uma imagem anterior no storage, deletar
-          if (oldImageUrl && oldImageUrl.includes('supabase')) {
-            try {
-              await storageService.deleteImage(oldImageUrl);
-            } catch (deleteErr) {
-              console.warn('Erro ao deletar imagem anterior:', deleteErr);
-            }
-          }
-        } catch (uploadErr) {
-          console.error('Erro ao fazer upload da imagem:', uploadErr);
-          toast.error('Erro ao fazer upload da imagem');
-          setIsLoading(false);
-          setIsUploading(false);
-          return;
-        }
-      }
-
+      
       await eventService.updateEvent(editingEvent.id, {
         title: editingEvent.title,
         description: editingEvent.description,
         event_date: editingEvent.event_date,
         location: editingEvent.location,
-        image_url: imageUrl,
+        image_url: editingEvent.image_url,
         category: editingEvent.category,
         price: editingEvent.price,
         max_participants: editingEvent.max_participants,
@@ -343,14 +256,11 @@ export const AdminPanel = () => {
       toast.success('Evento atualizado com sucesso!');
       setIsEditDialogOpen(false);
       setEditingEvent(null);
-      setEditImageFile(null);
-      setEditImagePreview('');
       await loadData();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao atualizar evento');
     } finally {
       setIsLoading(false);
-      setIsUploading(false);
     }
   };
 
@@ -502,16 +412,6 @@ export const AdminPanel = () => {
 
     try {
       setIsLoading(true);
-      setIsUploading(true);
-
-      let imageUrl = newEvent.image_url;
-
-      // Se houver arquivo selecionado, fazer upload
-      if (imageFile) {
-        toast.info('Fazendo upload da imagem...');
-        imageUrl = await storageService.uploadImage(imageFile, 'events');
-        toast.success('Imagem enviada!');
-      }
 
       const event = await eventService.createEvent({
         title: newEvent.title,
@@ -520,7 +420,7 @@ export const AdminPanel = () => {
         location: newEvent.location,
         state: newEvent.state,
         city: newEvent.city,
-        image_url: imageUrl,
+        image_url: newEvent.image_url,
         category: newEvent.category,
         price: newEvent.price,
         max_participants: newEvent.max_participants,
@@ -551,14 +451,11 @@ export const AdminPanel = () => {
           quantity_available: 100,
         }
       ]);
-      setImageFile(null);
-      setImagePreview('');
       await loadData();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao criar evento');
     } finally {
       setIsLoading(false);
-      setIsUploading(false);
     }
   };
 
@@ -883,64 +780,12 @@ export const AdminPanel = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="new-image">Imagem do Evento</Label>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Input
-                        id="new-image-file"
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageChange}
-                        disabled={isLoading}
-                        className="cursor-pointer"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        disabled={isLoading}
-                      >
-                        <Upload className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Ou insira uma URL de imagem:
-                    </p>
-                    <Input
-                      id="new-image-url"
-                      type="url"
-                      value={newEvent.image_url}
-                      onChange={(e) => setNewEvent({ ...newEvent, image_url: e.target.value })}
-                      placeholder="https://exemplo.com/imagem.jpg"
-                      disabled={isLoading || !!imageFile}
-                    />
-                  </div>
-                  {(imagePreview || newEvent.image_url) && (
-                    <div className="relative">
-                      <img 
-                        src={imagePreview || newEvent.image_url} 
-                        alt="Preview"
-                        className="w-full h-40 object-cover rounded-lg mt-2"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                      {imagePreview && (
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          className="absolute top-4 right-4"
-                          onClick={() => {
-                            setImageFile(null);
-                            setImagePreview('');
-                          }}
-                        >
-                          Remover
-                        </Button>
-                      )}
-                    </div>
-                  )}
+                  <ImageCropUploader
+                    type="event"
+                    label="Imagem do Evento"
+                    value={newEvent.image_url}
+                    onChange={(url) => setNewEvent({ ...newEvent, image_url: url })}
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1281,64 +1126,12 @@ export const AdminPanel = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="edit-image-file">Upload de Imagem</Label>
-                    <Input
-                      id="edit-image-file"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleEditImageChange}
-                      disabled={isLoading}
+                    <ImageCropUploader
+                      type="event"
+                      label="Upload de Imagem"
+                      value={editingEvent.image_url}
+                      onChange={(url) => setEditingEvent({ ...editingEvent, image_url: url })}
                     />
-                    {editImageFile && (
-                      <div className="mt-2 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <img 
-                            src={editImagePreview} 
-                            alt="Preview" 
-                            className="w-20 h-20 object-cover rounded-lg"
-                          />
-                          <div className="flex-1 text-sm text-muted-foreground">
-                            {editImageFile.name}
-                          </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={handleRemoveEditImage}
-                            disabled={isLoading}
-                          >
-                            Remover
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-image">URL da Imagem (opcional)</Label>
-                    <Input
-                      id="edit-image"
-                      type="url"
-                      value={editingEvent.image_url || ''}
-                      onChange={(e) => setEditingEvent({ ...editingEvent, image_url: e.target.value })}
-                      placeholder="https://exemplo.com/imagem.jpg"
-                      disabled={isLoading || !!editImageFile}
-                    />
-                    {editImageFile && (
-                      <p className="text-xs text-muted-foreground">
-                        URL desabilitada enquanto há uma imagem selecionada para upload
-                      </p>
-                    )}
-                    {!editImageFile && editingEvent.image_url && (
-                      <img 
-                        src={editingEvent.image_url} 
-                        alt="Preview"
-                        className="w-full h-40 object-cover rounded-lg mt-2"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                        }}
-                      />
-                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">

@@ -1,192 +1,62 @@
 import { supabase } from '@/lib/supabase';
 
-export interface UserLike {
-  id: string;
-  from_user_id: string;
-  to_user_id: string;
-  event_id: string;
-  created_at: string;
-  is_match: boolean;
-  from_user?: {
-    id: string;
-    full_name: string;
-    avatar_url: string;
-  };
+export interface LikeResult {
+  status: 'liked' | 'match' | 'already_liked' | 'error';
+  match_id?: string;
+  chat_id?: string;
+  message?: string;
 }
 
 class LikeService {
-  // Dar like em um usuário
-  async likeUser(toUserId: string, eventId: string): Promise<UserLike> {
+  // Dar like em um usuário via RPC
+  async likeUser(toUserId: string, eventId: string): Promise<LikeResult> {
     console.log('👍 [LikeService] Dando like:', { toUserId, eventId });
     
-    const { data, error } = await supabase
-      .from('user_likes')
-      .insert({
-        to_user_id: toUserId,
-        event_id: eventId,
-        // from_user_id será preenchido automaticamente pelo trigger
-      })
-      .select(`
-        *,
-        from_user:from_user_id (
-          id,
-          full_name,
-          avatar_url
-        )
-      `)
-      .single();
+    const { data, error } = await supabase.rpc('like_user', {
+      p_event_id: eventId,
+      p_to_user_id: toUserId
+    });
 
     if (error) {
+      // Handle duplicate like gracefully if it's a unique constraint violation
+      if (error.code === '23505') {
+        console.log('⚠️ [LikeService] Usuário já curtido (catch via code 23505)');
+        return { status: 'already_liked' };
+      }
+      
       console.error('❌ [LikeService] Erro ao dar like:', error);
       throw error;
     }
 
-    console.log('✅ [LikeService] Like registrado:', data);
+    console.log('✅ [LikeService] Resultado:', data);
+    return data as LikeResult;
+  }
+
+  async getLikesSummary(): Promise<{ total_likes: number; recent_likes: any[] }> {
+    const { data, error } = await supabase.rpc('list_likes_summary');
+    if (error) throw error;
     return data;
   }
 
-  // Buscar likes recebidos
-  async getReceivedLikes(userId: string): Promise<UserLike[]> {
-    console.log('🔍 [LikeService] Buscando likes recebidos para:', userId);
-    
-    const { data, error } = await supabase
-      .from('user_likes')
-      .select(`
-        *,
-        from_user:from_user_id (
-          id,
-          full_name,
-          avatar_url
-        )
-      `)
-      .eq('to_user_id', userId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('❌ [LikeService] Erro ao buscar likes:', error);
-      throw error;
-    }
-
-    console.log('✅ [LikeService] Likes recebidos:', data?.length || 0);
-    return data || [];
-  }
-
-  // Buscar likes não lidos
-  async getUnreadLikes(userId: string): Promise<UserLike[]> {
-    const { data, error } = await supabase
-      .from('user_likes')
-      .select(`
-        *,
-        from_user:from_user_id (
-          id,
-          full_name,
-          avatar_url
-        )
-      `)
-      .eq('to_user_id', userId)
-      .eq('read', false)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('❌ [LikeService] Erro ao buscar likes não lidos:', error);
-      throw error;
-    }
-
-    return data || [];
-  }
-
-  // Marcar like como lido
-  async markAsRead(likeId: string): Promise<void> {
-    const { error } = await supabase
-      .from('user_likes')
-      .update({ read: true })
-      .eq('id', likeId);
-
+  async getReceivedLikes(eventId: string): Promise<any[]> {
+    const { data, error } = await supabase.rpc('get_received_likes', { p_event_id: eventId });
     if (error) throw error;
-  }
-
-  // Marcar todos os likes como lidos
-  async markAllAsRead(userId: string): Promise<void> {
-    const { error } = await supabase
-      .from('user_likes')
-      .update({ read: true })
-      .eq('to_user_id', userId)
-      .eq('read', false);
-
-    if (error) throw error;
-  }
-
-  // Buscar matches (likes mútuos)
-  async getMatches(userId: string): Promise<UserLike[]> {
-    console.log('💕 [LikeService] Buscando matches para:', userId);
-    
-    const { data, error } = await supabase
-      .from('user_likes')
-      .select(`
-        *,
-        from_user:from_user_id (
-          id,
-          full_name,
-          avatar_url
-        )
-      `)
-      .eq('to_user_id', userId)
-      .eq('is_match', true)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('❌ [LikeService] Erro ao buscar matches:', error);
-      throw error;
-    }
-
-    console.log('✅ [LikeService] Matches encontrados:', data?.length || 0);
     return data || [];
   }
 
-  // Verificar se já deu like
-  async hasLiked(fromUserId: string, toUserId: string, eventId: string): Promise<boolean> {
-    const { data, error } = await supabase
-      .from('user_likes')
-      .select('id')
-      .eq('from_user_id', fromUserId)
-      .eq('to_user_id', toUserId)
-      .eq('event_id', eventId)
-      .single();
-
-    if (error && error.code !== 'PGRST116') { // PGRST116 = não encontrado
-      console.error('❌ [LikeService] Erro ao verificar like:', error);
-      throw error;
-    }
-
-    return !!data;
-  }
-
-  // Verificar se há match
-  async isMatch(userId1: string, userId2: string, eventId: string): Promise<boolean> {
-    const { data, error } = await supabase
-      .from('user_likes')
-      .select('is_match')
-      .or(`and(from_user_id.eq.${userId1},to_user_id.eq.${userId2}),and(from_user_id.eq.${userId2},to_user_id.eq.${userId1})`)
-      .eq('event_id', eventId)
-      .eq('is_match', true)
-      .limit(1);
-
-    if (error) {
-      console.error('❌ [LikeService] Erro ao verificar match:', error);
-      throw error;
-    }
-
-    return (data?.length || 0) > 0;
+  async ignoreLike(likeId: string): Promise<void> {
+    const { error } = await supabase.rpc('ignore_like', { p_like_id: likeId });
+    if (error) throw error;
   }
 
   // Buscar usuários para dar match (fila)
-  async getPotentialMatches(eventId: string, currentUserId: string): Promise<any[]> {
+  async getPotentialMatches(eventId: string, currentUserId: string) {
     console.log('🔍 [LikeService] Buscando candidatos para match:', { eventId, currentUserId });
     
     try {
-      // 1. Buscar IDs já avaliados (likes ou skips)
+      // 1. Buscar IDs já avaliados (likes)
       const { data: evaluatedData, error: evaluatedError } = await supabase
-          .from('user_likes')
+          .from('likes')
           .select('to_user_id')
           .eq('from_user_id', currentUserId)
           .eq('event_id', eventId);
@@ -198,7 +68,6 @@ class LikeService {
 
       // 2. Buscar participantes elegíveis
       // Precisamos fazer query na tabela de participantes e join com profiles
-      // Como o filtro 'not in' pode ser complexo com array vazio, vamos buscar e filtrar
       
       const { data, error } = await supabase
         .from('event_participants')
@@ -209,12 +78,10 @@ class LikeService {
             avatar_url,
             bio,
             birth_date,
-            single_mode,
-            show_initials_only,
+            match_enabled,
+            allow_profile_view,
             match_intention,
-            match_gender_preference,
-            sexuality,
-            vibes
+            match_gender_preference
           )
         `)
         .eq('event_id', eventId)
@@ -222,13 +89,30 @@ class LikeService {
 
       if (error) throw error;
 
-      // 3. Filtrar resultados no cliente (mais seguro e flexível para regras complexas)
+      // 3. Filtrar resultados no cliente
       const candidates = (data || [])
         .map((item: any) => item.user)
         .filter((user: any) => {
           if (!user) return false;
-          if (!user.single_mode) return false; // Deve estar no modo single
-          if (evaluatedIds.includes(user.id)) return false; // Não pode ter sido avaliado
+          
+          // Logs detalhados para debug
+          const isEvaluated = evaluatedIds.includes(user.id);
+          const isMatchEnabled = user.match_enabled;
+          const isProfileViewAllowed = user.allow_profile_view;
+
+          if (isEvaluated) {
+             console.log(`🚫 [LikeService] Usuário ${user.full_name} filtrado: Já avaliado`);
+             return false;
+          }
+          if (!isMatchEnabled) {
+             console.log(`🚫 [LikeService] Usuário ${user.full_name} filtrado: Match desabilitado`);
+             return false;
+          }
+          if (!isProfileViewAllowed) {
+             console.log(`🚫 [LikeService] Usuário ${user.full_name} filtrado: Visualização privada`);
+             return false;
+          }
+
           return true;
         });
 

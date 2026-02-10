@@ -27,11 +27,14 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { matchService, Match as ServiceMatch } from '@/services/match.service';
+import { chatService } from '@/services/chat.service';
+
 export default function Matches() {
   const { user, profile, updateProfile } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('chats');
-  const [myEvents, setMyEvents] = useState<Event[]>([]);
+  const [matches, setMatches] = useState<ServiceMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -39,6 +42,7 @@ export default function Matches() {
   const [matchEnabled, setMatchEnabled] = useState(false);
   const [matchIntention, setMatchIntention] = useState<'paquera' | 'amizade'>('paquera');
   const [genderPreference, setGenderPreference] = useState<'homens' | 'mulheres' | 'todos'>('todos');
+  const [myEvents, setMyEvents] = useState<Event[]>([]);
 
   useEffect(() => {
     if (profile) {
@@ -53,18 +57,19 @@ export default function Matches() {
       if (!user) return;
       try {
         setLoading(true);
-        // Load user's upcoming events
-        // Note: Ideally we need an endpoint for "my tickets" or similar. 
-        // Using getUserLikedEvents as a proxy or if we have a proper service method.
-        // Assuming eventService.getUserEvents or similar exists, or we mock it for now.
-        // Let's use a mock or try to fetch "My Events" if the service supports it.
-        // eventService.getUserTickets(user.id) would be best.
-        // For now, let's fetch events and filter? No, that's heavy.
-        // Let's assume we have a list of mock events for the demo if service is missing.
-        const events = await eventService.getEvents(); // Getting all for demo purposes and filtering
-        setMyEvents(events.slice(0, 3)); // Just taking a few for the UI
+        const userMatches = await matchService.getUserMatches();
+        setMatches(userMatches);
+
+        // Load events (mock for now or real service if available)
+        try {
+           const events = await eventService.getEvents();
+           setMyEvents(events.slice(0, 3));
+        } catch (e) {
+           console.log('Erro ao carregar eventos', e);
+        }
       } catch (error) {
         console.error("Error loading match data", error);
+        toast.error('Erro ao carregar matches');
       } finally {
         setLoading(false);
       }
@@ -85,11 +90,6 @@ export default function Matches() {
       toast.error('Erro ao salvar preferências');
     }
   };
-
-  const MockChats = [
-    { id: '1', name: 'Ana Silva', lastMessage: 'Adorei a música também! 🎵', time: '10:42', photo: 'https://i.pravatar.cc/150?u=a', unread: 2 },
-    { id: '2', name: 'Pedro Santos', lastMessage: 'Você vai no after?', time: 'Ontem', photo: 'https://i.pravatar.cc/150?u=p', unread: 0 },
-  ];
 
   if (!user) return null;
 
@@ -191,34 +191,38 @@ export default function Matches() {
 
             {matchEnabled && (
               <div className="space-y-2">
-                {MockChats.map(chat => (
-                  <div 
-                    key={chat.id} 
-                    onClick={() => navigate(`/chat/${chat.id}`)}
-                    className="flex items-center gap-4 p-3 bg-card rounded-xl border border-border/50 hover:bg-accent/50 transition-colors cursor-pointer active:scale-98"
-                  >
-                    <div className="relative">
-                      <Avatar className="h-12 w-12 border border-border">
-                        <AvatarImage src={chat.photo} />
-                        <AvatarFallback>{chat.name[0]}</AvatarFallback>
-                      </Avatar>
-                      {chat.unread > 0 && (
-                        <span className="absolute -top-1 -right-1 w-5 h-5 bg-primary text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-background">
-                          {chat.unread}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start">
-                        <h4 className="font-semibold text-sm truncate">{chat.name}</h4>
-                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">{chat.time}</span>
+                {matches.length === 0 ? (
+                   <div className="text-center py-10 text-muted-foreground">
+                     <p>Nenhum match ainda. Continue curtindo!</p>
+                   </div>
+                ) : (
+                  matches.map(match => (
+                    <div 
+                      key={match.match_id} 
+                      onClick={() => navigate(`/chat/${match.match_id}`)}
+                      className="flex items-center gap-4 p-3 bg-card rounded-xl border border-border/50 hover:bg-accent/50 transition-colors cursor-pointer active:scale-98"
+                    >
+                      <div className="relative">
+                        <Avatar className="h-12 w-12 border border-border">
+                          <AvatarImage src={match.partner_avatar} />
+                          <AvatarFallback>{match.partner_name?.[0]}</AvatarFallback>
+                        </Avatar>
+                        {/* Indicador de não lido poderia ser implementado verificando mensagens não lidas */}
                       </div>
-                      <p className="text-xs text-muted-foreground truncate mt-0.5 font-medium">
-                        {chat.lastMessage}
-                      </p>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start">
+                          <h4 className="font-semibold text-sm truncate">{match.partner_name}</h4>
+                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                            {new Date(match.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate mt-0.5 font-medium">
+                          Toque para conversar
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             )}
           </TabsContent>

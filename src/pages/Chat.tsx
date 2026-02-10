@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Send, 
@@ -11,13 +11,15 @@ import {
   Music
 } from 'lucide-react';
 import { Layout } from '@/components/Layout';
-import { useMatch } from '@/hooks/useMatch';
-import { ROUTE_PATHS, Message } from '@/lib/index';
+import { chatService, ChatMessage } from '@/services/chat.service';
+import { matchService, Match } from '@/services/match.service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 const ICEBREAKERS = [
   "Qual música você está mais ansioso para ouvir hoje? 🎶",
@@ -29,21 +31,65 @@ const ICEBREAKERS = [
 export default function Chat() {
   const { matchId } = useParams<{ matchId: string }>();
   const navigate = useNavigate();
-  const { getMatchById, getPartnerProfile, sendMessage } = useMatch();
+  const { user } = useAuth();
+  
+  const [match, setMatch] = useState<Match | null>(null);
+  const [chatId, setChatId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
+  const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const match = matchId ? getMatchById(matchId) : null;
-  const partner = match ? getPartnerProfile(match) : null;
-
-  // Simulação de histórico de mensagens locais para a demo
-  const [messages, setMessages] = useState<Message[]>([]);
-
+  // Carregar dados do match e chat
   useEffect(() => {
-    if (match?.lastMessage && messages.length === 0) {
-      setMessages([match.lastMessage]);
-    }
-  }, [match, messages.length]);
+    const loadData = async () => {
+      if (!matchId || !user) return;
+      
+      try {
+        setLoading(true);
+        
+        // 1. Buscar detalhes do match (usando listMatches por enquanto)
+        const matches = await matchService.getUserMatches();
+        const currentMatch = matches.find(m => m.match_id === matchId);
+        
+        if (!currentMatch) {
+          toast.error('Match não encontrado');
+          navigate('/matches');
+          return;
+        }
+        setMatch(currentMatch);
+
+        // 2. Obter ou criar chat
+        const cid = await chatService.getOrCreateChat(matchId);
+        setChatId(cid);
+
+        // 3. Carregar mensagens
+        const msgs = await chatService.getMessages(cid);
+        setMessages(msgs);
+
+      } catch (error) {
+        console.error('Erro ao carregar chat:', error);
+        toast.error('Erro ao carregar conversa');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [matchId, user, navigate]);
+
+  // Realtime Subscription
+  useEffect(() => {
+    if (!chatId) return;
+
+    const subscription = chatService.subscribeToMessages(chatId, (newMsg) => {
+      setMessages(prev => [...prev, newMsg]);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [chatId]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -51,45 +97,38 @@ export default function Chat() {
     }
   }, [messages]);
 
-  if (!match || !partner) {
+  if (loading) {
     return (
       <Layout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
-          <h2 className="text-2xl font-bold mb-4">Match não encontrado</h2>
-          <p className="text-muted-foreground mb-8">Esta conexão pode ter expirado ou o link é inválido.</p>
-          <Button variant="outline" onClick={() => navigate(-1)}>
-            Voltar
-          </Button>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
       </Layout>
     );
   }
 
-  const handleSendMessage = (e?: React.FormEvent) => {
+  if (!match) return null;
+
+  const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!inputValue.trim() || !matchId) return;
+    if (!inputValue.trim() || !chatId) return;
 
-    const newMessage: Message = {
-      id: `msg-${Date.now()}`,
-      senderId: 'me',
-      content: inputValue,
-      timestamp: new Date().toISOString(),
-    };
-
-    setMessages(prev => [...prev, newMessage]);
-    sendMessage(matchId, inputValue);
-    setInputValue('');
+    try {
+      const content = inputValue;
+      setInputValue(''); // Limpar input imediatamente (optimistic UI)
+      
+      await chatService.sendMessage(chatId, content);
+      // A mensagem será adicionada via subscription ou reload, 
+      // mas para feedback imediato poderíamos adicionar aqui se quiséssemos.
+      // O subscription já cuida disso.
+    } catch (error) {
+      toast.error('Erro ao enviar mensagem');
+      setInputValue(inputValue); // Restaurar em caso de erro
+    }
   };
 
   const formatTime = (isoString: string) => {
     return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const getDisplayName = () => {
-    if (partner.showInitialsOnly) {
-      return partner.name.split(' ').map(n => n[0]).join('.');
-    }
-    return partner.name;
   };
 
   return (
@@ -102,38 +141,30 @@ export default function Chat() {
               variant="ghost" 
               size="icon" 
               className="rounded-full hover:bg-white/5" 
-              onClick={() => navigate(-1)}
+              onClick={() => navigate('/matches')}
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div className="flex items-center gap-3">
               <Avatar className="w-10 h-10 border border-primary/20">
-                <AvatarImage src={partner.photo} className="object-cover grayscale hover:grayscale-0 transition-all" />
+                <AvatarImage src={match.partner_avatar} className="object-cover" />
                 <AvatarFallback className="bg-secondary text-secondary-foreground font-mono">
-                  {partner.name.substring(0, 2).toUpperCase()}
+                  {match.partner_name?.[0]}
                 </AvatarFallback>
               </Avatar>
               <div>
                 <h3 className="font-semibold text-sm leading-tight flex items-center gap-2">
-                  {getDisplayName()}
-                  {partner.showInitialsOnly && (
-                    <span title="Anonimato Ativo" className="inline-flex">
-                      <ShieldCheck className="w-3 h-3 text-primary/60" />
-                    </span>
-                  )}
+                  {match.partner_name}
                 </h3>
                 <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-widest">
                   <Clock className="w-3 h-3 text-primary" />
-                  <span>Expira em 22h</span>
+                  <span>Expira em breve</span>
                 </div>
               </div>
             </div>
           </div>
           
           <div className="flex items-center gap-2">
-            <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[10px] hidden sm:flex">
-              {partner.compatibilityScore}% Compatível
-            </Badge>
             <Button variant="ghost" size="icon" className="rounded-full">
               <Info className="w-5 h-5 text-muted-foreground" />
             </Button>
@@ -149,41 +180,37 @@ export default function Chat() {
               </div>
               <h4 className="text-sm font-medium">Início da conexão no evento</h4>
               <p className="text-xs text-muted-foreground max-w-xs mt-1">
-                As mensagens expiram automaticamente após o fim do evento. Divirtam-se com segurança.
+                As mensagens são privadas e seguras.
               </p>
-              <div className="mt-4 flex flex-wrap justify-center gap-2">
-                {partner.vibes.slice(0, 2).map(vibe => (
-                  <Badge key={vibe} variant="secondary" className="text-[10px] bg-white/5 border-none">
-                    <Music className="w-3 h-3 mr-1" /> {vibe}
-                  </Badge>
-                ))}
-              </div>
             </div>
 
             <AnimatePresence initial={false}>
-              {messages.map((msg) => (
-                <motion.div
-                  key={msg.id}
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  className={`flex ${msg.senderId === 'me' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div 
-                    className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
-                      msg.senderId === 'me' 
-                        ? 'bg-primary text-primary-foreground rounded-tr-none shadow-lg shadow-primary/20' 
-                        : 'bg-secondary text-foreground rounded-tl-none'
-                    }`}
+              {messages.map((msg) => {
+                const isMe = msg.sender_id === user?.id;
+                return (
+                  <motion.div
+                    key={msg.id}
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
                   >
-                    <p>{msg.content}</p>
-                    <span className={`text-[10px] mt-1 block opacity-60 ${
-                      msg.senderId === 'me' ? 'text-right' : 'text-left'
-                    }`}>
-                      {formatTime(msg.timestamp)}
-                    </span>
-                  </div>
-                </motion.div>
-              ))}
+                    <div 
+                      className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
+                        isMe 
+                          ? 'bg-primary text-primary-foreground rounded-tr-none shadow-lg shadow-primary/20' 
+                          : 'bg-secondary text-foreground rounded-tl-none'
+                      }`}
+                    >
+                      <p>{msg.content}</p>
+                      <span className={`text-[10px] mt-1 block opacity-60 ${
+                        isMe ? 'text-right' : 'text-left'
+                      }`}>
+                        {formatTime(msg.created_at)}
+                      </span>
+                    </div>
+                  </motion.div>
+                );
+              })}
             </AnimatePresence>
             <div ref={scrollRef} />
           </div>

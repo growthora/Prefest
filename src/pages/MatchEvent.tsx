@@ -43,8 +43,16 @@ const MatchEvent: React.FC = () => {
   const [lastMatchedUser, setLastMatchedUser] = useState<string | null>(null);
   const [lastMatchedUserName, setLastMatchedUserName] = useState<string>('');
   const [lastMatchedUserPhoto, setLastMatchedUserPhoto] = useState<string>('');
+  const [lastMatchChatId, setLastMatchChatId] = useState<string | null>(null);
   const [eventParticipants, setEventParticipants] = useState<MatchCandidate[]>([]);
   const [eventType, setEventType] = useState<'festive' | 'formal'>('festive');
+
+  // Audio ref for match sound
+  const matchAudioRef = React.useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    matchAudioRef.current = new Audio('/sounds/match.mp3');
+  }, []);
   const [loading, setLoading] = useState(true);
 
   // Carregar participantes do evento com single_mode ativo
@@ -94,14 +102,30 @@ const MatchEvent: React.FC = () => {
       // Encontrar o usuário que recebeu o like para pegar o nome e foto
       const likedUser = eventParticipants.find(p => p.id === userId);
       
-      if (likeResult.is_match) {
+      if (likeResult.status === 'match') {
         // É um match!
         console.log('💕 É um match!');
         setLastMatchedUser(userId);
         setLastMatchedUserName(likedUser?.full_name || 'Alguém');
         setLastMatchedUserPhoto(likedUser?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`);
+        // Usar match_id para navegação consistente com Chat.tsx
+        setLastMatchChatId(likeResult.match_id || null);
+        
         setShowMatchOverlay(true);
         toast.success('É um Match! 💕');
+        
+        // Play sound
+        if (matchAudioRef.current) {
+            matchAudioRef.current.play().catch(e => console.log('Audio play failed', e));
+        }
+
+        // Marcar match como visto imediatamente (UI feedback loop)
+        if (likeResult.match_id) {
+          matchService.markMatchSeen(likeResult.match_id).catch(err => 
+            console.error('Erro ao marcar match como visto:', err)
+          );
+        }
+
       } else {
         console.log('✅ Like enviado');
         toast.success('Like enviado! ❤️');
@@ -134,7 +158,7 @@ const MatchEvent: React.FC = () => {
   const FeatureIcon = isFormal ? Sparkles : Flame;
 
   // Se o Conheça a Galera!! não estiver ativo, redirecionamos ou mostramos um aviso elegante
-  if (!profile?.single_mode) {
+  if (!profile?.match_enabled) {
     return (
       <Layout>
         <div className="flex flex-col items-center justify-center min-h-[70vh] px-6 text-center">
@@ -333,8 +357,13 @@ const MatchEvent: React.FC = () => {
                   <Button 
                     onClick={() => {
                       setShowMatchOverlay(false);
-                      // Por enquanto volta para a lista, depois implementar chat
-                      toast.success('Sistema de chat será implementado em breve!');
+                      if (lastMatchChatId) {
+                        // Marcar interação iniciada antes de navegar
+                        matchService.markChatOpened(lastMatchChatId).catch(console.error);
+                        navigate(`/chat/${lastMatchChatId}`);
+                      } else {
+                        toast.error('Erro ao redirecionar para o chat');
+                      }
                     }}
                     className="bg-gradient-to-r from-pink-500 to-primary hover:from-pink-600 hover:to-primary/90 text-white py-6 rounded-xl font-bold text-lg shadow-xl"
                   >
