@@ -11,6 +11,7 @@ export interface Match {
   chat_id: string;
   match_seen: boolean;
   chat_opened: boolean;
+  status: 'active' | 'inactive';
   last_message?: string;
   last_message_time?: string;
   unread_count?: number;
@@ -23,6 +24,12 @@ class MatchService {
 
     if (error) throw error;
     return data || [];
+  }
+
+  async getMatchDetails(matchId: string): Promise<Match | null> {
+    const { data, error } = await supabase.rpc('get_match_details', { p_match_id: matchId });
+    if (error) throw error;
+    return data && data.length > 0 ? data[0] : null;
   }
 
   async markMatchSeen(matchId: string): Promise<void> {

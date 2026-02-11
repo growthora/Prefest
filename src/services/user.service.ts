@@ -29,6 +29,13 @@ export interface UpdateUserData {
   looking_for?: string[];
   height?: number;
   relationship_status?: string;
+  allow_profile_view?: boolean;
+  privacy_settings?: {
+    show_age?: boolean;
+    show_height?: boolean;
+    show_instagram?: boolean;
+    show_relationship?: boolean;
+  };
 }
 
 class UserService {
@@ -82,6 +89,21 @@ class UserService {
       .single();
 
     if (error) throw error;
+    return data;
+  }
+
+  // Buscar usuário por username (slug)
+  async getUserByUsername(username: string): Promise<Profile | null> {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('username', username)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null; // Not found
+      throw error;
+    }
     return data;
   }
 

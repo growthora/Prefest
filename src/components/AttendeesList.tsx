@@ -13,6 +13,7 @@ interface Attendee {
   is_online?: boolean;
   last_seen?: string;
   match_enabled?: boolean;
+  username?: string; // Added username
 }
 
 interface AttendeesListProps {

@@ -5,9 +5,9 @@ export const ROUTE_PATHS = {
   EVENTS: '/eventos',
   EVENT_DETAILS: '/eventos/:slug',
   CREATE_EVENT: '/eventos/criar',
-  MATCHES: '/matches',
-  MATCH_EVENT: '/match/:id',
+  // MATCHES route removed - matches are now handled via chat direct access
   PROFILE: '/perfil',
+  PUBLIC_PROFILE: '/perfil-publico/:slug',
   CHAT: '/chat/:matchId',
   EXPLORE: '/explorar-eventos',
   COLLECTION: '/colecao/:slug',

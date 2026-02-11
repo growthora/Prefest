@@ -76,6 +76,7 @@ export interface MatchCandidate {
   vibes: string[] | null;
   last_seen: string | null;
   is_online: boolean;
+  username?: string; // Added username
 }
 
 export interface CreateEventData {

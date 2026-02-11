@@ -131,6 +131,7 @@ export const ProfileMenu = () => {
                 <span>Ingressos</span>
               </Link>
             </DropdownMenuItem>
+            {/* Matches link removed */}
             <DropdownMenuItem asChild>
               <Link to={ROUTE_PATHS.PROFILE} state={{ activeTab: 'favorites' }} className="cursor-pointer">
                 <Heart className="mr-2 h-4 w-4" />

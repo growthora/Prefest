@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Calendar,
   MapPin,
@@ -20,9 +20,8 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { Layout } from '@/components/Layout';
 import { TicketPurchase } from '@/components/TicketPurchase';
-import { ProfileModal } from '@/components/ProfileModal';
 import { MatchInterface } from '@/components/MatchCards';
-import { AttendeesList } from '@/components/AttendeesList';
+import { AttendeesList, Attendee } from '@/components/AttendeesList';
 import { Event, ROUTE_PATHS } from '@/lib/index';
 import { eventService, type Event as SupabaseEvent, MatchCandidate } from '@/services/event.service';
 import { likeService } from '@/services/like.service';
@@ -42,21 +41,23 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import confetti from 'canvas-confetti';
 
+import { goToPublicProfile } from '@/utils/navigation';
+
 export default function EventDetails() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, profile, updateProfile } = useAuth();
   const { checkAccess } = useFeatureAccess();
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('details');
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'details');
   const [isParticipating, setIsParticipating] = useState(false);
   const [participants, setParticipants] = useState<{ id: string; avatar_url: string; name: string }[]>([]);
   
   // New state for Conheça a Galera
   const [attendees, setAttendees] = useState<any[]>([]);
   const [loadingAttendees, setLoadingAttendees] = useState(false);
-  const [selectedAttendee, setSelectedAttendee] = useState<any>(null);
   
   // Like state
   const [isLiked, setIsLiked] = useState(false);
@@ -219,7 +220,8 @@ export default function EventDetails() {
           showInitialsOnly: c.show_initials_only || false,
           matchIntention: c.match_intention || 'amizade',
           genderPreference: c.match_gender_preference,
-          sexuality: c.sexuality
+          sexuality: c.sexuality,
+          username: c.username // Added username
         }));
       
       setMatchQueue(mapped);
@@ -236,33 +238,6 @@ export default function EventDetails() {
       checkLikeStatus();
     }
   }, [user, event?.id]);
-
-  // Fetch full profile details when attendee is selected
-  useEffect(() => {
-    const fetchFullProfile = async () => {
-      if (selectedAttendee && selectedAttendee.is_visible && !selectedAttendee.age) {
-        try {
-          // Use ID from mapped object
-          const userId = selectedAttendee.id || selectedAttendee.user_id;
-          if (!userId) return;
-
-          const fullProfile = await eventService.getPublicProfile(userId);
-          if (fullProfile) {
-            setSelectedAttendee((prev: any) => ({
-              ...prev,
-              ...fullProfile
-            }));
-          }
-        } catch (err) {
-          console.error("Error fetching full profile", err);
-        }
-      }
-    };
-
-    if (selectedAttendee) {
-      fetchFullProfile();
-    }
-  }, [selectedAttendee?.id]);
 
   const checkLikeStatus = async () => {
     if (!event?.id || !user) return;
@@ -336,6 +311,14 @@ export default function EventDetails() {
     } finally {
       setLoadingAttendees(false);
     }
+  };
+
+  const handleSelectAttendee = (attendeeOrId: string | any) => {
+    // Helper handles both ID string and user object
+    goToPublicProfile(navigate, attendeeOrId, {
+      eventId: event?.id,
+      eventTitle: event?.title
+    });
   };
 
   const handleToggleMeetAttendees = async () => {
@@ -515,16 +498,7 @@ export default function EventDetails() {
         setLastMatchedUserName(likedUser?.name || 'Alguém');
         setLastMatchedUserPhoto(likedUser?.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`);
         
-        // Resolve Chat ID
-        let chatId = likeResult.chat_id;
-        if (!chatId && likeResult.match_id) {
-           try {
-             chatId = await chatService.getOrCreateChat(likeResult.match_id);
-           } catch (e) {
-             console.error('Error getting chat ID', e);
-           }
-        }
-        setLastMatchChatId(chatId || likeResult.match_id || null);
+        setLastMatchChatId(likeResult.match_id || null);
 
         setShowMatchOverlay(true);
         toast.success('É um Match! 💕');
@@ -864,18 +838,15 @@ export default function EventDetails() {
                   {receivedLikes.map((like) => (
                     <div key={like.like_id} className="bg-card border border-border/50 rounded-xl p-4 flex items-center gap-4 relative overflow-hidden group">
                       <div className="relative">
-                        <Avatar className="h-16 w-16 border-2 border-primary/20 blur-sm">
-                          <AvatarImage src={`https://ui-avatars.com/api/?name=User&background=random`} />
-                          <AvatarFallback>?</AvatarFallback>
+                        <Avatar className="h-16 w-16 border-2 border-primary/20">
+                          <AvatarImage src={like.from_user_photo} />
+                          <AvatarFallback>{like.from_user_name?.substring(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <EyeOff className="w-6 h-6 text-white drop-shadow-md" />
-                        </div>
                       </div>
                       
                       <div className="flex-1 min-w-0 z-10">
-                        <h4 className="font-semibold text-sm mb-1">Alguém curtiu você!</h4>
-                        <p className="text-xs text-muted-foreground">No evento {event?.title}</p>
+                        <h4 className="font-semibold text-sm mb-1">{like.from_user_name}, {like.from_user_age}</h4>
+                        <p className="text-xs text-muted-foreground line-clamp-1">{like.from_user_bio || 'Sem bio'}</p>
                         
                         <div className="flex gap-2 mt-3">
                           <Button 
@@ -926,7 +897,7 @@ export default function EventDetails() {
               <AttendeesList 
                 attendees={attendees}
                 loading={loadingAttendees}
-                onSelectAttendee={setSelectedAttendee}
+                onSelectAttendee={handleSelectAttendee}
               />
             </motion.div>
           </TabsContent>
@@ -1032,12 +1003,6 @@ export default function EventDetails() {
           </TabsContent>
         </Tabs>
 
-        <ProfileModal 
-          isOpen={!!selectedAttendee}
-          onClose={() => setSelectedAttendee(null)}
-          user={selectedAttendee}
-        />
-
         {/* Match Overlay */}
         <AnimatePresence>
           {showMatchOverlay && (
@@ -1106,7 +1071,7 @@ export default function EventDetails() {
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.6 }}
-                className="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-red-500 to-primary mb-2 tracking-tighter italic"
+                className="text-5xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-red-500 to-primary mb-2 tracking-tighter italic relative z-10"
               >
                 IT'S A MATCH!
               </motion.h2>
@@ -1115,7 +1080,7 @@ export default function EventDetails() {
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.7 }}
-                className="text-muted-foreground mb-8 text-lg"
+                className="text-muted-foreground mb-8 text-lg relative z-10"
               >
                 Você e <span className="text-foreground font-bold">{lastMatchedUserName}</span> curtiram um ao outro! 💕
               </motion.p>
@@ -1124,23 +1089,23 @@ export default function EventDetails() {
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.8 }}
-                className="flex flex-col w-full max-w-sm gap-3"
+                className="flex flex-col w-full max-w-sm gap-3 relative z-10"
               >
                 <Button 
                   onClick={() => {
                     setShowMatchOverlay(false);
                     if (lastMatchChatId) {
                         // Marcar interação iniciada antes de navegar
-                        matchService.markChatOpened(lastMatchChatId).catch(console.error);
+                        // matchService.markChatOpened(lastMatchChatId).catch(console.error); // Optional: if needed
                         navigate(`/chat/${lastMatchChatId}`);
                     } else {
-                        toast.error('Erro ao redirecionar para o chat');
+                       toast.error('Erro ao redirecionar para o chat');
                     }
                   }}
                   className="bg-gradient-to-r from-pink-500 to-primary hover:from-pink-600 hover:to-primary/90 text-white py-6 rounded-xl font-bold text-lg shadow-xl"
                 >
                   <MessageCircle className="w-5 h-5 mr-2" />
-                  Enviar Mensagem
+                  Conversar
                 </Button>
                 <Button 
                   variant="ghost"

@@ -271,7 +271,7 @@ export default function MyEvents() {
                       </div>
                     </div>
                     <Button className="w-full gap-2" asChild>
-                      <Link to={`/eventos/${event.id}`}>
+                      <Link to={`/eventos/${event.slug || event.id}?tab=match`}>
                         <Sparkles className="w-4 h-4" />
                         Ver Match da Galera
                       </Link>

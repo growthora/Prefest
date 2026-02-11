@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { MessageCircle, X, Send, ChevronLeft, MoreVertical, Search, Check, CheckCheck, Trash2, Ticket } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -35,6 +35,7 @@ import { toast } from 'sonner';
 export function FloatingChat() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [activeChat, setActiveChat] = useState<Match | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
@@ -63,20 +64,6 @@ export function FloatingChat() {
       loadMatches();
     }
   }, [user, isOpen, activeChat]);
-
-  // Listen for global open-chat event
-  useEffect(() => {
-    const handleOpenChat = (event: CustomEvent<{ match: Match }>) => {
-      setIsOpen(true);
-      setActiveChat(event.detail.match);
-    };
-
-    window.addEventListener('open-chat', handleOpenChat as EventListener);
-    
-    return () => {
-      window.removeEventListener('open-chat', handleOpenChat as EventListener);
-    };
-  }, []);
 
   // Realtime subscription for matches list
   useEffect(() => {
@@ -352,6 +339,20 @@ export function FloatingChat() {
     }
   };
 
+  const handleMatchClick = async (match: Match) => {
+    try {
+      if (location.pathname.startsWith('/chat')) {
+         navigate(`/chat/${match.match_id}`);
+         setIsOpen(false);
+      } else {
+         setActiveChat(match);
+      }
+    } catch (error) {
+      console.error('Error opening chat:', error);
+      toast.error('Erro ao abrir conversa');
+    }
+  };
+
   const formatTime = (dateString?: string) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -370,6 +371,9 @@ export function FloatingChat() {
 
   if (!user) return null;
 
+  // Se estivermos na página de chat dedicada, não mostrar o botão flutuante para evitar duplicidade
+  if (location.pathname.startsWith('/chat')) return null;
+
   return (
     <>
       {/* Floating Button */}
@@ -379,7 +383,7 @@ export function FloatingChat() {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 transition-colors"
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hidden md:flex items-center justify-center hover:bg-primary/90 transition-colors"
       >
         {isOpen ? <X className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
         {!isOpen && totalUnread > 0 && (
@@ -564,7 +568,7 @@ export function FloatingChat() {
                         {filteredMatches.map((match) => (
                           <button
                             key={match.match_id}
-                            onClick={() => setActiveChat(match)}
+                            onClick={() => handleMatchClick(match)}
                             className="w-full p-4 flex items-center gap-3 hover:bg-secondary/10 transition-colors text-left"
                           >
                             <div className="relative">

@@ -20,7 +20,8 @@ import {
   Compass,
   Mic,
   SlidersHorizontal,
-  Flame
+  Flame,
+  MessageCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ROUTE_PATHS } from '@/lib';
@@ -119,8 +120,30 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
               className="h-8 w-auto object-contain" 
             />
           </Link>
-          <div className="scale-90 origin-right">
-            <StateSelector />
+          <div className="flex items-center gap-2">
+            <div className="scale-90 origin-right">
+              <StateSelector />
+            </div>
+            
+            {user ? (
+              <Link to="/perfil" className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 border border-gray-200 overflow-hidden ml-1">
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="Perfil" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-500">
+                    <User size={16} />
+                  </div>
+                )}
+              </Link>
+            ) : (
+              <AuthModal 
+                trigger={
+                  <button className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-500 ml-1">
+                    <User size={16} />
+                  </button>
+                }
+              />
+            )}
           </div>
         </div>
         
@@ -348,21 +371,21 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
 
           {user ? (
             <NavLink 
-              to="/perfil" 
+              to="/chat" 
               className={({isActive}) => cn(
                 "flex flex-col items-center gap-1 transition-colors",
                 isActive ? "text-primary" : "text-gray-400 hover:text-gray-600"
               )}
             >
-              <User size={24} />
-              <span className="text-[10px] font-medium">Perfil</span>
+              <MessageCircle size={24} />
+              <span className="text-[10px] font-medium">Chat</span>
             </NavLink>
           ) : (
             <AuthModal 
               trigger={
                 <button className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-600">
-                  <User size={24} />
-                  <span className="text-[10px] font-medium">Entrar</span>
+                  <MessageCircle size={24} />
+                  <span className="text-[10px] font-medium">Chat</span>
                 </button>
               }
             />

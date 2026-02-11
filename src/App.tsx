@@ -23,9 +23,8 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfUse from "./pages/TermsOfUse";
 import MyEvents from "./pages/MyEvents";
 import EventDetails from "./pages/EventDetails";
-import MatchEvent from "./pages/MatchEvent";
-import Matches from "./pages/Matches";
 import Profile from "./pages/Profile";
+import PublicProfile from "./pages/PublicProfile";
 import Chat from "./pages/Chat";
 import TicketScanner from "./pages/TicketScanner";
 import { AdminPanel } from "./pages/AdminPanel";
@@ -90,9 +89,9 @@ const AppRoutes = () => {
       <Route path={ROUTE_PATHS.CREATE_EVENT} element={<CreateEventForm />} />
       <Route path={ROUTE_PATHS.MY_EVENTS} element={<MyEvents />} />
       <Route path={ROUTE_PATHS.EVENT_DETAILS} element={<EventDetails />} />
-      <Route path={ROUTE_PATHS.MATCH_EVENT} element={<MatchEvent />} />
-      <Route path={ROUTE_PATHS.MATCHES} element={<Matches />} />
       <Route path={ROUTE_PATHS.PROFILE} element={<Profile />} />
+      <Route path={ROUTE_PATHS.PUBLIC_PROFILE} element={<PublicProfile />} />
+      <Route path="/chat" element={<Chat />} />
       <Route path={ROUTE_PATHS.CHAT} element={<Chat />} />
 
       {/* Redirects for old routes */}

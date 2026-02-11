@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 
 export function MatchPersistentToast() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [unseenMatches, setUnseenMatches] = useState<Match[]>([]);
   const [currentMatch, setCurrentMatch] = useState<Match | null>(null);
 
@@ -67,8 +69,8 @@ export function MatchPersistentToast() {
     try {
       await matchService.markMatchSeen(currentMatch.match_id);
       
-      // Dispatch event to open chat in FloatingChat
-      window.dispatchEvent(new CustomEvent('open-chat', { detail: { match: currentMatch } }));
+      // Navigate directly to chat page
+      navigate(`/chat/${currentMatch.match_id}`);
       
       // Move to next unseen match if any
       const remaining = unseenMatches.filter(m => m.match_id !== currentMatch.match_id);
@@ -114,7 +116,11 @@ export function MatchPersistentToast() {
                         size="sm" 
                         variant="secondary"
                         className="h-8 px-4 text-rose-600 hover:text-rose-700 font-semibold shadow-sm"
-                        onClick={handleChat}
+                        onClick={() => {
+                            // Redirecionamento direto para o chat
+                            navigate(`/chat/${currentMatch.match_id}`);
+                            handleDismiss();
+                        }}
                     >
                         <MessageCircle className="w-3.5 h-3.5 mr-1.5" />
                         Conversar

@@ -44,6 +44,8 @@ export interface Profile {
     show_instagram: boolean;
     show_relationship: boolean;
   };
+  allow_profile_view?: boolean;
+  username?: string;
   created_at: string;
   updated_at: string;
 }

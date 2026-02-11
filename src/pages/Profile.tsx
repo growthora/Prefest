@@ -43,6 +43,7 @@ export default function Profile() {
   // Basic Form Data
   const [formData, setFormData] = useState({
     full_name: '',
+    username: '', // Added username
     bio: '',
     city: '',
     avatar_url: '',
@@ -134,6 +135,7 @@ export default function Profile() {
     if (profile) {
       setFormData({
         full_name: profile.full_name || '',
+        username: profile.username || '',
         bio: profile.bio || '',
         city: profile.city || '',
         avatar_url: profile.avatar_url || '',
@@ -162,6 +164,7 @@ export default function Profile() {
       
       const updates = {
         ...formData,
+        username: formData.username.toLowerCase().trim(),
         birth_date: formData.birth_date === '' ? null : formData.birth_date,
         show_initials_only: showInitialsOnly,
         height: formData.height ? parseFloat(formData.height) : null,
@@ -170,9 +173,15 @@ export default function Profile() {
       await updateProfile(updates);
       toast.success('Perfil atualizado com sucesso!');
       setIsEditing(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao atualizar perfil:', err);
-      toast.error('Erro ao atualizar perfil');
+      
+      // Tratamento específico para erro de unicidade de username
+      if (err?.code === '23505' || err?.message?.includes('profiles_username_key')) {
+        toast.error('Este nome de usuário já está em uso. Por favor, escolha outro.');
+      } else {
+        toast.error('Erro ao atualizar perfil');
+      }
     } finally {
       setIsUploading(false);
     }
@@ -387,6 +396,26 @@ export default function Profile() {
                       onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                       placeholder="Seu nome completo"
                     />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="username">Nome de Usuário (Slug)</Label>
+                    <Input
+                      id="username"
+                      value={formData.username}
+                      onChange={(e) => {
+                        // Enforce lowercase and allowed characters immediately if desired, 
+                        // or just let user type and validate on save. 
+                        // Let's allow typing but show error if invalid on save.
+                        // Or better: normalize as they type to prevent invalid chars
+                        const val = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+                        setFormData({ ...formData, username: val });
+                      }}
+                      placeholder="nome-de-usuario"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Usado na sua URL de perfil público. Apenas letras minúsculas, números e hífens.
+                    </p>
                   </div>
 
                   <div className="space-y-2">

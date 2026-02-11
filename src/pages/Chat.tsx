@@ -12,9 +12,14 @@ import {
   Check,
   CheckCheck,
   Trash2,
-  Ticket
+  Ticket,
+  Search,
+  MessageCircle
 } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { Layout } from '@/components/Layout';
+import { ROUTE_PATHS } from '@/lib';
 import { chatService, ChatMessage } from '@/services/chat.service';
 import { matchService, Match } from '@/services/match.service';
 import { Button } from '@/components/ui/button';
@@ -67,6 +72,40 @@ export default function Chat() {
   const presenceChannelRef = useRef<any>(null);
   const lastTypingSentRef = useRef<number>(0);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  
+  // List View State
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Load matches list if no matchId
+  useEffect(() => {
+    if (!user || matchId) return;
+    
+    const loadMatches = async () => {
+      try {
+        setLoading(true);
+        const data = await matchService.getUserMatches();
+        setMatches(data);
+      } catch (error) {
+        console.error('Error loading matches:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadMatches();
+
+    // Subscribe to changes
+    const subscription = supabase
+      .channel('public:matches_list_page')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => loadMatches())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => loadMatches())
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [user, matchId]);
 
   // Carregar dados do match e chat
   useEffect(() => {
@@ -76,13 +115,13 @@ export default function Chat() {
       try {
         setLoading(true);
         
-        // 1. Buscar detalhes do match (usando listMatches por enquanto)
-        const matches = await matchService.getUserMatches();
-        const currentMatch = matches.find(m => m.match_id === matchId);
+        // 1. Buscar detalhes do match diretamente pelo ID
+        const currentMatch = await matchService.getMatchDetails(matchId);
         
-        if (!currentMatch) {
-          toast.error('Match não encontrado');
-          navigate('/matches');
+        if (!currentMatch || currentMatch.status !== 'active') {
+          console.error('Match not found or inactive:', matchId);
+          toast.error('Match não encontrado ou inativo');
+          navigate(ROUTE_PATHS.MY_EVENTS);
           return;
         }
         setMatch(currentMatch);
@@ -175,7 +214,7 @@ export default function Chat() {
       }, (payload) => {
         if (payload.new.status === 'inactive') {
           toast.info('O match foi desfeito.');
-          navigate('/matches');
+          navigate(ROUTE_PATHS.MY_EVENTS);
         }
       })
       .subscribe();
@@ -203,6 +242,87 @@ export default function Chat() {
       <Layout>
         <div className="flex items-center justify-center min-h-[60vh]">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!matchId) {
+    const filteredMatches = matches.filter(m => 
+      m.partner_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      m.event_title.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    return (
+      <Layout>
+        <div className="max-w-3xl mx-auto h-[calc(100vh-8rem)] md:h-[calc(100vh-12rem)] flex flex-col bg-card/30 border border-border/40 rounded-2xl overflow-hidden backdrop-blur-sm mt-4 md:mt-0">
+          <div className="p-4 border-b border-border/40">
+            <h2 className="text-xl font-semibold mb-4">Mensagens</h2>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input 
+                placeholder="Buscar conversas..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 bg-background/50"
+              />
+            </div>
+          </div>
+          
+          <ScrollArea className="flex-1">
+            {filteredMatches.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                  <MessageCircle className="w-8 h-8 text-primary" />
+                </div>
+                <h3 className="font-medium text-lg mb-2">Nenhuma conversa ainda</h3>
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  Dê like em pessoas nos eventos para começar novas conversas!
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col">
+                {filteredMatches.map((m) => (
+                  <button
+                    key={m.match_id}
+                    onClick={() => navigate(`/chat/${m.match_id}`)}
+                    className="flex items-center gap-3 p-4 hover:bg-white/5 transition-colors border-b border-border/40 text-left"
+                  >
+                    <div className="relative">
+                      <Avatar className="w-12 h-12 border border-primary/20">
+                        <AvatarImage src={m.partner_avatar} className="object-cover" />
+                        <AvatarFallback>{m.partner_name[0]}</AvatarFallback>
+                      </Avatar>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <h3 className="font-medium truncate">{m.partner_name}</h3>
+                        {m.last_message_time && (
+                          <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
+                            {format(new Date(m.last_message_time), 'HH:mm', { locale: ptBR })}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={`text-xs truncate ${m.unread_count > 0 ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+                          {m.last_message || 'Inicie a conversa...'}
+                        </p>
+                        {m.unread_count > 0 && (
+                          <Badge variant="default" className="h-5 min-w-5 px-1.5 rounded-full flex items-center justify-center text-[10px]">
+                            {m.unread_count}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1.5">
+                        <Ticket className="w-3 h-3" />
+                        <span className="truncate">{m.event_title}</span>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
         </div>
       </Layout>
     );
@@ -276,7 +396,7 @@ export default function Chat() {
     try {
       await chatService.unmatchUser(match.match_id);
       toast.success('Match desfeito e conversa encerrada');
-      navigate('/matches');
+      navigate(ROUTE_PATHS.MY_EVENTS);
     } catch (error) {
       toast.error('Erro ao desfazer match');
     } finally {
@@ -304,7 +424,7 @@ export default function Chat() {
               variant="ghost" 
               size="icon" 
               className="rounded-full hover:bg-white/5" 
-              onClick={() => navigate('/matches')}
+              onClick={() => navigate(-1)}
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>

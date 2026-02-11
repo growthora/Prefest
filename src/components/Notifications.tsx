@@ -123,8 +123,19 @@ export function Notifications() {
             // Navigate to chat with the match ID (which corresponds to the user_like ID)
             navigate(ROUTE_PATHS.CHAT.replace(':matchId', notification.actionId));
         } else {
-             // Navigate to the Match Event page
-             navigate(ROUTE_PATHS.MATCH_EVENT.replace(':id', notification.data.eventId));
+             // Navigate to the Event Details page with match tab active
+             // Fetch event slug if possible, otherwise use ID (EventDetails handles both?)
+             // Assuming eventId is actually the slug or ID. 
+             // Note: eventService.getEventById is async. 
+             // For now, let's try to get slug or use ID if slug is not available in notification data.
+             // Notification data has eventId.
+             try {
+                const event = await eventService.getEventById(notification.data.eventId);
+                const targetSlug = event?.slug || notification.data.eventId;
+                navigate(ROUTE_PATHS.EVENT_DETAILS.replace(':slug', targetSlug) + '?tab=match');
+             } catch (e) {
+                navigate(ROUTE_PATHS.EVENT_DETAILS.replace(':slug', notification.data.eventId) + '?tab=match');
+             }
         }
     } else if (notification.type === 'event') {
         try {
