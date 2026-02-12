@@ -11,6 +11,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/lib/index';
 import { Plus, Trash2, Calendar, MapPin, Image as ImageIcon, Ticket, Info, CheckCircle2, Save } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/components/ui/use-toast';
 
 import { CategorySelect } from './create-event/CategorySelect';
 import { LocationSelect } from './create-event/LocationSelect';
@@ -31,6 +32,7 @@ export const CreateEventForm = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -109,17 +111,29 @@ export const CreateEventForm = () => {
 
   const handleSubmit = async (e: React.FormEvent, status: 'draft' | 'published' = 'published') => {
     e.preventDefault();
+    console.log(`🚀 [CreateEvent] Iniciando submissão. Status: ${status}`);
     
     const validationError = validateForm(status === 'published');
     if (validationError) {
+      console.warn('⚠️ [CreateEvent] Erro de validação:', validationError);
       setError(validationError);
+      toast({
+        variant: "destructive",
+        title: "Erro de validação",
+        description: validationError,
+      });
       // Scroll to top to show error
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
     if (!user) {
+      console.log('👤 [CreateEvent] Usuário não logado. Redirecionando para login.');
       localStorage.setItem('prefest_event_draft', JSON.stringify({ formData, ticketTypes }));
+      toast({
+        title: "Login necessário",
+        description: "Faça login para salvar seu evento.",
+      });
       navigate(ROUTE_PATHS.LOGIN, { state: { returnTo: ROUTE_PATHS.CREATE_EVENT, tab: 'signup' } });
       return;
     }
@@ -127,25 +141,42 @@ export const CreateEventForm = () => {
     try {
       setIsLoading(true);
       setError(null);
+      console.log('💾 [CreateEvent] Enviando dados para o backend:', { formData, ticketTypes, status });
       
       const dataToSubmit = { ...formData, status };
       const event = await eventService.createEvent(dataToSubmit, user.id);
+      console.log('✅ [CreateEvent] Evento criado com sucesso:', event);
       
       // Criar tipos de ingressos
       if (ticketTypes.length > 0) {
+        console.log('🎫 [CreateEvent] Criando tipos de ingressos...');
         await eventService.createTicketTypes(event.id, ticketTypes);
       }
       
       localStorage.removeItem('prefest_event_draft');
 
+      toast({
+        title: status === 'published' ? "Evento publicado!" : "Rascunho salvo!",
+        description: status === 'published' 
+          ? "Seu evento já está visível para todos." 
+          : "Você pode continuar editando depois em 'Meus Eventos'.",
+      });
+
       if (status === 'published') {
         navigate('/my-events'); // Ou para a página do evento criado
       } else {
-        // Se for rascunho, talvez apenas mostrar toast
+        // Se for rascunho, redireciona para meus eventos também para evitar duplicidade se clicar de novo
         navigate('/my-events');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao criar evento');
+      console.error('❌ [CreateEvent] Erro ao criar evento:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido ao criar evento';
+      setError(errorMessage);
+      toast({
+        variant: "destructive",
+        title: "Erro ao criar evento",
+        description: errorMessage,
+      });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setIsLoading(false);

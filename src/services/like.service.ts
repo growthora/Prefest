@@ -49,8 +49,45 @@ class LikeService {
     if (error) throw error;
   }
 
+  async getUnreadLikes(userId: string): Promise<any[]> {
+    console.log('🔔 [LikeService] Buscando likes não lidos para:', userId);
+    
+    try {
+      // Busca os últimos 20 likes recebidos pelo usuário
+      // Ordenados por data de criação (mais recentes primeiro)
+      const { data, error } = await supabase
+        .from('likes')
+        .select(`
+          id,
+          created_at,
+          event_id,
+          from_user_id,
+          status,
+          from_user:profiles!likes_from_user_id_fkey (
+            id,
+            full_name,
+            avatar_url
+          )
+        `)
+        .eq('to_user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      
+      // Map status to is_match for compatibility
+      return (data || []).map(like => ({
+        ...like,
+        is_match: like.status === 'matched'
+      }));
+    } catch (error) {
+      console.error('❌ [LikeService] Erro ao buscar likes não lidos:', error);
+      return [];
+    }
+  }
+
   // Buscar usuários para dar match (fila)
-  async getPotentialMatches(eventId: string, currentUserId: string) {
+  async getPotentialMatches(eventId: string, currentUserId: string): Promise<any[]> {
     console.log('🔍 [LikeService] Buscando candidatos para match:', { eventId, currentUserId });
     
     try {

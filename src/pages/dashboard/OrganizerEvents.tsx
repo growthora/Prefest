@@ -24,12 +24,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CreateEventModal } from '@/components/CreateEventModal';
+import { EventDetailsModal } from '@/components/dashboard/events/EventDetailsModal';
+import { EditEventModal } from '@/components/dashboard/events/EditEventModal';
+import { DeleteEventDialog } from '@/components/dashboard/events/DeleteEventDialog';
 
 export function OrganizerEvents() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<Event[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // CRUD State
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [isViewOpen, setIsViewOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
   useEffect(() => {
     loadEvents();
@@ -48,6 +57,22 @@ export function OrganizerEvents() {
     }
   };
 
+  const handleAction = (event: Event, action: 'view' | 'edit' | 'delete') => {
+    setSelectedEvent(event);
+    if (action === 'view') setIsViewOpen(true);
+    if (action === 'edit') setIsEditOpen(true);
+    if (action === 'delete') setIsDeleteOpen(true);
+  };
+
+  const handleSuccess = () => {
+    loadEvents();
+    // Close all modals
+    setIsViewOpen(false);
+    setIsEditOpen(false);
+    setIsDeleteOpen(false);
+    setSelectedEvent(null);
+  };
+
   const filteredEvents = events.filter(event => 
     event.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -58,6 +83,16 @@ export function OrganizerEvents() {
     return (
       <div className="flex-1 flex flex-col items-center justify-center h-full">
         <DashboardEmptyState />
+        
+        {/* Modals for initial empty state if needed, though usually not accessible */}
+        <CreateEventModal 
+          trigger={
+            <Button className="mt-4 gap-2">
+              <Plus className="w-4 h-4" />
+              Criar Primeiro Evento
+            </Button>
+          }
+        />
       </div>
     );
   }
@@ -134,14 +169,17 @@ export function OrganizerEvents() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleAction(event, 'view')}>
                         <Eye className="mr-2 h-4 w-4" /> Ver detalhes
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleAction(event, 'edit')}>
                         <Edit className="mr-2 h-4 w-4" /> Editar
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-red-600">
+                      <DropdownMenuItem 
+                        className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                        onClick={() => handleAction(event, 'delete')}
+                      >
                         <Trash2 className="mr-2 h-4 w-4" /> Excluir
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -152,6 +190,27 @@ export function OrganizerEvents() {
           </TableBody>
         </Table>
       </div>
+
+      {/* CRUD Modals */}
+      <EventDetailsModal
+        event={selectedEvent}
+        isOpen={isViewOpen}
+        onClose={() => setIsViewOpen(false)}
+      />
+
+      <EditEventModal
+        event={selectedEvent}
+        isOpen={isEditOpen}
+        onClose={() => setIsEditOpen(false)}
+        onSuccess={handleSuccess}
+      />
+
+      <DeleteEventDialog
+        event={selectedEvent}
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onSuccess={handleSuccess}
+      />
     </div>
   );
 }

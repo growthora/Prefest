@@ -4,6 +4,7 @@ export interface Notification {
   id: string;
   type: 'like' | 'match' | 'system';
   event_id: string;
+  reference_id: string | null;
   payload: any;
   read_at: string | null;
   created_at: string;
@@ -11,10 +12,20 @@ export interface Notification {
 
 export const notificationService = {
   async listNotifications(): Promise<Notification[]> {
+    console.log('🔔 [NotificationService] Buscando notificações...');
     const { data, error } = await supabase.rpc('list_notifications');
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ [NotificationService] Erro ao buscar notificações:', error);
+      throw error;
+    }
+    
+    console.log(`✅ [NotificationService] ${data?.length || 0} notificações encontradas.`);
     return data || [];
+  },
+
+  async getUnread(userId: string): Promise<Notification[]> {
+    return this.listNotifications();
   },
 
   async dismissNotification(id: string) {

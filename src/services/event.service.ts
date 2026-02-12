@@ -111,6 +111,8 @@ export class EventService {
 
   // Criar novo evento
   async createEvent(eventData: CreateEventData, creatorId: string): Promise<Event> {
+    console.log('🚀 [EventService] createEvent iniciado:', { eventData, creatorId });
+    
     // Converter event_date para manter o horário local correto
     let eventDateToSave = eventData.event_date;
     
@@ -145,24 +147,40 @@ export class EventService {
       slug = `${slug}-${Math.random().toString(36).substring(2, 7)}`;
     }
     
+    // Sanitize data before insert
+    const eventToInsert = {
+      ...eventData,
+      slug,
+      event_date: eventDateToSave,
+      end_at: endAtToSave,
+      creator_id: creatorId,
+      category_id: eventData.category_id || null, // Convert empty string to null for UUID
+      category: eventData.category || null,
+      image_url: eventData.image_url || null,
+      max_participants: eventData.max_participants || null,
+    };
+
+    console.log('💾 [EventService] Inserindo evento no banco:', eventToInsert);
+
     const { data, error } = await supabase
       .from('events')
-      .insert({
-        ...eventData,
-        slug,
-        event_date: eventDateToSave,
-        end_at: endAtToSave,
-        creator_id: creatorId,
-      })
+      .insert(eventToInsert)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ [EventService] Erro ao inserir evento:', error);
+      throw error;
+    }
+
+    console.log('✅ [EventService] Evento criado com sucesso:', data);
     return data;
   }
 
   // Criar tipos de ingressos para um evento
   async createTicketTypes(eventId: string, ticketTypes: TicketType[]): Promise<TicketTypeDB[]> {
+    console.log('🎫 [EventService] createTicketTypes iniciado:', { eventId, count: ticketTypes.length });
+    
     const ticketsToInsert = ticketTypes.map(ticket => ({
       event_id: eventId,
       name: ticket.name,
@@ -173,12 +191,19 @@ export class EventService {
       sale_end_date: ticket.sale_end_date || null,
     }));
 
+    console.log('💾 [EventService] Inserindo ingressos:', ticketsToInsert);
+
     const { data, error } = await supabase
       .from('ticket_types')
       .insert(ticketsToInsert)
       .select();
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ [EventService] Erro ao inserir ingressos:', error);
+      throw error;
+    }
+    
+    console.log('✅ [EventService] Ingressos criados:', data);
     return data;
   }
 
