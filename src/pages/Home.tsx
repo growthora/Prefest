@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, MapPin, Calendar, Music, PartyPopper, Theater, ChevronRight, Briefcase, Ticket, Mic } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { LoadingScreen } from '@/components/LoadingScreen';
+import { HeroCarousel } from '@/components/HeroCarousel';
 import { EventGrid, HorizontalEventCard } from '@/components/EventCards';
 import { eventService, type Event as SupabaseEvent } from '@/services/event.service';
 import { type Event as FrontendEvent } from '@/lib/index';
@@ -21,7 +22,6 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-import { Card, CardContent } from "@/components/ui/card";
 
 const Home = () => {
   const [events, setEvents] = useState<FrontendEvent[]>([]);
@@ -30,35 +30,6 @@ const Home = () => {
   useEffect(() => {
     loadEvents();
   }, []);
-
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [emblaApi, setEmblaApi] = useState<any>();
-  const [isCarouselReady, setIsCarouselReady] = useState(false);
-
-  useEffect(() => {
-    if (!emblaApi) return;
-    
-    // Garantir que o carrossel inicie pronto e sem animação no primeiro frame
-    const onInit = () => {
-      setIsCarouselReady(true);
-    };
-
-    if (emblaApi.rootNode()) {
-      onInit();
-    }
-    
-    emblaApi.on("init", onInit);
-    emblaApi.on("reInit", onInit);
-    
-    emblaApi.on("select", () => {
-      setCurrentSlide(emblaApi.selectedScrollSnap());
-    });
-    
-    return () => {
-      emblaApi.off("init", onInit);
-      emblaApi.off("reInit", onInit);
-    };
-  }, [emblaApi]);
 
   const loadEvents = async () => {
     try {
@@ -134,115 +105,7 @@ const Home = () => {
       <div className="space-y-12 pb-12">
         
         {/* Hero Carousel - Sympla 3D Style */}
-        <div className="w-full bg-white pt-8 pb-12 overflow-hidden">
-          <div className="container max-w-7xl mx-auto px-4 relative">
-            <Carousel  
-              setApi={setEmblaApi}
-              opts={{
-                align: "center",
-                loop: true,
-                skipSnaps: false,
-                dragFree: false,
-                startIndex: 0,
-                watchDrag: isCarouselReady, // Evita interação antes de estar pronto
-              }}
-              className={`w-full mx-auto ${isCarouselReady ? 'opacity-100' : 'opacity-0'} transition-opacity duration-300`}
-            >
-              <CarouselContent className="-ml-0 items-center h-[350px] md:h-[400px]">
-                {events.slice(0, 5).map((event, index) => {
-                  const isActive = index === currentSlide;
-                  
-                  return (
-                    <CarouselItem key={event.id} className={`pl-0 basis-[85%] sm:basis-[65%] md:basis-[55%] lg:basis-[45%] ${isCarouselReady ? 'transition-all duration-500' : 'transition-none'} ease-in-out z-0 py-4`}>
-                      <div 
-                        className={`
-                          relative ${isCarouselReady ? 'transition-all duration-500' : 'transition-none'} ease-[cubic-bezier(0.25,0.1,0.25,1)] transform
-                          ${isActive 
-                            ? 'scale-100 z-30 opacity-100 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] translate-y-0' 
-                            : 'scale-90 opacity-40 hover:opacity-60 z-10 translate-y-2 grayscale-[30%]'
-                          }
-                        `}
-                      >
-                        <Card className="border-0 rounded-xl overflow-hidden shadow-none bg-transparent">
-                          <CardContent className="p-0 relative aspect-[16/9] cursor-pointer">
-                            <img 
-                              src={event.image} 
-                              alt={event.title}
-                              className="absolute inset-0 w-full h-full object-cover rounded-xl"
-                            />
-                            {/* Overlay sutil para hover */}
-                            <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors duration-300" />
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </CarouselItem>
-                  );
-                })}
-                {events.length === 0 && (
-                  <CarouselItem className="basis-full">
-                    <Skeleton className="w-full aspect-[2/1] rounded-2xl" />
-                  </CarouselItem>
-                )}
-              </CarouselContent>
-              
-              {/* Navigation Arrows - Centered Vertically relative to Carousel */}
-              <div className="hidden md:flex pointer-events-none absolute top-1/2 -translate-y-1/2 left-0 right-0 items-center justify-between w-full px-2 lg:px-8 z-40 h-0">
-                 <CarouselPrevious className="pointer-events-auto h-12 w-12 border border-gray-100 bg-white/90 text-gray-700 shadow-lg hover:bg-white hover:scale-105 transition-all rounded-full flex items-center justify-center -translate-y-12">
-                    <ChevronRight className="rotate-180 w-6 h-6" />
-                 </CarouselPrevious>
-                 <CarouselNext className="pointer-events-auto h-12 w-12 border border-gray-100 bg-white/90 text-gray-700 shadow-lg hover:bg-white hover:scale-105 transition-all rounded-full flex items-center justify-center -translate-y-12">
-                    <ChevronRight className="w-6 h-6" />
-                 </CarouselNext>
-              </div>
-            </Carousel>
-
-            {/* Active Slide Details (Below Carousel) */}
-            <div className="mt-6 text-center max-w-4xl mx-auto transition-all duration-300 px-4">
-               {events.length > 0 && events[currentSlide] && (
-                 <motion.div
-                   key={events[currentSlide].id}
-                   initial={{ opacity: 0, y: 10 }}
-                   animate={{ opacity: 1, y: 0 }}
-                   transition={{ duration: 0.4, ease: "easeOut" }}
-                 >
-                   {/* Dots Indicator */}
-                   <div className="flex justify-center gap-2 mb-4">
-                     {events.slice(0, 5).map((_, idx) => (
-                       <button
-                         key={idx}
-                         onClick={() => emblaApi?.scrollTo(idx)}
-                         className={`w-2 h-2 rounded-full transition-all duration-300 ${idx === currentSlide ? 'bg-primary w-6' : 'bg-gray-200 hover:bg-gray-300'}`}
-                         aria-label={`Ir para slide ${idx + 1}`}
-                       />
-                     ))}
-                   </div>
-
-                   <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-2 uppercase tracking-tight line-clamp-2">
-                     {events[currentSlide].title}
-                   </h2>
-                   
-                   <div className="flex flex-wrap items-center justify-center gap-4 text-gray-600 font-medium text-sm md:text-base">
-                      <div className="flex items-center gap-1.5">
-                        <MapPin size={16} className="text-gray-400" />
-                        <span>{events[currentSlide].city || events[currentSlide].location}</span>
-                        {events[currentSlide].city && <span className="text-gray-400">|</span>}
-                        {events[currentSlide].city && <span>BA</span>}
-                      </div>
-                      <div className="hidden sm:block w-1 h-1 bg-gray-300 rounded-full" />
-                      <div className="flex items-center gap-1.5">
-                        <Calendar size={16} className="text-gray-400" />
-                        <span className="capitalize">
-                          {new Date(events[currentSlide].date.split('/').reverse().join('-')).toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '')}, {events[currentSlide].date}
-                        </span>
-                        <span className="text-gray-400">às</span>
-                        <span>{events[currentSlide].time}</span>
-                      </div>
-                   </div>
-                 </motion.div>
-               )}
-            </div>
-          </div>
-        </div>
+        <HeroCarousel events={events} />
 
         <div className="container max-w-7xl mx-auto px-4 space-y-16">
           
@@ -302,13 +165,15 @@ const Home = () => {
                       <div className="h-full transform transition-transform hover:-translate-y-1 duration-300">
                         <div className="relative group/card h-full">
                           <Link to={`/eventos/${event.slug || event.id}`} className="block h-full">
-                            <div className="relative aspect-[4/5] overflow-hidden rounded-2xl mb-3">
+                            <div className="relative overflow-hidden rounded-2xl mb-3 bg-gray-900 shadow-lg">
+                              {/* Main Image Layer */}
                               <img 
                                 src={event.image} 
                                 alt={event.title}
-                                className="w-full h-full object-cover transition-transform duration-500 group-hover/card:scale-110"
+                                className="w-full h-auto object-contain z-10 transition-transform duration-500 group-hover/card:scale-105"
                               />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60" />
+                              
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-20 opacity-90" />
                               
                               <div className="absolute top-3 left-3">
                                 <Badge className="bg-white/90 text-black hover:bg-white font-bold backdrop-blur-md shadow-sm">
@@ -386,13 +251,15 @@ const Home = () => {
                        <div className="h-full transform transition-transform hover:-translate-y-1 duration-300">
                         <div className="relative group/card h-full">
                           <Link to={`/eventos/${event.slug || event.id}`} className="block h-full">
-                            <div className="relative aspect-[4/5] overflow-hidden rounded-2xl mb-3">
+                            <div className="relative overflow-hidden rounded-2xl mb-3 bg-gray-900 shadow-lg">
+                              {/* Main Image Layer */}
                               <img 
                                 src={event.image} 
                                 alt={event.title}
-                                className="w-full h-full object-cover transition-transform duration-500 group-hover/card:scale-110"
+                                className="w-full h-auto object-contain z-10 transition-transform duration-500 group-hover/card:scale-105"
                               />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60" />
+                              
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-20 opacity-90" />
                               
                               <div className="absolute top-3 left-3">
                                 <Badge className="bg-white/90 text-black hover:bg-white font-bold backdrop-blur-md shadow-sm">
