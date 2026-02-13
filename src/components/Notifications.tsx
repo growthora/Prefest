@@ -40,7 +40,13 @@ export function Notifications() {
 
     try {
       // 1. Fetch Likes (Legacy)
-      const likes = await likeService.getUnreadLikes(user.id);
+      let likes: any[] = [];
+      if (typeof likeService.getUnreadLikes === 'function') {
+        likes = await likeService.getUnreadLikes(user.id);
+      } else {
+        console.warn('⚠️ [Notifications] likeService.getUnreadLikes is not a function. Skipping likes fetch.');
+      }
+
       const likeNotifications: UINotification[] = likes.map(like => ({
         id: `like-${like.id}`,
         type: 'like',
@@ -61,18 +67,25 @@ export function Notifications() {
 
       // 2. Fetch Global Notifications (New DB Table)
       const globalNotifs = await notificationService.getUnread(user.id);
-      const eventNotifications: UINotification[] = globalNotifs.map(n => ({
-        id: n.id, // user_notifications id
-        type: 'event',
-        title: n.notification.title,
-        description: n.notification.message,
-        timestamp: n.notification.created_at,
-        read: n.read,
-        data: { 
-            eventId: n.notification.reference_id 
-        },
-        actionId: n.id
-      }));
+      const eventNotifications: UINotification[] = globalNotifs.map(n => {
+        // Handle payload structure from new trigger logic
+        const title = n.payload?.title || n.type === 'system' ? 'Notificação do Sistema' : 'Novo Evento';
+        const message = n.payload?.message || 'Você tem uma nova notificação';
+        const eventId = n.event_id || n.payload?.event_id || n.reference_id;
+
+        return {
+          id: n.id,
+          type: 'event',
+          title: title,
+          description: message,
+          timestamp: n.created_at,
+          read: !!n.read_at,
+          data: { 
+              eventId: eventId
+          },
+          actionId: n.id
+        };
+      });
 
       // Merge and Sort
       const allNotifications = [...likeNotifications, ...eventNotifications]
