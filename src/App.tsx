@@ -44,6 +44,7 @@ import { Settings } from "@/pages/dashboard/Settings";
 import Scanner from "@/pages/dashboard/organizer/Scanner";
 import NotFound from "./pages/not-found/Index";
 import { NotificationManager } from "@/components/NotificationManager";
+import { ScrollToTop } from "@/components/ScrollToTop";
 import { useIsMobile } from "@/hooks/use-mobile";
 import EmAlta from "./pages/EmAlta";
 import Categorias from "./pages/Categorias";
@@ -169,6 +170,7 @@ const App = () => {
               <Toaster />
               <Sonner position="top-center" richColors />
               <BrowserRouter>
+                <ScrollToTop />
                 <AppRoutes />
               </BrowserRouter>
             </TooltipProvider>
