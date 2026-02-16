@@ -44,6 +44,30 @@ class LikeService {
     return data || [];
   }
 
+  private getReadLikeIds(): string[] {
+    if (typeof window === 'undefined') return [];
+    const raw = window.localStorage.getItem('prefest_read_likes');
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private saveReadLikeIds(ids: string[]): void {
+    if (typeof window === 'undefined') return;
+    const uniqueIds = Array.from(new Set(ids));
+    window.localStorage.setItem('prefest_read_likes', JSON.stringify(uniqueIds));
+  }
+
+  async markAsRead(likeId: string): Promise<void> {
+    const current = this.getReadLikeIds();
+    if (current.includes(likeId)) return;
+    this.saveReadLikeIds([...current, likeId]);
+  }
+
   async ignoreLike(likeId: string): Promise<void> {
     const { error } = await supabase.rpc('ignore_like', { p_like_id: likeId });
     if (error) throw error;
@@ -75,11 +99,13 @@ class LikeService {
 
       if (error) throw error;
       
-      // Map status to is_match for compatibility
-      return (data || []).map(like => ({
+      const mapped = (data || []).map(like => ({
         ...like,
         is_match: like.status === 'matched'
       }));
+
+      const readIds = this.getReadLikeIds();
+      return mapped.filter(like => !readIds.includes(like.id));
     } catch (error) {
       console.error('❌ [LikeService] Erro ao buscar likes não lidos:', error);
       return [];

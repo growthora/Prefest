@@ -105,6 +105,7 @@ interface TicketPurchaseProps {
 
 export function TicketPurchase({ event, onPurchase, isParticipating = false }: TicketPurchaseProps) {
   const { profile } = useAuth();
+  const [step, setStep] = useState<1 | 2>(1);
   const [singleMode, setSingleMode] = useState(profile?.single_mode || false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [couponCode, setCouponCode] = useState('');
@@ -112,10 +113,31 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   const [selectedTicketTypeId, setSelectedTicketTypeId] = useState<string>();
   const [selectedTicketType, setSelectedTicketType] = useState<TicketTypeDB>();
+  const [fullName, setFullName] = useState(profile?.full_name || '');
+  const [cpf, setCpf] = useState('');
+  const [email, setEmail] = useState(profile?.email || '');
+  const [phone, setPhone] = useState('');
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'CARD'>('PIX');
 
   const handleTicketSelect = (ticketTypeId: string, ticketType: TicketTypeDB) => {
     setSelectedTicketTypeId(ticketTypeId);
     setSelectedTicketType(ticketType);
+  };
+
+  const hasValidPersonalData = () => {
+    if (!fullName.trim() || !cpf.trim() || !email.trim() || !phone.trim() || !age.trim()) {
+      toast.error('Preencha todos os dados obrigatórios para continuar');
+      return false;
+    }
+
+    if (cpf.replace(/\D/g, '').length !== 11) {
+      toast.error('CPF inválido');
+      return false;
+    }
+
+    return true;
   };
 
   const handleApplyCoupon = async () => {
@@ -154,12 +176,60 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
       toast.error('Selecione um tipo de ingresso');
       return;
     }
+
+     if (!hasValidPersonalData()) {
+      return;
+    }
     
     try {
       setIsProcessing(true);
-      await onPurchase(singleMode, selectedTicketTypeId, total);
+
+      if (total === 0) {
+        await onPurchase(singleMode, selectedTicketTypeId, total);
+        toast.success('Ingresso gratuito confirmado! Você já pode conhecer quem vai à festa.');
+        return;
+      }
+
+      const response = await fetch('/api/checkout/asaas', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fullName,
+          cpf,
+          email,
+          phone,
+          age: Number(age),
+          gender: gender || null,
+          amount: total,
+          eventId: event.id,
+          ticketTypeId: selectedTicketTypeId,
+          paymentMethod,
+        }),
+      });
+
+      if (!response.ok) {
+        toast.error('Erro ao iniciar pagamento. Tente novamente.');
+        return;
+      }
+
+      const data = await response.json();
+
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+        return;
+      }
+
+      if (data.pixUrl) {
+        window.location.href = data.pixUrl;
+        return;
+      }
+
+      toast.error('Não foi possível iniciar o pagamento. Tente novamente.');
     } catch (error) {
       console.error('Purchase error:', error);
+      toast.error('Erro inesperado ao processar o pagamento');
     } finally {
       setIsProcessing(false);
     }
@@ -183,7 +253,43 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     <div className="w-full max-w-2xl mx-auto space-y-8">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight">Resumo da Compra</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Checkout do Ingresso</h2>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 text-xs font-semibold uppercase tracking-widest">
+          <button
+            type="button"
+            className={cn(
+              'flex items-center justify-center gap-2 rounded-full px-3 py-2 border transition-all',
+              step === 1
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border bg-muted/40 text-muted-foreground'
+            )}
+            onClick={() => setStep(1)}
+          >
+            <span className="w-5 h-5 rounded-full flex items-center justify-center bg-primary text-background text-[10px]">
+              1
+            </span>
+            Dados pessoais
+          </button>
+          <button
+            type="button"
+            className={cn(
+              'flex items-center justify-center gap-2 rounded-full px-3 py-2 border transition-all',
+              step === 2
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border bg-muted/40 text-muted-foreground'
+            )}
+            onClick={() => {
+              if (!hasValidPersonalData()) return;
+              setStep(2);
+            }}
+          >
+            <span className="w-5 h-5 rounded-full flex items-center justify-center bg-primary text-background text-[10px]">
+              2
+            </span>
+            Pagamento
+          </button>
         </div>
 
         <Card className="p-6 bg-card/30 border-border backdrop-blur-sm">
@@ -210,123 +316,225 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
           </div>
         </Card>
 
-        {/* Seção de Tipos de Ingresso */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Tag className="w-4 h-4 text-primary" />
-            <span className="text-xs font-semibold uppercase tracking-widest">Tipo de Ingresso</span>
-          </div>
-          <TicketSelector 
-            eventId={event.id} 
-            onSelect={handleTicketSelect} 
-            selectedTicketTypeId={selectedTicketTypeId}
-          />
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 mb-2">
-            <ShieldCheck className="w-4 h-4 text-primary" />
-            <span className="text-xs font-semibold uppercase tracking-widest">Experiência Social</span>
-          </div>
-          <SingleModeToggle 
-            enabled={singleMode} 
-            onToggle={setSingleMode}
-            isLocked={!isParticipating}
-          />
-        </div>
-
-        {/* Seção de Cupom */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Tag className="w-4 h-4 text-primary" />
-            <span className="text-xs font-semibold uppercase tracking-widest">Cupom de Desconto</span>
-          </div>
-          
-          {appliedCoupon ? (
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="p-4 rounded-xl border-2 border-primary/30 bg-primary/5"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-bold text-primary text-sm">{appliedCoupon.code}</p>
-                  <p className="text-xs text-muted-foreground">{appliedCoupon.description}</p>
-                </div>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={handleRemoveCoupon}
-                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="w-4 h-4" />
-                </Button>
+        {step === 1 && (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-widest">Dados pessoais</span>
+              <p className="text-xs text-muted-foreground">
+                Preencha seus dados para emitir o ingresso e o comprovante de pagamento.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-widest">Nome completo *</Label>
+                <Input
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Nome e sobrenome"
+                />
               </div>
-            </motion.div>
-          ) : (
-            <div className="flex gap-2">
-              <Input
-                placeholder="Digite o código do cupom"
-                value={couponCode}
-                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
-                className="uppercase"
-                disabled={validatingCoupon}
-              />
-              <Button
-                onClick={handleApplyCoupon}
-                disabled={validatingCoupon || !couponCode.trim()}
-                variant="outline"
-                className="shrink-0"
-              >
-                {validatingCoupon ? 'Validando...' : 'Aplicar'}
-              </Button>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-widest">CPF *</Label>
+                <Input
+                  value={cpf}
+                  onChange={(e) => setCpf(e.target.value)}
+                  placeholder="Somente números"
+                  inputMode="numeric"
+                  maxLength={14}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-widest">E-mail *</Label>
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="seuemail@exemplo.com"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-widest">Telefone *</Label>
+                <Input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="(11) 99999-9999"
+                  inputMode="tel"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-widest">Idade *</Label>
+                <Input
+                  value={age}
+                  onChange={(e) => setAge(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Idade"
+                  inputMode="numeric"
+                  maxLength={3}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold uppercase tracking-widest">Gênero (opcional)</Label>
+                <Input
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value)}
+                  placeholder="Como você se identifica"
+                />
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        <div className="space-y-4 pt-4">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">
-              {selectedTicketType ? selectedTicketType.name : 'Ingresso'} (1x)
-            </span>
-            <span className="font-mono">R$ {basePrice.toFixed(2)}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <div className="flex items-center gap-1.5">
-              <span className="text-muted-foreground">Taxa de Serviço</span>
-              <Info className="w-3 h-3 text-muted-foreground/50 cursor-help" />
+        {step === 2 && (
+          <>
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Tag className="w-4 h-4 text-primary" />
+                <span className="text-xs font-semibold uppercase tracking-widest">Tipo de Ingresso</span>
+              </div>
+              <TicketSelector 
+                eventId={event.id} 
+                onSelect={handleTicketSelect} 
+                selectedTicketTypeId={selectedTicketTypeId}
+              />
             </div>
-            <span className="font-mono">R$ {serviceFee.toFixed(2)}</span>
-          </div>
-          {appliedCoupon && (
-            <div className="flex justify-between text-sm">
-              <span className="text-primary font-semibold">Desconto ({appliedCoupon.code})</span>
-              <span className="font-mono text-primary">- R$ {discount.toFixed(2)}</span>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <ShieldCheck className="w-4 h-4 text-primary" />
+                <span className="text-xs font-semibold uppercase tracking-widest">Forma de Pagamento</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  className={cn(
+                    'flex flex-col items-start gap-1 rounded-2xl border px-4 py-3 text-left text-xs transition-all',
+                    paymentMethod === 'PIX'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/40'
+                  )}
+                  onClick={() => setPaymentMethod('PIX')}
+                >
+                  <span className="font-semibold uppercase tracking-widest">Pix</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Método prioritário, rápido e seguro.
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    'flex flex-col items-start gap-1 rounded-2xl border px-4 py-3 text-left text-xs transition-all',
+                    paymentMethod === 'CARD'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:border-primary/40'
+                  )}
+                  onClick={() => setPaymentMethod('CARD')}
+                >
+                  <span className="font-semibold uppercase tracking-widest flex items-center gap-1">
+                    <CreditCard className="w-3 h-3" />
+                    Cartão
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Pague com crédito ou débito.
+                  </span>
+                </button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Após a compra, você já poderá conhecer quem vai à festa.
+              </p>
             </div>
-          )}
-          <Separator className="bg-border/50" />
-          <div className="flex justify-between items-end">
-            <div>
-              <p className="text-xs text-muted-foreground uppercase font-bold tracking-tighter mb-1">Total do Pedido</p>
-              <p className="text-3xl font-bold tracking-tighter">R$ {total.toFixed(2)}</p>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Tag className="w-4 h-4 text-primary" />
+                <span className="text-xs font-semibold uppercase tracking-widest">Cupom de Desconto</span>
+              </div>
+              
+              {appliedCoupon ? (
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="p-4 rounded-xl border-2 border-primary/30 bg-primary/5"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-bold text-primary text-sm">{appliedCoupon.code}</p>
+                      <p className="text-xs text-muted-foreground">{appliedCoupon.description}</p>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={handleRemoveCoupon}
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </motion.div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Digite o código do cupom"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
+                    className="uppercase"
+                    disabled={validatingCoupon}
+                  />
+                  <Button
+                    onClick={handleApplyCoupon}
+                    disabled={validatingCoupon || !couponCode.trim()}
+                    variant="outline"
+                    className="shrink-0"
+                  >
+                    {validatingCoupon ? 'Validando...' : 'Aplicar'}
+                  </Button>
+                </div>
+              )}
             </div>
-            <div className="text-right text-[10px] text-muted-foreground uppercase tracking-widest font-medium">
-              Pagamento Seguro via <br /> 
-              <span className="text-foreground">SparkPay SSL</span>
+
+            <div className="space-y-4 pt-4">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">
+                  {selectedTicketType ? selectedTicketType.name : 'Ingresso'} (1x)
+                </span>
+                <span className="font-mono">R$ {basePrice.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground">Taxa de Serviço</span>
+                  <Info className="w-3 h-3 text-muted-foreground/50 cursor-help" />
+                </div>
+                <span className="font-mono">R$ {serviceFee.toFixed(2)}</span>
+              </div>
+              {appliedCoupon && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-primary font-semibold">Desconto ({appliedCoupon.code})</span>
+                  <span className="font-mono text-primary">- R$ {discount.toFixed(2)}</span>
+                </div>
+              )}
+              <Separator className="bg-border/50" />
+              <div className="flex justify-between items-end">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase font-bold tracking-tighter mb-1">Total do Pedido</p>
+                  <p className="text-3xl font-bold tracking-tighter">R$ {total.toFixed(2)}</p>
+                </div>
+                <div className="text-right text-[10px] text-muted-foreground uppercase tracking-widest font-medium">
+                  Pagamento Seguro via <br /> 
+                  <span className="text-foreground">Asaas</span>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-6">
         <Button 
           variant="outline" 
           className="h-14 rounded-2xl border-border hover:bg-muted/50 transition-colors"
-          disabled={isProcessing || isParticipating}
+          disabled={isProcessing || isParticipating || step === 1}
+          onClick={() => setStep(1)}
         >
-          <CreditCard className="w-4 h-4 mr-2" />
-          Alterar Pagamento
+          Voltar
         </Button>
         <Button 
           onClick={handlePurchase}

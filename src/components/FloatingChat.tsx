@@ -124,7 +124,7 @@ export function FloatingChat() {
 
                     // If message is from partner, we need to add sender info locally
                     // because payload doesn't have relations
-                    let msgWithSender = { ...newMsg };
+                    const msgWithSender = { ...newMsg };
                     if (newMsg.sender_id === activeChat.partner_id) {
                          msgWithSender.sender = {
                              id: activeChat.partner_id,

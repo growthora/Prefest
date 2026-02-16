@@ -35,6 +35,10 @@ export const notificationService = {
 
     if (error) throw error;
   },
+
+  async markAsRead(id: string) {
+    await this.dismissNotification(id);
+  },
   
   subscribeToNotifications(userId: string, callback: (notification: Notification) => void) {
     return supabase

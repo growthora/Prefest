@@ -79,10 +79,9 @@ export default function Profile() {
   useEffect(() => {
     if (location.state?.activeTab) {
       setActiveTab(location.state.activeTab);
-      // Limpar o state para não persistir em reloads se não for desejado, 
-      // ou manter. Para navegação via link, geralmente é bom resetar 
-      // ou apenas deixar o browser lidar com history.
-      // Se quisermos limpar: navigate(location.pathname, { replace: true, state: {} });
+    }
+    if (location.state?.startEditing) {
+      setIsEditing(true);
     }
   }, [location.state]);
 

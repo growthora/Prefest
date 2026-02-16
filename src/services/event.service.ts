@@ -30,9 +30,14 @@ export interface Event {
   price: number;
   max_participants: number | null;
   current_participants: number;
+  confirmed_users_count?: number | null;
+  available_for_match_count?: number | null;
   creator_id: string;
   created_at: string;
   updated_at: string;
+  tickets_sold?: number | null;
+  views?: number | null;
+  is_published?: boolean;
 }
 
 export interface TicketTypeDB {
@@ -386,15 +391,17 @@ export class EventService {
       .eq('user_id', userId);
 
     if (error) throw error;
-    
-    // @ts-ignore - Supabase retorna eventos dentro de um objeto
-    return (data || []).map(item => item.events).filter(Boolean);
+
+    const rows = (data ?? []) as { events: Event | null }[];
+    return rows
+      .map(row => row.events)
+      .filter((event): event is Event => Boolean(event));
   }
 
   // Atualizar evento
   async updateEvent(eventId: string, updates: Partial<Event>): Promise<Event> {
     // Processar event_date se presente
-    let updatesToSave = { ...updates };
+    const updatesToSave = { ...updates };
     
     if (updates.event_date && !updates.event_date.includes('Z') && !updates.event_date.includes('+')) {
       // Adicionar offset do timezone local
@@ -552,6 +559,82 @@ export class EventService {
     return data || [];
   }
 
+  async getTrendingEvents(limit = 20): Promise<Event[]> {
+    const now = new Date().toISOString();
+
+    const { data, error } = await supabase
+      .from('events')
+      .select('*')
+      .eq('status', 'published')
+      .gte('event_date', now);
+
+    if (error) throw error;
+
+    const events = (data || []) as (Event & { tickets_sold?: number | null; views?: number | null })[];
+
+    const scored = events
+      .map(event => {
+        const tickets = typeof event.tickets_sold === 'number' ? event.tickets_sold : 0;
+        const views = typeof event.views === 'number' ? event.views : 0;
+        const score = tickets * 0.6 + views * 0.4;
+        return { event, score };
+      })
+      .sort((a, b) => b.score - a.score)
+      .map(item => item.event);
+
+    return scored.slice(0, limit);
+  }
+
+  async getNewEvents(): Promise<Event[]> {
+    const now = new Date();
+    const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+    const { data, error } = await supabase
+      .from('events')
+      .select('*')
+      .eq('status', 'published')
+      .gte('event_date', now.toISOString())
+      .gte('created_at', fourteenDaysAgo.toISOString())
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getCategoriesWithUpcomingEvents(): Promise<(Category & { upcoming_events_count: number })[]> {
+    const now = new Date().toISOString();
+
+    const [{ data: categories, error: categoriesError }, { data: events, error: eventsError }] = await Promise.all([
+      supabase
+        .from('categories')
+        .select('*')
+        .eq('is_active', true)
+        .order('name'),
+      supabase
+        .from('events')
+        .select('id, category_id, event_date, status')
+        .eq('status', 'published')
+        .gte('event_date', now),
+    ]);
+
+    if (categoriesError) throw categoriesError;
+    if (eventsError) throw eventsError;
+
+    const countByCategory = new Map<string, number>();
+
+    (events || []).forEach(row => {
+      const categoryId = (row as any).category_id as string | null;
+      if (!categoryId) return;
+      const current = countByCategory.get(categoryId) || 0;
+      countByCategory.set(categoryId, current + 1);
+    });
+
+    return (categories || []).map(category => ({
+      ...category,
+      upcoming_events_count: countByCategory.get(category.id) || 0,
+    }));
+  }
+
   // Buscar eventos do usuário (eventos em que está inscrito)
   async getUserEvents(userId: string): Promise<Event[]> {
     const { data, error } = await supabase
@@ -670,9 +753,9 @@ export class EventService {
       .order('joined_at', { ascending: false });
 
     if (error) throw error;
-    
-    // @ts-ignore
-    return data || [];
+
+    const rows = (data ?? []) as (EventParticipant & { event: Event })[];
+    return rows;
   }
 
   // Obter detalhes do ingresso para exibição (incluindo token QR)
@@ -874,8 +957,10 @@ export class EventService {
 
     if (error) throw error;
 
-    // @ts-ignore - Supabase join
-    return (data || []).map(item => item.events).filter(Boolean);
+    const rows = (data ?? []) as { events: Event | null }[];
+    return rows
+      .map(row => row.events)
+      .filter((event): event is Event => Boolean(event));
   }
 }
 

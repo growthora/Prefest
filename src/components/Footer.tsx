@@ -22,9 +22,9 @@ export function Footer() {
   const footerLinks = {
     discover: [
       { label: 'Explorar Eventos', path: ROUTE_PATHS.EXPLORE },
-      { label: 'Em Alta', path: '#' },
-      { label: 'Categorias', path: '#' },
-      { label: 'Novidades', path: '#' },
+      { label: 'Em Alta', path: ROUTE_PATHS.EM_ALTA },
+      { label: 'Categorias', path: ROUTE_PATHS.CATEGORIES },
+      { label: 'Novidades', path: ROUTE_PATHS.NEWS },
     ],
     organizers: [
       { label: 'Venda seus Ingressos', path: ROUTE_PATHS.SELL_TICKETS },

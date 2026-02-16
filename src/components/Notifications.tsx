@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ROUTE_PATHS } from '@/lib/index';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Popover,
   PopoverContent,
@@ -34,6 +35,7 @@ export function Notifications() {
   const [unreadCount, setUnreadCount] = useState(0);
   const { user } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   const loadNotifications = async () => {
     if (!user?.id) return;
@@ -133,8 +135,10 @@ export function Notifications() {
 
     if (notification.type === 'like') {
         if (notification.data.isMatch) {
-            // Navigate to chat with the match ID (which corresponds to the user_like ID)
-            navigate(ROUTE_PATHS.CHAT.replace(':matchId', notification.actionId));
+            const chatPath = isMobile
+              ? `/m/chat/${notification.actionId}`
+              : ROUTE_PATHS.CHAT.replace(':matchId', notification.actionId);
+            navigate(chatPath);
         } else {
              // Navigate to the Event Details page with match tab active
              // Fetch event slug if possible, otherwise use ID (EventDetails handles both?)

@@ -163,6 +163,25 @@ export const EventList = () => {
                     </div>
                   )}
                   
+                  {(typeof event.confirmed_users_count === 'number' ||
+                    typeof event.current_participants === 'number') && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">🔥</span>
+                      <span>
+                        {event.confirmed_users_count ?? event.current_participants} pessoas confirmadas
+                      </span>
+                    </div>
+                  )}
+
+                  {typeof event.available_for_match_count === 'number' && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">💞</span>
+                      <span>
+                        {event.available_for_match_count} disponíveis para match
+                      </span>
+                    </div>
+                  )}
+
                   {event.max_participants && (
                     <div className="flex items-center gap-2">
                       <span className="font-semibold">👥</span>
@@ -180,7 +199,7 @@ export const EventList = () => {
                   onClick={() => handleJoinEvent(event.id)}
                   disabled={joiningEventId === event.id || !user}
                 >
-                  {joiningEventId === event.id ? 'Inscrevendo...' : 'Participar'}
+                  {joiningEventId === event.id ? 'Inscrevendo...' : 'Quero ir'}
                 </Button>
               </CardFooter>
             </Card>

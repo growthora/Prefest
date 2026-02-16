@@ -14,7 +14,10 @@ import {
   Trash2,
   Ticket,
   Search,
-  MessageCircle
+  MessageCircle,
+  Calendar,
+  MapPin,
+  Users
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -22,11 +25,13 @@ import { Layout } from '@/components/Layout';
 import { ROUTE_PATHS } from '@/lib';
 import { chatService, ChatMessage } from '@/services/chat.service';
 import { matchService, Match } from '@/services/match.service';
+import { eventService } from '@/services/event.service';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,6 +59,16 @@ const ICEBREAKERS = [
   "Qual sua 'vibe' preferida para eventos assim?"
 ];
 
+interface UserEvent {
+  id: string;
+  slug?: string;
+  title: string;
+  event_date: string;
+  location: string;
+  image_url: string | null;
+  current_participants: number;
+}
+
 export default function Chat() {
   const { matchId } = useParams<{ matchId: string }>();
   const navigate = useNavigate();
@@ -76,6 +91,9 @@ export default function Chat() {
   // List View State
   const [matches, setMatches] = useState<Match[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState<'events' | 'matches'>('events');
+  const [userEvents, setUserEvents] = useState<UserEvent[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
 
   // Load matches list if no matchId
   useEffect(() => {
@@ -105,6 +123,22 @@ export default function Chat() {
     return () => {
       subscription.unsubscribe();
     };
+  }, [user, matchId]);
+
+  useEffect(() => {
+    if (!user || matchId) return;
+    const loadEvents = async () => {
+      try {
+        setEventsLoading(true);
+        const events = await eventService.getUserEvents(user.id);
+        setUserEvents(events as unknown as UserEvent[]);
+      } catch (error) {
+        console.error('Erro ao carregar eventos do usuário:', error);
+      } finally {
+        setEventsLoading(false);
+      }
+    };
+    loadEvents();
   }, [user, matchId]);
 
   // Carregar dados do match e chat
@@ -257,71 +291,149 @@ export default function Chat() {
       <Layout>
         <div className="max-w-3xl mx-auto h-[calc(100vh-8rem)] md:h-[calc(100vh-12rem)] flex flex-col bg-card/30 border border-border/40 rounded-2xl overflow-hidden backdrop-blur-sm mt-4 md:mt-0">
           <div className="p-4 border-b border-border/40">
-            <h2 className="text-xl font-semibold mb-4">Mensagens</h2>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input 
-                placeholder="Buscar conversas..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 bg-background/50"
-              />
-            </div>
+            <h2 className="text-xl font-semibold mb-4">Conexões</h2>
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'events' | 'matches')} className="mt-2">
+              <TabsList className="grid grid-cols-2 w-full max-w-sm">
+                <TabsTrigger value="events">Meus Eventos</TabsTrigger>
+                <TabsTrigger value="matches">Meus Matchs</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            {activeTab === 'matches' && (
+              <div className="relative mt-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Buscar conversas..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 bg-background/50"
+                />
+              </div>
+            )}
           </div>
           
           <ScrollArea className="flex-1">
-            {filteredMatches.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                  <MessageCircle className="w-8 h-8 text-primary" />
-                </div>
-                <h3 className="font-medium text-lg mb-2">Nenhuma conversa ainda</h3>
-                <p className="text-sm text-muted-foreground max-w-xs">
-                  Dê like em pessoas nos eventos para começar novas conversas!
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-col">
-                {filteredMatches.map((m) => (
-                  <button
-                    key={m.match_id}
-                    onClick={() => navigate(`/chat/${m.match_id}`)}
-                    className="flex items-center gap-3 p-4 hover:bg-white/5 transition-colors border-b border-border/40 text-left"
-                  >
-                    <div className="relative">
-                      <Avatar className="w-12 h-12 border border-primary/20">
-                        <AvatarImage src={m.partner_avatar} className="object-cover" />
-                        <AvatarFallback>{m.partner_name[0]}</AvatarFallback>
-                      </Avatar>
+            <Tabs value={activeTab} className="h-full">
+              <TabsContent value="events" className="h-full m-0">
+                {eventsLoading ? (
+                  <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                      <Calendar className="w-8 h-8 text-primary" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <h3 className="font-medium truncate">{m.partner_name}</h3>
-                        {m.last_message_time && (
-                          <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
-                            {format(new Date(m.last_message_time), 'HH:mm', { locale: ptBR })}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <p className={`text-xs truncate ${m.unread_count > 0 ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                          {m.last_message || 'Inicie a conversa...'}
-                        </p>
-                        {m.unread_count > 0 && (
-                          <Badge variant="default" className="h-5 min-w-5 px-1.5 rounded-full flex items-center justify-center text-[10px]">
-                            {m.unread_count}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1.5">
-                        <Ticket className="w-3 h-3" />
-                        <span className="truncate">{m.event_title}</span>
-                      </div>
+                    <h3 className="font-medium text-lg mb-2">Carregando seus eventos</h3>
+                    <p className="text-sm text-muted-foreground max-w-xs">
+                      Buscando os eventos em que você já garantiu ingresso.
+                    </p>
+                  </div>
+                ) : userEvents.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                      <Ticket className="w-8 h-8 text-primary" />
                     </div>
-                  </button>
-                ))}
-              </div>
-            )}
+                    <h3 className="font-medium text-lg mb-2">Nenhum evento encontrado</h3>
+                    <p className="text-sm text-muted-foreground max-w-xs mb-4">
+                      Garanta ingresso em um evento para liberar o Match da galera.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
+                    {userEvents
+                      .slice()
+                      .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
+                      .map((event) => (
+                        <button
+                          key={event.id}
+                          onClick={() => navigate(`/eventos/${event.slug || event.id}?tab=match`)}
+                          className="text-left rounded-xl border border-border/40 bg-background/40 hover:bg-background/70 transition-colors overflow-hidden"
+                        >
+                          <div className="relative h-32">
+                            <img
+                              src={event.image_url || ''}
+                              alt={event.title}
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/10 to-transparent" />
+                            <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs text-white">
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-black/40">
+                                <Calendar className="w-3 h-3" />
+                                {new Date(event.event_date).toLocaleDateString('pt-BR')}
+                              </span>
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-black/40">
+                                <Users className="w-3 h-3" />
+                                {event.current_participants} pessoas
+                              </span>
+                            </div>
+                          </div>
+                          <div className="p-4 space-y-2">
+                            <h3 className="font-semibold text-sm line-clamp-2">{event.title}</h3>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <MapPin className="w-3 h-3" />
+                              <span className="truncate">{event.location}</span>
+                            </div>
+                            <div className="mt-2 inline-flex items-center gap-1 text-xs text-primary font-medium">
+                              <Sparkles className="w-3 h-3" />
+                              Ver Match da galera
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </TabsContent>
+              <TabsContent value="matches" className="h-full m-0">
+                {filteredMatches.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                    <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                      <MessageCircle className="w-8 h-8 text-primary" />
+                    </div>
+                    <h3 className="font-medium text-lg mb-2">Nenhuma conversa ainda</h3>
+                    <p className="text-sm text-muted-foreground max-w-xs">
+                      Dê like em pessoas nos eventos para começar novas conversas!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col">
+                    {filteredMatches.map((m) => (
+                      <button
+                        key={m.match_id}
+                        onClick={() => navigate(`/chat/${m.match_id}`)}
+                        className="flex items-center gap-3 p-4 hover:bg-white/5 transition-colors border-b border-border/40 text-left"
+                      >
+                        <div className="relative">
+                          <Avatar className="w-12 h-12 border border-primary/20">
+                            <AvatarImage src={m.partner_avatar} className="object-cover" />
+                            <AvatarFallback>{m.partner_name[0]}</AvatarFallback>
+                          </Avatar>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <h3 className="font-medium truncate">{m.partner_name}</h3>
+                            {m.last_message_time && (
+                              <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
+                                {format(new Date(m.last_message_time), 'HH:mm', { locale: ptBR })}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className={`text-xs truncate ${m.unread_count > 0 ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+                              {m.last_message || 'Inicie a conversa...'}
+                            </p>
+                            {m.unread_count > 0 && (
+                              <Badge variant="default" className="h-5 min-w-5 px-1.5 rounded-full flex items-center justify-center text-[10px]">
+                                {m.unread_count}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1.5">
+                            <Ticket className="w-3 h-3" />
+                            <span className="truncate">{m.event_title}</span>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </ScrollArea>
         </div>
       </Layout>
@@ -454,7 +566,7 @@ export default function Chat() {
                   ) : (
                       <>
                         <Clock className="w-3 h-3 text-primary" />
-                        <span>Expira em breve</span>
+                        <span>Disponível até 5 dias após o evento</span>
                       </>
                   )}
                 </div>
@@ -491,7 +603,7 @@ export default function Chat() {
               </div>
               <h4 className="text-sm font-medium">Início da conexão no evento</h4>
               <p className="text-xs text-muted-foreground max-w-xs mt-1">
-                As mensagens são privadas e seguras.
+                As mensagens são privadas, seguras e ficam disponíveis até 5 dias após o evento.
               </p>
             </div>
 

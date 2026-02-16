@@ -10,6 +10,9 @@ export const ROUTE_PATHS = {
   PUBLIC_PROFILE: '/perfil-publico/:slug',
   CHAT: '/chat/:matchId',
   EXPLORE: '/explorar-eventos',
+  EM_ALTA: '/em-alta',
+  CATEGORIES: '/categorias',
+  NEWS: '/novidades',
   COLLECTION: '/colecao/:slug',
   HOW_IT_WORKS: '/como-funciona',
   SELL_TICKETS: '/venda-seus-ingressos',
@@ -30,6 +33,14 @@ export const ROUTE_PATHS = {
   ORGANIZER_SCANNER: '/dashboard/organizador/scanner',
   TICKET_SCANNER: '/scanner',
 } as const;
+
+export function buildEventDetailsPath(slugOrId: string) {
+  return ROUTE_PATHS.EVENT_DETAILS.replace(':slug', slugOrId);
+}
+
+export function buildCollectionPath(slug: string) {
+  return ROUTE_PATHS.COLLECTION.replace(':slug', slug);
+}
 
 export type VibeType = 
   | 'curtir' 

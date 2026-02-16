@@ -8,7 +8,6 @@ import {
   Ticket,
   Home as HomeIcon,
   Search,
-  Info,
   Heart,
   PlusCircle,
   Calendar,
@@ -21,7 +20,8 @@ import {
   Mic,
   SlidersHorizontal,
   Flame,
-  MessageCircle
+  MessageCircle,
+  QrCode
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ROUTE_PATHS } from '@/lib';
@@ -55,6 +55,11 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
   const currentQuery = searchParams.get("q") || "";
   const [searchTerm, setSearchTerm] = useState(currentQuery);
 
+  const roles = profile?.roles || [];
+  const isOrganizerApproved = roles.includes('ORGANIZER') && profile?.organizer_status === 'APPROVED';
+  const isStaff = roles.includes('STAFF');
+  const canUseScanner = isOrganizerApproved || isStaff;
+
   // Sync internal state with URL params
   useEffect(() => {
     setSearchTerm(currentQuery);
@@ -74,12 +79,6 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
     // Always navigate to ExploreEvents with preserved params
     navigate(`${ROUTE_PATHS.EXPLORE}?${params.toString()}`);
   };
-
-  const navLinks = [
-    { name: 'Início', path: ROUTE_PATHS.HOME, icon: HomeIcon },
-    { name: 'Explorar', path: ROUTE_PATHS.EXPLORE, icon: Search },
-    { name: 'Como Funciona', path: ROUTE_PATHS.HOW_IT_WORKS, icon: Info },
-  ];
 
   const categories = [
     { name: "Festas e shows", icon: Music },
@@ -124,7 +123,23 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
             <div className="scale-90 origin-right">
               <StateSelector />
             </div>
-            
+
+            {user && canUseScanner && (
+              <button
+                onClick={() => navigate(ROUTE_PATHS.ORGANIZER_SCANNER)}
+                className="flex items-center justify-center w-9 h-9 rounded-full bg-primary text-white shadow-sm active:scale-95 transition-transform"
+                aria-label="Ler QR Code"
+              >
+                <QrCode size={18} />
+              </button>
+            )}
+
+            {user && (
+              <div className="flex-shrink-0">
+                <Notifications />
+              </div>
+            )}
+
             {user ? (
               <Link to="/perfil" className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 border border-gray-200 overflow-hidden ml-1">
                 {profile?.avatar_url ? (
@@ -230,8 +245,6 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
 
           {/* Right Section: Actions */}
           <div className="flex items-center gap-6 flex-shrink-0">
-            
-            {/* Desktop Action Links */}
             <div className="flex items-center gap-6 text-sm font-medium text-gray-600">
               <CreateEventModal 
                 trigger={
@@ -243,28 +256,40 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
               />
               
               {user && (
-                <>
-                  <Link to="/meus-eventos" className="flex items-center gap-2 hover:text-primary transition-colors">
-                    <Calendar size={18} />
-                    <span>Meus eventos</span>
-                  </Link>
-                </>
+                <Link to="/meus-eventos" className="hidden md:inline-flex items-center gap-2 hover:text-primary transition-colors">
+                  <Calendar size={18} />
+                  <span>Meus eventos</span>
+                </Link>
               )}
             </div>
 
             {/* User Profile / Auth */}
-            <div>
+            <div className="flex items-center gap-4">
+              {user && (
+                <>
+                  <Notifications />
+                  {canUseScanner && (
+                    <button
+                      onClick={() => navigate(ROUTE_PATHS.ORGANIZER_SCANNER)}
+                      className="hidden lg:inline-flex items-center gap-2 px-3 py-2 rounded-full border border-primary/20 text-sm font-medium text-primary hover:bg-primary/5 transition-colors"
+                    >
+                      <QrCode size={16} />
+                      <span>Scanner</span>
+                    </button>
+                  )}
+                </>
+              )}
               {user ? (
-                 <ProfileMenu />
+                <ProfileMenu />
               ) : (
-                 <AuthModal 
-                   trigger={
-                     <button className="flex items-center gap-2 text-gray-600 hover:text-primary font-medium">
-                       <User size={20} />
-                       <span>Entrar</span>
-                     </button>
-                   }
-                 />
+                <AuthModal 
+                  trigger={
+                    <button className="flex items-center gap-2 text-gray-600 hover:text-primary font-medium">
+                      <User size={20} />
+                      <span>Entrar</span>
+                    </button>
+                  }
+                />
               )}
             </div>
           </div>
@@ -313,20 +338,20 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
           </NavLink>
 
           <NavLink 
-            to={ROUTE_PATHS.EXPLORE} 
+            to={ROUTE_PATHS.EM_ALTA} 
             className={({isActive}) => cn(
               "flex flex-col items-center gap-1 transition-colors",
               isActive ? "text-primary" : "text-gray-400 hover:text-gray-600"
             )}
           >
             <Compass size={24} />
-            <span className="text-[10px] font-medium">Explorar</span>
+            <span className="text-[10px] font-medium">Descobrir</span>
           </NavLink>
 
           {user ? (
             <div className="-mt-8 relative group">
               <NavLink 
-                to={ROUTE_PATHS.MATCHES} 
+                to="/m/chat" 
                 className={({isActive}) => cn(
                   "flex items-center justify-center w-16 h-16 rounded-full border-4 border-white shadow-xl transition-all duration-300 bg-primary text-white",
                   isActive 
@@ -371,7 +396,7 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
 
           {user ? (
             <NavLink 
-              to="/chat" 
+              to="/m/chat" 
               className={({isActive}) => cn(
                 "flex flex-col items-center gap-1 transition-colors",
                 isActive ? "text-primary" : "text-gray-400 hover:text-gray-600"

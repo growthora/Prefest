@@ -78,6 +78,7 @@ export default function EventDetails() {
   // Match Queue State (local to avoid conflicts with hook's auto-removal)
   const [matchQueue, setMatchQueue] = useState<any[]>([]);
   const [loadingMatchCandidates, setLoadingMatchCandidates] = useState(false);
+  const [showSocialOnboarding, setShowSocialOnboarding] = useState(false);
 
   useEffect(() => {
     loadEvent();
@@ -186,10 +187,9 @@ export default function EventDetails() {
     if (!event?.id || !user) return;
     try {
       setLoadingMatchCandidates(true);
-      // Try to get match candidates, fallback to attendees if method missing
+      // Try to get match candidates, fallback to attendees if method fails
       let candidates = [];
       try {
-        // @ts-ignore - Assuming method exists as in MatchEvent
         candidates = await eventService.getMatchCandidates(event.id);
       } catch (e) {
         console.warn('getMatchCandidates failed, using getEventAttendees', e);
@@ -536,6 +536,16 @@ export default function EventDetails() {
     skipUser(userId);
   };
 
+  const shouldShowSocialOnboarding = () => {
+    if (!profile) return false;
+    const isBioEmpty = !profile.bio;
+    const isAvatarEmpty = !profile.avatar_url;
+    const isObjectiveEmpty = !profile.match_intention;
+    const hasLookingFor = Array.isArray(profile.looking_for) && profile.looking_for.length > 0;
+    const isPreferenceEmpty = !profile.match_gender_preference && !hasLookingFor;
+    return isBioEmpty && isAvatarEmpty && isObjectiveEmpty && isPreferenceEmpty;
+  };
+
   const handlePurchase = async (singleMode: boolean, ticketTypeId?: string, totalPaid?: number) => {
     if (!user || !event) {
       toast.error('Você precisa estar logado para comprar ingressos');
@@ -560,6 +570,10 @@ export default function EventDetails() {
       // Recarregar evento para atualizar contagem
       setIsParticipating(true);
       await loadEvent();
+
+      if (shouldShowSocialOnboarding()) {
+        setShowSocialOnboarding(true);
+      }
       
       if (singleMode) {
         // Suggest activating meet_attendees if they bought in single mode
@@ -571,6 +585,13 @@ export default function EventDetails() {
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao comprar ingresso');
+    }
+  };
+
+  const scrollToTicketSection = () => {
+    const el = document.getElementById('ticket-purchase');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   };
 
@@ -586,7 +607,7 @@ export default function EventDetails() {
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto px-4 py-6 lg:py-12">
+      <div className="max-w-6xl mx-auto px-4 py-6 lg:py-12 pb-24 lg:pb-12">
         {/* Back Button */}
         <motion.div
           initial={{ opacity: 0, x: -10 }}
@@ -747,22 +768,36 @@ export default function EventDetails() {
                   </span>
                 </div>
                 {participants.length > 0 ? (
-                  <div className="flex -space-x-3 overflow-hidden">
-                    {participants.map((p, i) => (
-                      <div
-                        key={p.id}
-                        className="inline-block h-8 w-8 rounded-full ring-2 ring-background bg-secondary flex items-center justify-center text-[10px] font-bold overflow-hidden"
-                      >
-                        <img 
-                          src={p.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name)}`} 
-                          alt={p.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    ))}
-                    {event.attendeesCount > participants.length && (
-                      <div className="inline-block h-8 w-8 rounded-full ring-2 ring-background bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">
-                        +{event.attendeesCount - participants.length}
+                  <div className="relative">
+                    <div
+                      className={cn(
+                        'flex -space-x-3 overflow-hidden transition-all',
+                        !isParticipating && 'blur-sm'
+                      )}
+                    >
+                      {participants.map((p) => (
+                        <div
+                          key={p.id}
+                          className="inline-block h-8 w-8 rounded-full ring-2 ring-background bg-secondary flex items-center justify-center text-[10px] font-bold overflow-hidden"
+                        >
+                          <img 
+                            src={p.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name)}`} 
+                            alt={p.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ))}
+                      {event.attendeesCount > participants.length && (
+                        <div className="inline-block h-8 w-8 rounded-full ring-2 ring-background bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">
+                          +{event.attendeesCount - participants.length}
+                        </div>
+                      )}
+                    </div>
+                    {!isParticipating && (
+                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                        <span className="px-3 py-1 rounded-full bg-background/80 border border-border text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          Compre o ingresso para desbloquear quem vai
+                        </span>
                       </div>
                     )}
                   </div>
@@ -780,10 +815,11 @@ export default function EventDetails() {
               transition={{ delay: 0.2 }}
               className="lg:col-span-4"
             >
-              <div className="sticky top-24">
+              <div id="ticket-purchase" className="sticky top-24">
                 <TicketPurchase 
                   event={event} 
-                  onPurchase={handlePurchase} 
+                  onPurchase={handlePurchase}
+                  isParticipating={isParticipating}
                 />
               </div>
             </motion.div>
@@ -1119,6 +1155,88 @@ export default function EventDetails() {
           )}
         </AnimatePresence>
       </div>
+      <AnimatePresence>
+        {showSocialOnboarding && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-xl px-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 10 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 10 }}
+              className="w-full max-w-md bg-card border border-border/60 rounded-3xl p-6 shadow-2xl space-y-4"
+            >
+              <div className="flex flex-col items-center text-center space-y-3">
+                <div className="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/40 flex items-center justify-center">
+                  <Ticket className="w-7 h-7 text-emerald-500" />
+                </div>
+                <h2 className="text-xl font-bold tracking-tight">Ingresso confirmado!</h2>
+                <p className="text-sm text-muted-foreground">
+                  Agora é a hora de criar seu perfil social para que outros participantes possam te conhecer antes da festa.
+                </p>
+              </div>
+
+              <div className="space-y-2 text-left text-sm bg-muted/40 border border-dashed border-border/70 rounded-2xl p-4">
+                <p className="font-semibold text-xs uppercase tracking-widest text-muted-foreground">
+                  Seu perfil social
+                </p>
+                <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
+                  <li>Foto de perfil para aparecer na galeria do evento</li>
+                  <li>Bio curta contando quem é você</li>
+                  <li>Seu objetivo (paquera, amizade...)</li>
+                  <li>Preferências de quem você quer conhecer</li>
+                </ul>
+              </div>
+
+              <div className="flex flex-col gap-2 pt-2">
+                <Button
+                  className="w-full h-11 rounded-2xl font-semibold"
+                  onClick={() => {
+                    setShowSocialOnboarding(false);
+                    navigate(ROUTE_PATHS.PROFILE, { state: { activeTab: 'profile', startEditing: true } });
+                  }}
+                >
+                  Criar meu perfil social
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full h-10 text-xs text-muted-foreground"
+                  onClick={() => setShowSocialOnboarding(false)}
+                >
+                  Agora não
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {!isParticipating && (
+        <div className="fixed inset-x-0 bottom-0 z-40">
+          <div className="mx-auto max-w-6xl px-4 pb-4">
+            <div className="bg-background/95 border border-border/60 rounded-2xl shadow-lg shadow-primary/20 px-4 py-3 flex items-center justify-between gap-3">
+              <div className="flex-1">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-primary flex items-center gap-1">
+                  <Flame className="w-4 h-4" />
+                  Comprar ingresso e desbloquear matches
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Garanta seu ingresso para ver quem vai e liberar os matches deste evento.
+                </p>
+              </div>
+              <Button
+                size="sm"
+                className="shrink-0 rounded-full px-4 h-9 text-xs font-bold"
+                onClick={scrollToTicketSection}
+              >
+                Comprar ingresso e desbloquear matches
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 }
