@@ -35,7 +35,7 @@ import { AuthModal } from '@/components/AuthModal';
 import { LocationPopup } from '@/components/LocationPopup';
 import { FloatingChat } from '@/components/FloatingChat';
 import { MatchPersistentToast } from '@/components/MatchPersistentToast';
-import logoImage from '@/assets/PHOTO-2026-02-02-13-32-10_-_cópia-removebg-preview.png';
+import logoImage from '@/assets/logo-new.png';
 import { Input } from '@/components/ui/input';
 import { StateSelector } from '@/components/StateSelector';
 import { BRAZIL_STATES } from '@/constants/states';
@@ -116,7 +116,7 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
             <img 
               src={logoImage} 
               alt="Pré-fest" 
-              className="h-8 w-auto object-contain" 
+              className="h-12 w-auto object-contain" 
             />
           </Link>
           <div className="flex items-center gap-2">
@@ -220,7 +220,7 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
               <img 
                 src={logoImage} 
                 alt="Pré-fest" 
-                className="h-10 w-auto object-contain" 
+                className="h-16 w-auto object-contain" 
               />
             </Link>
 

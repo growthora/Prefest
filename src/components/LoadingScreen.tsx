@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import logoImage from '@/assets/PHOTO-2026-02-02-13-32-10_-_cópia-removebg-preview.png';
+import logoImage from '@/assets/logo-new.png';
 
 export const LoadingScreen = () => {
   return (
@@ -14,7 +14,7 @@ export const LoadingScreen = () => {
         <motion.img
           src={logoImage}
           alt="Pré-fest Loading"
-          className="h-16 md:h-20 w-auto object-contain mb-8"
+          className="h-24 md:h-32 w-auto object-contain mb-8"
           animate={{
             scale: [1, 1.05, 1],
             opacity: [0.8, 1, 0.8],

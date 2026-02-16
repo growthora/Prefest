@@ -104,13 +104,15 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
       )}
     >
       {/* Image Container with Overlay */}
-      <div className="relative aspect-[4/5] w-full overflow-hidden">
+      <div className="relative w-full overflow-hidden bg-gray-900">
+        {/* Main Image Layer */}
         <img
           src={event.image}
           alt={event.title}
-          className="h-full w-full object-cover transition-transform duration-700 scale-105 group-hover:scale-110 grayscale group-hover:grayscale-0 saturate-[0.6] group-hover:saturate-100 opacity-80 group-hover:opacity-100"
+          className="relative h-auto w-full object-contain z-10 transition-transform duration-700 scale-100 group-hover:scale-105"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent opacity-90" />
+        
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent opacity-90 z-20" />
         
         {/* Floating Badges */}
         <div className="absolute top-4 left-4 flex flex-wrap gap-2">
