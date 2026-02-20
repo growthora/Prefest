@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/lib/index';
-import { Plus, Trash2, Calendar, MapPin, Image as ImageIcon, Ticket, Info, CheckCircle2, Save } from 'lucide-react';
+import { Plus, Trash2, Calendar, MapPin, Image as ImageIcon, Ticket, Info, CheckCircle2, Save, ChevronLeft } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -212,6 +212,17 @@ export const CreateEventForm = () => {
     <div className="min-h-screen bg-gray-50/50 py-10">
       <div className="container max-w-4xl mx-auto space-y-8 px-4">
         
+        <div className="flex items-center">
+          <Button
+            variant="ghost"
+            onClick={() => navigate(ROUTE_PATHS.HOME)}
+            className="flex items-center gap-2 px-0 text-muted-foreground hover:text-primary"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Voltar para a página inicial
+          </Button>
+        </div>
+
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-gray-900">Criar Novo Evento</h1>
