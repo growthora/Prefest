@@ -33,11 +33,7 @@ const Home = () => {
 
   const loadEvents = async () => {
     try {
-      // Force at least 1.5s loading for smooth UX
-      const minLoadTime = new Promise(resolve => setTimeout(resolve, 1500));
-      const dataPromise = eventService.getAllEvents();
-      
-      const [_, data] = await Promise.all([minLoadTime, dataPromise]);
+      const data = await eventService.getAllEvents();
       
       const convertedEvents: FrontendEvent[] = data.map((event: SupabaseEvent) => {
         let imageUrl = 'https://placehold.co/600x400/1a1a1a/ffffff?text=Evento';
@@ -62,18 +58,14 @@ const Home = () => {
         };
       });
       
-      // Preload carousel images to prevent layout shift
-      const imagesToPreload = convertedEvents.slice(0, 5).map(e => e.image);
-      await Promise.all(imagesToPreload.map(src => {
-        return new Promise((resolve) => {
-          const img = new Image();
-          img.src = src;
-          img.onload = resolve;
-          img.onerror = resolve;
-        });
-      }));
-      
       setEvents(convertedEvents);
+
+      // Preload carousel images in background to evitar layout shift sem travar o carregamento
+      const imagesToPreload = convertedEvents.slice(0, 5).map(e => e.image);
+      imagesToPreload.forEach((src) => {
+        const img = new Image();
+        img.src = src;
+      });
     } catch (err) {
       console.error('❌ Erro ao carregar eventos:', err);
       setEvents([]);
@@ -109,25 +101,41 @@ const Home = () => {
 
         <div className="container max-w-7xl mx-auto px-4 space-y-16">
           
-          {/* Collections */}
+          {/* Collections - Carousel style (2 visible, swipe to see more) */}
           <div>
             <div className="flex justify-between items-end mb-8 border-b border-gray-100 pb-4">
               <h2 className="text-2xl md:text-3xl font-bold text-gray-800">Explore nossas coleções</h2>
               <Button variant="link" className="text-primary font-bold hover:no-underline hover:opacity-80">Ver tudo</Button>
             </div>
             
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {collections.map((col, idx) => (
-                <Link key={idx} to={`/colecao/${col.slug}`}>
-                  <div className="flex flex-col items-center justify-center p-6 bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-lg hover:border-primary/30 transition-all cursor-pointer group h-32">
-                    <div className="w-10 h-10 mb-3 text-gray-400 group-hover:text-primary transition-colors">
-                      <col.icon size={40} strokeWidth={1.5} />
-                    </div>
-                    <span className="font-medium text-sm text-gray-600 group-hover:text-primary transition-colors text-center leading-tight">{col.label}</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
+            <Carousel
+              opts={{
+                align: "start",
+                dragFree: true,
+                containScroll: "trimSnaps",
+              }}
+              className="w-full"
+            >
+              <CarouselContent className="-ml-3 pb-2">
+                {collections.map((col, idx) => (
+                  <CarouselItem 
+                    key={idx} 
+                    className="pl-3 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5"
+                  >
+                    <Link to={`/colecao/${col.slug}`}>
+                      <div className="flex flex-col items-center justify-center p-6 bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-lg hover:border-primary/30 transition-all cursor-pointer group h-32">
+                        <div className="w-10 h-10 mb-3 text-gray-400 group-hover:text-primary transition-colors">
+                          <col.icon size={40} strokeWidth={1.5} />
+                        </div>
+                        <span className="font-medium text-sm text-gray-600 group-hover:text-primary transition-colors text-center leading-tight">
+                          {col.label}
+                        </span>
+                      </div>
+                    </Link>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+            </Carousel>
           </div>
 
           {/* Featured Events Section */}

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Shield, Camera, Key, FileText, AlertTriangle, LayoutDashboard, Ticket, User as UserIcon, Heart } from "lucide-react";
 import { Layout } from "@/components/Layout";
+import { EventGrid } from "@/components/EventCards";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { supabase } from "@/lib/supabase";

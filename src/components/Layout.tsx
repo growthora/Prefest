@@ -143,7 +143,7 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
             {user ? (
               <Link to="/perfil" className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 border border-gray-200 overflow-hidden ml-1">
                 {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} alt="Perfil" className="w-full h-full object-cover" />
+                  <img src={profile.avatar_url} alt="Perfil" className="w-full h-full object-contain" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-gray-500">
                     <User size={16} />
@@ -351,7 +351,7 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
           {user ? (
             <div className="-mt-8 relative group">
               <NavLink 
-                to="/m/chat" 
+                to={ROUTE_PATHS.EM_ALTA} 
                 className={({isActive}) => cn(
                   "flex items-center justify-center w-16 h-16 rounded-full border-4 border-white shadow-xl transition-all duration-300 bg-primary text-white",
                   isActive 

@@ -1,3 +1,4 @@
+import React, { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,35 +15,35 @@ import { ForgotPassword } from "@/pages/Auth/ForgotPassword";
 import { UpdatePassword } from "@/pages/Auth/UpdatePassword";
 import { CreateEventForm } from "@/components/CreateEventForm";
 import { EventList } from "@/components/EventList";
-import Home from "./pages/Home";
-import ExploreEvents from "./pages/ExploreEvents";
-import Collection from "./pages/Collection";
-import HowItWorks from "./pages/HowItWorks";
-import SellTickets from "./pages/SellTickets";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import TermsOfUse from "./pages/TermsOfUse";
-import MyEvents from "./pages/MyEvents";
-import EventDetails from "./pages/EventDetails";
-import Profile from "./pages/Profile";
-import PublicProfile from "./pages/PublicProfile";
-import Chat from "./pages/Chat";
-import ChatMobile from "./pages/mobile/ChatMobile";
-import TicketScanner from "./pages/TicketScanner";
-import { AdminPanel } from "./pages/AdminPanel";
-import { SupportHub } from "./pages/Support/SupportHub";
-import { HelpCenter } from "./pages/Support/HelpCenter";
-import { ContactUs } from "./pages/Support/ContactUs";
-import { FAQ } from "./pages/Support/FAQ";
-import { OrganizerRoute } from "@/components/OrganizerRoute";
-import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { Overview } from "@/pages/dashboard/Overview";
-import { OrganizerEvents } from "@/pages/dashboard/OrganizerEvents";
-import { Sales } from "@/pages/dashboard/Sales";
-import { Participants } from "@/pages/dashboard/Participants";
-import { Payments } from "@/pages/dashboard/Payments";
-import { Settings } from "@/pages/dashboard/Settings";
-import Scanner from "@/pages/dashboard/organizer/Scanner";
-import NotFound from "./pages/not-found/Index";
+const Home = lazy(() => import("./pages/Home"));
+const ExploreEvents = lazy(() => import("./pages/ExploreEvents"));
+const Collection = lazy(() => import("./pages/Collection"));
+const HowItWorks = lazy(() => import("./pages/HowItWorks"));
+const SellTickets = lazy(() => import("./pages/SellTickets"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const TermsOfUse = lazy(() => import("./pages/TermsOfUse"));
+const MyEvents = lazy(() => import("./pages/MyEvents"));
+const EventDetails = lazy(() => import("./pages/EventDetails"));
+const Profile = lazy(() => import("./pages/Profile"));
+const PublicProfile = lazy(() => import("./pages/PublicProfile"));
+const Chat = lazy(() => import("./pages/Chat"));
+const ChatMobile = lazy(() => import("./pages/mobile/ChatMobile"));
+const TicketScanner = lazy(() => import("./pages/TicketScanner"));
+const AdminPanel = lazy(() => import("./pages/AdminPanel"));
+const SupportHub = lazy(() => import("./pages/Support/SupportHub"));
+const HelpCenter = lazy(() => import("./pages/Support/HelpCenter"));
+const ContactUs = lazy(() => import("./pages/Support/ContactUs"));
+const FAQ = lazy(() => import("./pages/Support/FAQ"));
+const OrganizerRoute = lazy(() => import("@/components/OrganizerRoute"));
+const DashboardLayout = lazy(() => import("@/components/dashboard/DashboardLayout"));
+const Overview = lazy(() => import("@/pages/dashboard/Overview"));
+const OrganizerEvents = lazy(() => import("@/pages/dashboard/OrganizerEvents"));
+const Sales = lazy(() => import("@/pages/dashboard/Sales"));
+const Participants = lazy(() => import("@/pages/dashboard/Participants"));
+const Payments = lazy(() => import("@/pages/dashboard/Payments"));
+const Settings = lazy(() => import("@/pages/dashboard/Settings"));
+const Scanner = lazy(() => import("@/pages/dashboard/organizer/Scanner"));
+const NotFound = lazy(() => import("./pages/not-found/Index"));
 import { NotificationManager } from "@/components/NotificationManager";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -171,7 +172,9 @@ const App = () => {
               <Sonner position="top-center" richColors />
               <BrowserRouter>
                 <ScrollToTop />
-                <AppRoutes />
+                <Suspense fallback={<GlobalLoader />}>
+                  <AppRoutes />
+                </Suspense>
               </BrowserRouter>
             </TooltipProvider>
           </ConfirmProvider>

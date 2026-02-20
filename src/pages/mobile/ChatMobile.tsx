@@ -12,6 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { ROUTE_PATHS } from '@/lib';
 
 interface ChatMobileLayoutProps {
   children: React.ReactNode;
@@ -98,7 +99,13 @@ function ChatListMobile() {
           variant="ghost"
           size="icon"
           className="rounded-full"
-          onClick={() => navigate(-1)}
+          onClick={() => {
+            if (window.history.length > 2) {
+              navigate(-1);
+            } else {
+              navigate(ROUTE_PATHS.EM_ALTA, { replace: true });
+            }
+          }}
         >
           <ArrowLeft className="w-5 h-5" />
         </Button>

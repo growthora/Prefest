@@ -201,10 +201,10 @@ const EmAlta = () => {
                     <h2 className="text-lg font-semibold text-gray-900">Top 3 do momento</h2>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-2">
                   {topThree.map((event, index) => (
-                    <div key={event.id} className="relative">
-                      <div className="absolute -top-3 left-3 z-10">
+                    <div key={event.id} className="relative pt-8">
+                      <div className="absolute top-2 left-3 z-10">
                         <div className="inline-flex items-center gap-1 rounded-full bg-black/80 px-2.5 py-1 text-xs font-semibold text-white shadow-lg">
                           <span>{index + 1}º</span>
                           {index === 0 && <span className="text-yellow-300">Líder</span>}
@@ -212,7 +212,7 @@ const EmAlta = () => {
                           {index === 2 && <span className="text-orange-200">Subindo</span>}
                         </div>
                       </div>
-                      <EventCard event={event} className="h-full" />
+                      <EventCard event={event} className="h-full mt-4" />
                     </div>
                   ))}
                 </div>
