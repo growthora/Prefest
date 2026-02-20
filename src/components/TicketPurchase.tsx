@@ -103,9 +103,11 @@ interface TicketPurchaseProps {
   isParticipating?: boolean;
 }
 
+type CheckoutStep = 'select_ticket_type' | 'personal_data' | 'payment';
+
 export function TicketPurchase({ event, onPurchase, isParticipating = false }: TicketPurchaseProps) {
   const { profile } = useAuth();
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<CheckoutStep>('select_ticket_type');
   const [singleMode, setSingleMode] = useState(profile?.single_mode || false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [couponCode, setCouponCode] = useState('');
@@ -120,6 +122,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   const [age, setAge] = useState('');
   const [gender, setGender] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'CARD'>('PIX');
+  const [hasAvailableTicketTypes, setHasAvailableTicketTypes] = useState<boolean | null>(null);
 
   const handleTicketSelect = (ticketTypeId: string, ticketType: TicketTypeDB) => {
     setSelectedTicketTypeId(ticketTypeId);
@@ -138,6 +141,25 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     }
 
     return true;
+  };
+
+  const handleNextStep = () => {
+    if (step === 'select_ticket_type') {
+      if (!selectedTicketTypeId) {
+        toast.error('Selecione um tipo de ingresso');
+        return;
+      }
+      setStep('personal_data');
+      return;
+    }
+
+    if (step === 'personal_data') {
+      if (!hasValidPersonalData()) {
+        return;
+      }
+      setStep('payment');
+      return;
+    }
   };
 
   const handleApplyCoupon = async () => {
@@ -256,40 +278,46 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
           <h2 className="text-2xl font-bold tracking-tight">Checkout do Ingresso</h2>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 text-xs font-semibold uppercase tracking-widest">
-          <button
-            type="button"
+        <div className="grid grid-cols-3 gap-2 text-xs font-semibold uppercase tracking-widest">
+          <div
             className={cn(
               'flex items-center justify-center gap-2 rounded-full px-3 py-2 border transition-all',
-              step === 1
+              step === 'select_ticket_type'
                 ? 'border-primary bg-primary/10 text-primary'
                 : 'border-border bg-muted/40 text-muted-foreground'
             )}
-            onClick={() => setStep(1)}
           >
             <span className="w-5 h-5 rounded-full flex items-center justify-center bg-primary text-background text-[10px]">
               1
             </span>
-            Dados pessoais
-          </button>
-          <button
-            type="button"
+            Tipo de ingresso
+          </div>
+          <div
             className={cn(
               'flex items-center justify-center gap-2 rounded-full px-3 py-2 border transition-all',
-              step === 2
+              step === 'personal_data'
                 ? 'border-primary bg-primary/10 text-primary'
                 : 'border-border bg-muted/40 text-muted-foreground'
             )}
-            onClick={() => {
-              if (!hasValidPersonalData()) return;
-              setStep(2);
-            }}
           >
             <span className="w-5 h-5 rounded-full flex items-center justify-center bg-primary text-background text-[10px]">
               2
             </span>
+            Dados pessoais
+          </div>
+          <div
+            className={cn(
+              'flex items-center justify-center gap-2 rounded-full px-3 py-2 border transition-all',
+              step === 'payment'
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border bg-muted/40 text-muted-foreground'
+            )}
+          >
+            <span className="w-5 h-5 rounded-full flex items-center justify-center bg-primary text-background text-[10px]">
+              3
+            </span>
             Pagamento
-          </button>
+          </div>
         </div>
 
         <Card className="p-6 bg-card/30 border-border backdrop-blur-sm">
@@ -316,7 +344,29 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
           </div>
         </Card>
 
-        {step === 1 && (
+        {step === 'select_ticket_type' && (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <span className="text-xs font-semibold uppercase tracking-widest">Tipo de ingresso</span>
+              <p className="text-xs text-muted-foreground">
+                Escolha o tipo de ingresso que deseja adquirir para este evento.
+              </p>
+            </div>
+            <TicketSelector
+              eventId={event.id}
+              onSelect={handleTicketSelect}
+              selectedTicketTypeId={selectedTicketTypeId}
+              onLoaded={(types) => setHasAvailableTicketTypes(types.length > 0)}
+            />
+            {hasAvailableTicketTypes === false && (
+              <p className="text-xs text-red-500 font-medium">
+                Nenhum ingresso disponível no momento. Este evento não está aceitando novas compras.
+              </p>
+            )}
+          </div>
+        )}
+
+        {step === 'personal_data' && (
           <div className="space-y-4">
             <div className="space-y-2">
               <span className="text-xs font-semibold uppercase tracking-widest">Dados pessoais</span>
@@ -383,7 +433,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
           </div>
         )}
 
-        {step === 2 && (
+        {step === 'payment' && (
           <>
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-2">
@@ -531,20 +581,33 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         <Button 
           variant="outline" 
           className="h-14 rounded-2xl border-border hover:bg-muted/50 transition-colors"
-          disabled={isProcessing || isParticipating || step === 1}
-          onClick={() => setStep(1)}
+          disabled={isProcessing || isParticipating || step === 'select_ticket_type'}
+          onClick={() => {
+            if (step === 'payment') {
+              setStep('personal_data');
+              return;
+            }
+            if (step === 'personal_data') {
+              setStep('select_ticket_type');
+            }
+          }}
         >
           Voltar
         </Button>
         <Button 
-          onClick={handlePurchase}
+          onClick={step === 'payment' ? handlePurchase : handleNextStep}
           className={cn(
             "h-14 rounded-2xl font-bold text-lg transition-all",
             isParticipating 
               ? "bg-green-600 hover:bg-green-600 cursor-not-allowed" 
               : "bg-primary hover:bg-primary/90 shadow-[0_10px_20px_-5px_rgba(255,0,127,0.4)] hover:scale-[1.02] active:scale-[0.98]"
           )}
-          disabled={isProcessing || isParticipating}
+          disabled={
+            isProcessing ||
+            isParticipating ||
+            (step === 'select_ticket_type' && !selectedTicketTypeId) ||
+            (step === 'payment' && !selectedTicketTypeId)
+          }
         >
           {isParticipating ? (
             <>
@@ -558,10 +621,14 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
               className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full"
             />
           ) : (
-            <>
-              <Ticket className="w-5 h-5 mr-2" />
-              Confirmar Ingressos
-            </>
+            step === 'payment' ? (
+              <>
+                <Ticket className="w-5 h-5 mr-2" />
+                Confirmar Ingressos
+              </>
+            ) : (
+              <>Continuar</>
+            )
           )}
         </Button>
       </div>

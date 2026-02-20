@@ -40,3 +40,5 @@ export function OrganizerRoute() {
 
   return <Outlet />;
 }
+
+export default OrganizerRoute;

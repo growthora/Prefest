@@ -83,7 +83,7 @@ export function Overview() {
       </div>
     );
   }
-
+  
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
@@ -250,3 +250,5 @@ export function Overview() {
     </div>
   );
 }
+
+export default Overview;

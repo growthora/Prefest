@@ -90,6 +90,7 @@ export interface Event {
   event_type?: 'festive' | 'formal';
   price: number;
   image: string;
+   images?: string[];
   description: string;
   category: string;
   attendeesCount: number;

@@ -14,9 +14,10 @@ interface TicketSelectorProps {
   eventId: string;
   onSelect: (ticketTypeId: string, ticketType: TicketTypeDB) => void;
   selectedTicketTypeId?: string;
+  onLoaded?: (ticketTypes: TicketTypeDB[]) => void;
 }
 
-export function TicketSelector({ eventId, onSelect, selectedTicketTypeId }: TicketSelectorProps) {
+export function TicketSelector({ eventId, onSelect, selectedTicketTypeId, onLoaded }: TicketSelectorProps) {
   const [ticketTypes, setTicketTypes] = useState<TicketTypeDB[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -29,6 +30,9 @@ export function TicketSelector({ eventId, onSelect, selectedTicketTypeId }: Tick
       setLoading(true);
       const types = await eventService.getEventTicketTypes(eventId);
       setTicketTypes(types);
+      if (onLoaded) {
+        onLoaded(types);
+      }
       
       // Auto-selecionar se houver apenas um tipo
       if (types.length === 1 && !selectedTicketTypeId) {

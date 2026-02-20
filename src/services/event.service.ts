@@ -24,6 +24,7 @@ export interface Event {
   city: string | null;
   event_type: 'festive' | 'formal';
   image_url: string | null;
+  gallery_images?: string[] | null;
   category: string | null;
   category_id: string | null;
   status: 'draft' | 'published';

@@ -10,12 +10,6 @@ import {
   BreadcrumbPage, 
   BreadcrumbSeparator 
 } from '@/components/ui/breadcrumb';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
@@ -126,27 +120,32 @@ export function FAQ() {
           </div>
         </div>
 
-        {/* FAQ Accordion */}
+        {/* FAQ List */}
         <div className="space-y-8">
           {filteredCategories.length > 0 ? (
             filteredCategories.map((category, index) => (
               <div key={index} className="space-y-4">
                 <h2 className="text-xl font-bold text-primary">{category.title}</h2>
-                <Accordion type="single" collapsible className="w-full">
+                <div className="space-y-3">
                   {category.items.map((item, itemIndex) => (
-                    <AccordionItem key={itemIndex} value={`item-${index}-${itemIndex}`}>
-                      <AccordionTrigger>{item.question}</AccordionTrigger>
-                      <AccordionContent className="text-muted-foreground">
+                    <div
+                      key={itemIndex}
+                      className="rounded-lg border border-border/60 bg-card/60 p-4"
+                    >
+                      <p className="font-medium">{item.question}</p>
+                      <p className="text-sm text-muted-foreground mt-1">
                         {item.answer}
-                      </AccordionContent>
-                    </AccordionItem>
+                      </p>
+                    </div>
                   ))}
-                </Accordion>
+                </div>
               </div>
             ))
           ) : (
             <div className="text-center py-12">
-              <p className="text-muted-foreground mb-4">Nenhum resultado encontrado para "{searchTerm}"</p>
+              <p className="text-muted-foreground mb-4">
+                Nenhum resultado encontrado para "{searchTerm}"
+              </p>
               <Button variant="outline" onClick={() => setSearchTerm('')}>
                 Limpar busca
               </Button>
@@ -166,3 +165,5 @@ export function FAQ() {
     </div>
   );
 }
+
+export default FAQ;

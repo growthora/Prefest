@@ -155,3 +155,5 @@ export function Participants() {
     </div>
   );
 }
+
+export default Participants;

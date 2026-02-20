@@ -687,13 +687,13 @@ export default function Profile() {
             </CardHeader>
             <CardContent>
               <div className="flex flex-col gap-2">
-                <Button variant="ghost" className="justify-start h-auto py-3 px-4" onClick={() => navigate('/terms')}>
+                <Button variant="ghost" className="justify-start h-auto py-3 px-4" onClick={() => navigate(ROUTE_PATHS.TERMS)}>
                   <div className="text-left">
                     <div className="font-semibold">Termos de Uso</div>
                     <div className="text-xs text-muted-foreground">Regras de utilização da plataforma</div>
                   </div>
                 </Button>
-                <Button variant="ghost" className="justify-start h-auto py-3 px-4" onClick={() => navigate('/privacy')}>
+                <Button variant="ghost" className="justify-start h-auto py-3 px-4" onClick={() => navigate(ROUTE_PATHS.PRIVACY)}>
                   <div className="text-left">
                     <div className="font-semibold">Política de Privacidade</div>
                     <div className="text-xs text-muted-foreground">Como tratamos seus dados</div>

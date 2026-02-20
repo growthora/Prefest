@@ -131,16 +131,19 @@ export function HelpCenter() {
                 <ul className="space-y-2">
                   {category.articles.map((article, index) => (
                     <li key={index}>
-                      <Link 
-                        to="#" 
-                        className="text-sm text-muted-foreground hover:text-primary hover:underline transition-all block py-1"
+                      <button 
+                        type="button"
+                        className="w-full text-left text-sm text-muted-foreground hover:text-primary hover:underline transition-all py-1"
                       >
                         {article}
-                      </Link>
+                      </button>
                     </li>
                   ))}
                   <li className="pt-2">
-                    <Link to="#" className="text-sm font-medium text-primary hover:underline">
+                    <Link
+                      to={ROUTE_PATHS.FAQ}
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
                       Ver todos os artigos &rarr;
                     </Link>
                   </li>
@@ -153,3 +156,5 @@ export function HelpCenter() {
     </div>
   );
 }
+
+export default HelpCenter;

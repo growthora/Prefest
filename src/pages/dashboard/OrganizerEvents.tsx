@@ -214,3 +214,5 @@ export function OrganizerEvents() {
     </div>
   );
 }
+
+export default OrganizerEvents;

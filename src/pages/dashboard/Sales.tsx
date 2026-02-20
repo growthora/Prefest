@@ -105,3 +105,5 @@ export function Sales() {
     </div>
   );
 }
+
+export default Sales;

@@ -42,6 +42,7 @@ import { cn } from '@/lib/utils';
 import confetti from 'canvas-confetti';
 
 import { goToPublicProfile } from '@/utils/navigation';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 
 export default function EventDetails() {
   const { slug } = useParams<{ slug: string }>();
@@ -402,6 +403,13 @@ export default function EventDetails() {
           hour12: false
         });
         
+        const galleryImages = Array.isArray((supabaseEvent as any).gallery_images)
+          ? (supabaseEvent as any).gallery_images.filter((url: unknown) => typeof url === 'string' && url)
+          : [];
+
+        const primaryImage = supabaseEvent.image_url || IMAGES.EVENTS_1;
+        const images = [primaryImage, ...galleryImages.filter((url) => url !== primaryImage)];
+
         // Converter para formato frontend
         const convertedEvent: Event = {
           id: supabaseEvent.id,
@@ -414,7 +422,8 @@ export default function EventDetails() {
           city: supabaseEvent.city,
           event_type: supabaseEvent.event_type,
           price: supabaseEvent.price,
-          image: supabaseEvent.image_url || IMAGES.EVENTS_1,
+          image: primaryImage,
+          images,
           description: supabaseEvent.description || '',
           category: supabaseEvent.category || 'Geral',
           attendeesCount: supabaseEvent.current_participants,
@@ -666,40 +675,63 @@ export default function EventDetails() {
                 transition={{ delay: 0.1 }}
                 className="lg:col-span-8"
               >
-            {/* Hero Image Section */}
-            <div className="relative aspect-video rounded-2xl overflow-hidden mb-8 group">
-              <img
-                src={event.image}
-                alt={event.title}
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 grayscale-[40%]"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-60" />
-              
-              <div className="absolute top-4 right-4 flex gap-2">
-                <Button 
-                  size="icon" 
-                  variant="secondary" 
-                  onClick={handleShare}
-                  className="bg-background/40 backdrop-blur-md border-none hover:bg-background/60 transition-all hover:scale-105"
-                  title="Compartilhar"
-                >
-                  <Share2 className="w-4 h-4 text-white" />
-                </Button>
-                <Button 
-                  size="icon" 
-                  variant="secondary" 
-                  onClick={handleLike}
-                  className={cn(
-                    "backdrop-blur-md border-none transition-all hover:scale-105",
-                    isLiked 
-                      ? "bg-red-500/20 hover:bg-red-500/30 text-red-500" 
-                      : "bg-background/40 hover:bg-background/60 text-white"
-                  )}
-                  title={isLiked ? "Remover dos favoritos" : "Favoritar"}
-                >
-                  <Heart className={cn("w-4 h-4", isLiked && "fill-current")} />
-                </Button>
-              </div>
+            {/* Hero Image Section with multi-image support */}
+            <div className="relative mb-8">
+              <Carousel className="w-full">
+                <CarouselContent>
+                  {(event.images && event.images.length > 0 ? event.images : [event.image]).map((imageUrl, index, all) => (
+                    <CarouselItem key={`${imageUrl}-${index}`}>
+                      <div className="relative aspect-video rounded-2xl overflow-hidden group">
+                        <img
+                          src={imageUrl}
+                          alt={event.title}
+                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 grayscale-[40%]"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-60" />
+
+                        <div className="absolute top-4 right-4 flex gap-2">
+                          <Button 
+                            size="icon" 
+                            variant="secondary" 
+                            onClick={handleShare}
+                            className="bg-background/40 backdrop-blur-md border-none hover:bg-background/60 transition-all hover:scale-105"
+                            title="Compartilhar"
+                          >
+                            <Share2 className="w-4 h-4 text-white" />
+                          </Button>
+                          <Button 
+                            size="icon" 
+                            variant="secondary" 
+                            onClick={handleLike}
+                            className={cn(
+                              "backdrop-blur-md border-none transition-all hover:scale-105",
+                              isLiked 
+                                ? "bg-red-500/20 hover:bg-red-500/30 text-red-500" 
+                                : "bg-background/40 hover:bg-background/60 text-white"
+                            )}
+                            title={isLiked ? "Remover dos favoritos" : "Favoritar"}
+                          >
+                            <Heart className={cn("w-4 h-4", isLiked && "fill-current")} />
+                          </Button>
+                        </div>
+
+                        {all.length > 1 && (
+                          <div className="absolute bottom-4 right-4 px-3 py-1.5 rounded-full bg-background/70 text-xs font-medium text-foreground">
+                            {index + 1} / {all.length}
+                          </div>
+                        )}
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+
+                {event.images && event.images.length > 1 && (
+                  <>
+                    <CarouselPrevious className="left-4 top-1/2 -translate-y-1/2 h-10 w-10 border-none bg-background/80 text-foreground shadow-lg hover:bg-background" />
+                    <CarouselNext className="right-4 top-1/2 -translate-y-1/2 h-10 w-10 border-none bg-background/80 text-foreground shadow-lg hover:bg-background" />
+                  </>
+                )}
+              </Carousel>
             </div>
 
             <div className="space-y-6">

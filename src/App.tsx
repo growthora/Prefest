@@ -117,7 +117,10 @@ const AppRoutes = () => {
       <Route path={ROUTE_PATHS.PRIVACY} element={<PrivacyPolicy />} />
       <Route path={ROUTE_PATHS.TERMS} element={<TermsOfUse />} />
       <Route path={ROUTE_PATHS.SUPPORT} element={<SupportHub />} />
-      <Route path={ROUTE_PATHS.HELP_CENTER} element={<HelpCenter />} />
+      <Route
+        path={ROUTE_PATHS.HELP_CENTER}
+        element={<Navigate to={ROUTE_PATHS.FAQ} replace />}
+      />
       <Route path={ROUTE_PATHS.CONTACT_US} element={<ContactUs />} />
       <Route path={ROUTE_PATHS.FAQ} element={<FAQ />} />
       <Route path={ROUTE_PATHS.EVENTS} element={<EventList />} />
