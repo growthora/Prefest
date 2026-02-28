@@ -1,0 +1,7 @@
+{
+  "imports": {
+    "cors": "https://esm.sh/cors@2.8.5",
+    "nodemailer": "https://esm.sh/nodemailer@6.9.9",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.3"
+  }
+}

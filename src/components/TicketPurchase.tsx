@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { TicketSelector } from './TicketSelector';
 import { MatchGuidelinesModal } from './MatchGuidelinesModal';
 import type { TicketTypeDB } from '@/services/event.service';
+import { supabase } from '@/lib/supabase';
 
 interface SingleModeToggleProps {
   enabled: boolean;
@@ -107,7 +108,7 @@ interface TicketPurchaseProps {
 type CheckoutStep = 'select_ticket_type' | 'personal_data' | 'payment';
 
 export function TicketPurchase({ event, onPurchase, isParticipating = false }: TicketPurchaseProps) {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const [step, setStep] = useState<CheckoutStep>('select_ticket_type');
   const [singleMode, setSingleMode] = useState(profile?.single_mode || false);
   const [showMatchGuidelines, setShowMatchGuidelines] = useState(false);
@@ -238,43 +239,58 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         return;
       }
 
-      const response = await fetch('/api/checkout/asaas', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fullName,
-          cpf,
-          email,
-          phone,
-          age: Number(age),
-          gender: gender || null,
-          amount: total,
-          eventId: event.id,
-          ticketTypeId: selectedTicketTypeId,
-          paymentMethod,
-        }),
+      const { data, error } = await supabase.functions.invoke('create-asaas-payment', {
+        body: {
+          user_id: user?.id || profile?.id,
+          value: total,
+          description: `Ingresso: ${event.title} - ${selectedTicketType?.name}`,
+          payment_method: paymentMethod === 'CARD' ? 'CREDIT_CARD' : 'PIX',
+          customer_info: {
+            name: fullName,
+            email: email,
+            cpfCnpj: cpf.replace(/\D/g, ''),
+            phone: phone.replace(/\D/g, ''),
+            postalCode: '00000000', // Optional or add field
+            addressNumber: '0' // Optional or add field
+          },
+          metadata: {
+            eventId: event.id,
+            ticketTypeId: selectedTicketTypeId,
+            singleMode
+          }
+        }
       });
 
-      if (!response.ok) {
-        toast.error('Erro ao iniciar pagamento. Tente novamente.');
+      if (error) {
+        console.error('Payment Error:', error);
+        toast.error(`Erro ao iniciar pagamento: ${error.message || 'Erro desconhecido'}`);
         return;
       }
 
-      const data = await response.json();
-
-      if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl;
+      if (data?.paymentUrl) {
+        window.location.href = data.paymentUrl;
         return;
       }
 
-      if (data.pixUrl) {
-        window.location.href = data.pixUrl;
-        return;
+      if (data?.pixQrCode || data?.pixQrCodeText) {
+        // Handle PIX display (maybe redirect to a success page with QR code, or show modal)
+        // For now, if we have a payment URL (invoice URL), use that as it's easiest
+        if (data.invoiceUrl) {
+             window.location.href = data.invoiceUrl;
+             return;
+        }
+        // If only raw PIX data returned, we might need a UI to show it.
+        // Let's assume the function returns an invoiceUrl for PIX too usually.
+        // If not, we might need to handle raw PIX display.
+      }
+      
+      if (data?.invoiceUrl) {
+          window.location.href = data.invoiceUrl;
+          return;
       }
 
-      toast.error('Não foi possível iniciar o pagamento. Tente novamente.');
+      toast.error('Não foi possível obter a URL de pagamento. Tente novamente.');
+
     } catch (error) {
       console.error('Purchase error:', error);
       toast.error('Erro inesperado ao processar o pagamento');

@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { Users, Pencil, Trash2, Plus, Search, Calendar, DollarSign, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AdminUsers() {
   const [users, setUsers] = useState<UserWithStats[]>([]);
