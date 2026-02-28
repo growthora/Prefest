@@ -269,10 +269,12 @@ export default function AdminSettings() {
         });
 
         toast.dismiss();
-        if (error || data?.error) {
-            toast.error(`Erro na validação: ${error?.message || data?.error}`);
+        if (error || (data && !data.ok && !data.valid) || (data && data.error)) {
+            const errorMessage = error?.message || data?.error || data?.message || 'Erro desconhecido na validação';
+            toast.error(`Erro na validação: ${errorMessage}`);
         } else {
-            toast.success('Conexão com Asaas válida!');
+            const accountName = data?.account?.name || data?.data?.name || 'Conta';
+            toast.success(`Conexão com Asaas válida! Conta: ${accountName}`);
             setIntegrations(prev => prev.map(i => i.provider === 'asaas' ? { ...i, is_enabled: true } : i));
         }
       } catch (error) {
