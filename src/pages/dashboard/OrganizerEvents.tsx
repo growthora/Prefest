@@ -6,6 +6,14 @@ import { DashboardLoader } from '@/components/dashboard/DashboardLoader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import {
   Table,
   TableBody,
   TableCell,
@@ -14,7 +22,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { Edit, Eye, MoreHorizontal, Plus, Search, Trash2 } from 'lucide-react';
+import { Edit, Eye, MoreHorizontal, Plus, Search, Trash2, Calendar, MapPin, Users } from 'lucide-react';
+import { motion } from 'framer-motion';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -126,7 +135,8 @@ export function OrganizerEvents() {
         </div>
       </div>
 
-      <div className="rounded-md border bg-card">
+      {/* Desktop View */}
+      <div className="hidden md:block rounded-md border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
@@ -190,6 +200,78 @@ export function OrganizerEvents() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Mobile View */}
+      <motion.div 
+        className="grid gap-4 md:hidden"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ staggerChildren: 0.1 }}
+      >
+        {filteredEvents.map((event) => (
+          <motion.div
+            key={event.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            <Card className="overflow-hidden border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow h-full">
+              <div className="relative h-40 w-full bg-muted overflow-hidden">
+                 {event.image_url ? (
+                    <img src={event.image_url} alt={event.title} className="h-full w-full object-cover transition-transform hover:scale-105 duration-500" />
+                 ) : (
+                    <div className="flex h-full items-center justify-center bg-muted/50 text-muted-foreground">
+                       <Calendar className="h-12 w-12 opacity-20" />
+                    </div>
+                 )}
+                 <Badge 
+                    variant={new Date(event.event_date) > new Date() ? "default" : "secondary"}
+                    className="absolute right-2 top-2 shadow-sm backdrop-blur-sm bg-opacity-90"
+                 >
+                    {new Date(event.event_date) > new Date() ? "Ativo" : "Realizado"}
+                 </Badge>
+              </div>
+              <CardHeader className="p-4 pb-2">
+                <CardTitle className="line-clamp-1 text-lg font-bold">{event.title}</CardTitle>
+                <CardDescription className="line-clamp-1 flex items-center gap-1.5 text-xs mt-1">
+                   <MapPin className="h-3.5 w-3.5 text-primary" /> 
+                   {event.location}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 pt-2 space-y-3">
+                 <div className="flex items-center justify-between text-sm text-muted-foreground bg-muted/30 p-2 rounded-lg border border-border/50">
+                    <div className="flex flex-col gap-1">
+                       <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground/80">Data</span>
+                       <span className="flex items-center gap-1.5 font-medium text-foreground">
+                          <Calendar className="h-3.5 w-3.5 text-primary" />
+                          {new Date(event.event_date).toLocaleDateString()}
+                       </span>
+                    </div>
+                    <div className="h-8 w-[1px] bg-border mx-2" />
+                    <div className="flex flex-col gap-1 text-right">
+                       <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground/80">Participantes</span>
+                       <span className="flex items-center justify-end gap-1.5 font-medium text-foreground">
+                          <Users className="h-3.5 w-3.5 text-primary" />
+                          {event.current_participants} / {event.max_participants || '∞'}
+                       </span>
+                    </div>
+                 </div>
+              </CardContent>
+              <CardFooter className="p-4 pt-0 grid grid-cols-3 gap-2">
+                 <Button variant="outline" size="sm" className="w-full h-9 hover:bg-primary/5 hover:text-primary transition-colors" onClick={() => handleAction(event, 'view')}>
+                    <Eye className="h-4 w-4 mr-1" /> Ver
+                 </Button>
+                 <Button variant="outline" size="sm" className="w-full h-9 hover:bg-primary/5 hover:text-primary transition-colors" onClick={() => handleAction(event, 'edit')}>
+                    <Edit className="h-4 w-4 mr-1" /> Editar
+                 </Button>
+                 <Button variant="ghost" size="sm" className="w-full h-9 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => handleAction(event, 'delete')}>
+                    <Trash2 className="h-4 w-4 mr-1" /> Excluir
+                 </Button>
+              </CardFooter>
+            </Card>
+          </motion.div>
+        ))}
+      </motion.div>
 
       {/* CRUD Modals */}
       <EventDetailsModal

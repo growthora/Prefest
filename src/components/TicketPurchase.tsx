@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { couponService } from '@/services/coupon.service';
 import { toast } from 'sonner';
 import { TicketSelector } from './TicketSelector';
+import { MatchGuidelinesModal } from './MatchGuidelinesModal';
 import type { TicketTypeDB } from '@/services/event.service';
 
 interface SingleModeToggleProps {
@@ -109,6 +110,31 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   const { profile } = useAuth();
   const [step, setStep] = useState<CheckoutStep>('select_ticket_type');
   const [singleMode, setSingleMode] = useState(profile?.single_mode || false);
+  const [showMatchGuidelines, setShowMatchGuidelines] = useState(false);
+
+  React.useEffect(() => {
+    if (age && parseInt(age) < 18) {
+      setSingleMode(false);
+    }
+  }, [age]);
+
+  const handleToggleSingleMode = (val: boolean) => {
+    if (val) {
+      if (age && parseInt(age) < 18) {
+        toast.error("É necessário ter mais de 18 anos para ativar o modo Match");
+        return;
+      }
+      setShowMatchGuidelines(true);
+    } else {
+      setSingleMode(false);
+    }
+  };
+
+  const confirmMatchEnabled = () => {
+    setShowMatchGuidelines(false);
+    setSingleMode(true);
+    toast.success("Modo Match ativado!");
+  };
   const [isProcessing, setIsProcessing] = useState(false);
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
@@ -435,6 +461,14 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
 
         {step === 'payment' && (
           <>
+            <div className="mb-6">
+              <SingleModeToggle 
+                enabled={singleMode} 
+                onToggle={handleToggleSingleMode}
+                isLocked={!!(age && parseInt(age) < 18)} 
+              />
+            </div>
+
             <div className="space-y-4">
               <div className="flex items-center gap-2 mb-2">
                 <Tag className="w-4 h-4 text-primary" />
@@ -636,6 +670,12 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
       <p className="text-center text-[10px] text-muted-foreground uppercase tracking-[0.15em] opacity-50">
         Ao confirmar, você concorda com nossos termos de uso e políticas de privacidade. © 2026 Spark Events.
       </p>
+
+      <MatchGuidelinesModal 
+        isOpen={showMatchGuidelines} 
+        onClose={() => setShowMatchGuidelines(false)} 
+        onAccept={confirmMatchEnabled} 
+      />
     </div>
   );
 }

@@ -15,7 +15,8 @@ import {
   Flame,
   MessageCircle,
   Ticket,
-  HeartHandshake
+  HeartHandshake,
+  Ban
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Layout } from '@/components/Layout';
@@ -40,9 +41,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import confetti from 'canvas-confetti';
+import { differenceInYears, parseISO } from 'date-fns';
 
 import { goToPublicProfile } from '@/utils/navigation';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import { MatchGuidelinesModal } from '@/components/MatchGuidelinesModal';
 
 export default function EventDetails() {
   const { slug } = useParams<{ slug: string }>();
@@ -80,6 +83,12 @@ export default function EventDetails() {
   const [matchQueue, setMatchQueue] = useState<any[]>([]);
   const [loadingMatchCandidates, setLoadingMatchCandidates] = useState(false);
   const [showSocialOnboarding, setShowSocialOnboarding] = useState(false);
+  const [showMatchGuidelines, setShowMatchGuidelines] = useState(false);
+
+  const isUnderage = useMemo(() => {
+    if (!profile?.birth_date) return false;
+    return differenceInYears(new Date(), parseISO(profile.birth_date)) < 18;
+  }, [profile]);
 
   useEffect(() => {
     loadEvent();
@@ -330,22 +339,31 @@ export default function EventDetails() {
       return;
     }
     
+    // Check if enabling match
+    if (!profile.match_enabled) {
+      setShowMatchGuidelines(true);
+      return;
+    }
+
+    // Disabling match
+    await toggleMatchStatus(false);
+  };
+
+  const toggleMatchStatus = async (enable: boolean) => {
+    if (!profile) return;
+
     try {
-      // Toggle based on match_enabled as it is the primary flag for Match System
-      const isEnabled = profile.match_enabled;
-      const newValue = !isEnabled;
-      
       const updates: any = { 
-          match_enabled: newValue,
-          meet_attendees: newValue, // Sync both for consistency
-          allow_profile_view: newValue // Ensure profile is visible if matching
+          match_enabled: enable,
+          meet_attendees: enable, // Sync both for consistency
+          allow_profile_view: enable // Ensure profile is visible if matching
       };
 
       await updateProfile(updates);
-      toast.success(newValue ? 'Você entrou no Match! 🔥' : 'Você ficou invisível. 👻');
+      toast.success(enable ? 'Você entrou no Match! 🔥' : 'Você ficou invisível. 👻');
       
       // Se ativou, recarrega candidatos
-      if (newValue) {
+      if (enable) {
         loadMatchCandidates();
       }
       
@@ -562,6 +580,12 @@ export default function EventDetails() {
       return;
     }
 
+    // Force disable singleMode if underage
+    if (isUnderage && singleMode) {
+      singleMode = false;
+      toast.error("Funcionalidade de Match restrita para menores de 18 anos.");
+    }
+
     if (isParticipating) {
       toast.info('Você já está inscrito neste evento!');
       return;
@@ -586,8 +610,12 @@ export default function EventDetails() {
       
       if (singleMode) {
         // Suggest activating meet_attendees if they bought in single mode
-        if (!profile?.meet_attendees) {
-            await updateProfile({ meet_attendees: true });
+        if (!profile?.meet_attendees || !profile?.match_enabled) {
+            await updateProfile({ 
+                meet_attendees: true,
+                match_enabled: true,
+                allow_profile_view: true
+            });
             toast.success('Conheça a Galera ativado automaticamente!');
         }
         setActiveTab('attendees');
@@ -1030,6 +1058,16 @@ export default function EventDetails() {
                   </p>
                   <Button onClick={() => navigate('/login')} size="lg" className="px-8">Fazer Login</Button>
                 </div>
+              ) : isUnderage ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center bg-destructive/5 rounded-xl border border-destructive/20 p-8">
+                  <div className="w-20 h-20 bg-destructive/10 rounded-full flex items-center justify-center mb-6">
+                    <Ban className="w-10 h-10 text-destructive" />
+                  </div>
+                  <h3 className="text-2xl font-bold mb-3 text-destructive">Acesso Restrito</h3>
+                  <p className="text-muted-foreground max-w-md mb-8 text-lg">
+                    A funcionalidade de Match é exclusiva para maiores de 18 anos, conforme nossos termos de uso e legislação vigente.
+                  </p>
+                </div>
               ) : !profile?.match_enabled ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center bg-card/30 rounded-xl border border-border/40 p-8">
                    <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6 relative">
@@ -1269,6 +1307,14 @@ export default function EventDetails() {
           </div>
         </div>
       )}
+      <MatchGuidelinesModal 
+        isOpen={showMatchGuidelines} 
+        onClose={() => setShowMatchGuidelines(false)} 
+        onAccept={() => { 
+          setShowMatchGuidelines(false); 
+          toggleMatchStatus(true); 
+        }} 
+      />
     </Layout>
   );
 }

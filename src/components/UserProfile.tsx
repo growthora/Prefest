@@ -18,6 +18,9 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { MatchGuidelinesModal } from '@/components/MatchGuidelinesModal';
+import { useState } from 'react';
+import { toast } from 'sonner';
 
 interface ProfileBadgesProps {
   badges: string[];
@@ -57,7 +60,34 @@ interface UserProfileProps {
 }
 
 export function UserProfile({ user, isEditable = false }: UserProfileProps) {
-  const { toggleSingleMode, updateUser } = useAuth();
+  const { updateProfile } = useAuth();
+  const [showMatchGuidelines, setShowMatchGuidelines] = useState(false);
+
+  const handleToggleSingleMode = async (checked: boolean) => {
+    if (!isEditable) return;
+    
+    if (checked) {
+      setShowMatchGuidelines(true);
+      return;
+    }
+
+    try {
+      await updateProfile({ match_enabled: false });
+      toast.success("Modo Match desativado");
+    } catch (error) {
+      toast.error("Erro ao atualizar status");
+    }
+  };
+
+  const confirmMatchEnabled = async () => {
+    try {
+      setShowMatchGuidelines(false);
+      await updateProfile({ match_enabled: true });
+      toast.success("Modo Match ativado!");
+    } catch (error) {
+      toast.error("Erro ao ativar match");
+    }
+  };
 
   const getDisplayName = () => {
     if (!isEditable && user.showInitialsOnly) {
@@ -167,7 +197,7 @@ export function UserProfile({ user, isEditable = false }: UserProfileProps) {
                   </div>
                   <Switch 
                     checked={user.isSingleMode} 
-                    onCheckedChange={toggleSingleMode} 
+                    onCheckedChange={handleToggleSingleMode} 
                     className="data-[state=checked]:bg-primary"
                   />
                 </div>
@@ -182,12 +212,17 @@ export function UserProfile({ user, isEditable = false }: UserProfileProps) {
                   </div>
                   <Switch 
                     checked={user.showInitialsOnly} 
-                    onCheckedChange={(val) => updateUser({ showInitialsOnly: val })}
+                    onCheckedChange={(val) => updateProfile({ show_initials_only: val })}
                     className="data-[state=checked]:bg-primary"
                   />
                 </div>
               </CardContent>
             </Card>
+            <MatchGuidelinesModal 
+              isOpen={showMatchGuidelines} 
+              onClose={() => setShowMatchGuidelines(false)} 
+              onAccept={confirmMatchEnabled} 
+            />
           </section>
         )}
 

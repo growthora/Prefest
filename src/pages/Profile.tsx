@@ -28,6 +28,7 @@ import { ImageCropUploader } from "@/components/ImageCropUploader";
 import { eventService } from "@/services/event.service";
 import { Event, ROUTE_PATHS } from "@/lib/index";
 import { toast } from "sonner";
+import { MatchGuidelinesModal } from "@/components/MatchGuidelinesModal";
 
 export default function Profile() {
   const { profile, isAuthenticated, isAdmin, updateProfile, user, isEmailConfirmed } = useAuth();
@@ -35,6 +36,7 @@ export default function Profile() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isEditing, setIsEditing] = useState(false);
+  const [showMatchGuidelines, setShowMatchGuidelines] = useState(false);
   
   // Favorites State
   const [activeTab, setActiveTab] = useState("profile");
@@ -252,12 +254,29 @@ export default function Profile() {
 
   // Toggles
   const handleToggleMatchEnabled = async (checked: boolean) => {
+    if (checked) {
+      setShowMatchGuidelines(true);
+      return;
+    }
+
     try {
       setMatchEnabled(checked);
       await updateProfile({ match_enabled: checked });
-      toast.success(checked ? 'Você agora participa do sistema de Matches!' : 'Participação em Matches desativada.');
+      toast.success('Participação em Matches desativada.');
     } catch (err) {
       setMatchEnabled(!checked);
+      toast.error('Erro ao atualizar status de match');
+    }
+  };
+
+  const confirmMatchEnabled = async () => {
+    try {
+      setShowMatchGuidelines(false);
+      setMatchEnabled(true);
+      await updateProfile({ match_enabled: true });
+      toast.success('Você agora participa do sistema de Matches!');
+    } catch (err) {
+      setMatchEnabled(false);
       toast.error('Erro ao atualizar status de match');
     }
   };
@@ -730,6 +749,11 @@ export default function Profile() {
             )}
           </TabsContent>
         </Tabs>
+        <MatchGuidelinesModal 
+          isOpen={showMatchGuidelines} 
+          onClose={() => setShowMatchGuidelines(false)} 
+          onAccept={confirmMatchEnabled} 
+        />
       </div>
     </Layout>
   );

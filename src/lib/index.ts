@@ -32,6 +32,16 @@ export const ROUTE_PATHS = {
   ORGANIZER_SETTINGS: '/dashboard/organizador/configuracoes',
   ORGANIZER_SCANNER: '/dashboard/organizador/scanner',
   TICKET_SCANNER: '/scanner',
+  ADMIN_DASHBOARD: '/admin',
+  ADMIN_EVENTS: '/admin/eventos',
+  ADMIN_COUPONS: '/admin/cupons',
+  ADMIN_REQUESTS: '/admin/solicitacoes',
+  ADMIN_ORGANIZERS: '/admin/organizadores',
+  ADMIN_USERS: '/admin/usuarios',
+  ADMIN_STATS: '/admin/estatisticas',
+  ADMIN_FINANCIAL: '/admin/financeiro',
+  ADMIN_SETTINGS: '/admin/configuracoes',
+  ADMIN_SUPPORT: '/admin/suporte',
 } as const;
 
 export function buildEventDetailsPath(slugOrId: string) {

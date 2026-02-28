@@ -29,7 +29,18 @@ const PublicProfile = lazy(() => import("./pages/PublicProfile"));
 const Chat = lazy(() => import("./pages/Chat"));
 const ChatMobile = lazy(() => import("./pages/mobile/ChatMobile"));
 const TicketScanner = lazy(() => import("./pages/TicketScanner"));
-const AdminPanel = lazy(() => import("./pages/AdminPanel"));
+const AdminRoute = lazy(() => import("@/components/AdminRoute"));
+const AdminLayout = lazy(() => import("@/components/dashboard/AdminLayout"));
+const AdminOverview = lazy(() => import("@/pages/admin/AdminOverview"));
+const AdminEvents = lazy(() => import("@/pages/admin/AdminEvents"));
+const AdminCoupons = lazy(() => import("@/pages/admin/AdminCoupons"));
+const AdminRequests = lazy(() => import("@/pages/admin/AdminRequests"));
+const AdminOrganizers = lazy(() => import("@/pages/admin/AdminOrganizers"));
+const AdminUsers = lazy(() => import("@/pages/admin/AdminUsers"));
+const AdminFinancial = lazy(() => import("@/pages/admin/AdminFinancial"));
+const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
+const AdminSupport = lazy(() => import("@/pages/admin/AdminSupport"));
+const AdminStats = lazy(() => import("@/pages/admin/AdminStats"));
 const SupportHub = lazy(() => import("./pages/Support/SupportHub"));
 const HelpCenter = lazy(() => import("./pages/Support/HelpCenter"));
 const ContactUs = lazy(() => import("./pages/Support/ContactUs"));
@@ -104,7 +115,20 @@ const AppRoutes = () => {
         <Route path={ROUTE_PATHS.LOGIN} element={<LoginForm />} />
       <Route path={ROUTE_PATHS.FORGOT_PASSWORD} element={<ForgotPassword />} />
       <Route path={ROUTE_PATHS.UPDATE_PASSWORD} element={<UpdatePassword />} />
-      <Route path="/admin" element={<AdminPanel />} />
+      <Route element={<AdminRoute />}>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<AdminOverview />} />
+          <Route path="eventos" element={<AdminEvents />} />
+          <Route path="cupons" element={<AdminCoupons />} />
+          <Route path="solicitacoes" element={<AdminRequests />} />
+          <Route path="organizadores" element={<AdminOrganizers />} />
+          <Route path="usuarios" element={<AdminUsers />} />
+          <Route path="financeiro" element={<AdminFinancial />} />
+          <Route path="configuracoes" element={<AdminSettings />} />
+          <Route path="suporte" element={<AdminSupport />} />
+          <Route path="estatisticas" element={<AdminStats />} />
+        </Route>
+      </Route>
       <Route path={ROUTE_PATHS.TICKET_SCANNER} element={<TicketScanner />} />
       <Route path={ROUTE_PATHS.HOME} element={<Home />} />
       <Route path={ROUTE_PATHS.EXPLORE} element={<ExploreEvents />} />
