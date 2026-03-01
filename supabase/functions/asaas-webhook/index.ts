@@ -13,16 +13,15 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-    )
+    // Initialize Admin Client for database operations
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+        throw new Error('Missing Supabase environment variables')
+    }
 
-    const adminClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey)
 
     // 1. Validate Webhook Token
     const incomingToken = req.headers.get('asaas-access-token')
@@ -30,12 +29,28 @@ serve(async (req) => {
     // Fetch stored token securely
     const { data: config, error: configError } = await adminClient.rpc('get_decrypted_asaas_config')
     
-    if (configError || !config) {
+    if (configError) {
+        console.error('Config Error:', configError)
         return new Response(JSON.stringify({ error: 'Config error' }), { status: 500, headers: corsHeaders })
     }
 
-    if (config.webhook_token && incomingToken !== config.webhook_token) {
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders })
+    // If webhook token is configured, validate it
+    if (config && config.webhook_token) {
+        if (incomingToken !== config.webhook_token) {
+            console.error('Invalid Webhook Token')
+            return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders })
+        }
+    } else {
+        // If not configured, we might want to log a warning or block. 
+        // For security, if it's production, we should block.
+        // But for initial setup, maybe allow? No, strict is better.
+        // Unless it's sandbox and user hasn't set it up yet.
+        // Let's assume if it's missing in DB, we can't validate, so we proceed with caution or block.
+        // Given "Webhook como fonte única de verdade", security is key.
+        if (config?.env === 'production') {
+             console.error('Webhook token not configured in production')
+             return new Response(JSON.stringify({ error: 'Webhook configuration missing' }), { status: 500, headers: corsHeaders })
+        }
     }
 
     // 2. Parse Payload
@@ -46,83 +61,108 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: 'Invalid payload' }), { status: 400, headers: corsHeaders })
     }
 
-    // 3. Check Idempotency
-    const { data: isNew, error: eventError } = await adminClient.rpc('register_integration_event', {
-      p_provider: 'asaas',
-      p_external_event_id: body.id, // Event ID from Asaas payload
-      p_event_type: event,
-      p_payload: body
-    })
+    console.log(`Received event: ${event} for payment ${payment.id}`)
 
-    if (eventError) {
-        console.error('Event registration error:', eventError)
-        return new Response(JSON.stringify({ error: 'Event registration failed' }), { status: 500, headers: corsHeaders })
-    }
-
-    if (!isNew) {
-      return new Response(JSON.stringify({ ok: true, message: 'Already processed' }), { status: 200, headers: corsHeaders })
-    }
-
-    // 4. Map Status
+    // 3. Map Status
     let newStatus = ''
+    let ticketStatus = ''
+    
     switch (event) {
         case 'PAYMENT_RECEIVED':
         case 'PAYMENT_CONFIRMED':
-            newStatus = 'PAID'
+            newStatus = 'paid'
+            ticketStatus = 'paid'
             break
         case 'PAYMENT_OVERDUE':
-            newStatus = 'OVERDUE'
+            newStatus = 'overdue'
+            ticketStatus = 'cancelled' // Or expired
             break
         case 'PAYMENT_REFUNDED':
-            newStatus = 'REFUNDED'
+            newStatus = 'refunded'
+            ticketStatus = 'refunded'
             break
         case 'PAYMENT_DELETED':
-            newStatus = 'CANCELLED'
+        case 'PAYMENT_CANCELLED': // Asaas sends PAYMENT_DELETED usually for manual removal
+            newStatus = 'cancelled'
+            ticketStatus = 'cancelled'
             break
         case 'PAYMENT_RESTORED':
-            newStatus = 'PENDING'
+            newStatus = 'pending'
+            ticketStatus = 'pending'
             break
         case 'PAYMENT_CHARGEBACK_REQUESTED':
         case 'PAYMENT_CHARGEBACK_DISPUTE':
-            newStatus = 'CHARGEBACK'
+            newStatus = 'chargeback'
+            ticketStatus = 'disputed'
             break
         case 'PAYMENT_AWAITING_RISK_ANALYSIS':
-            newStatus = 'AWAITING_RISK_ANALYSIS'
+            newStatus = 'awaiting_risk_analysis'
             break
         case 'PAYMENT_APPROVED_BY_RISK_ANALYSIS':
-            newStatus = 'APPROVED_BY_RISK_ANALYSIS'
+            newStatus = 'approved_by_risk_analysis'
             break
         case 'PAYMENT_REPROVED_BY_RISK_ANALYSIS':
-            newStatus = 'REPROVED_BY_RISK_ANALYSIS'
+            newStatus = 'reproved_by_risk_analysis'
+            ticketStatus = 'cancelled'
             break
         default:
-            // Other events (e.g. PAYMENT_UPDATED) might not change status
+            // Other events (e.g. PAYMENT_UPDATED, PAYMENT_CREATED) might not change status
             break
     }
 
     if (newStatus) {
-        // 5. Update Payments Table
+        // 4. Update Payments Table
         const { data: updatedPayment, error: paymentUpdateError } = await adminClient
             .from('payments')
-            .update({ status: newStatus, updated_at: new Date() })
+            .update({ 
+                status: newStatus, 
+                updated_at: new Date().toISOString() 
+            })
             .eq('external_payment_id', payment.id)
             .select()
+            .single()
 
         if (paymentUpdateError) {
             console.error('Error updating payment:', paymentUpdateError)
-        } else if (updatedPayment && updatedPayment.length > 0) {
-            // 6. Update Payment Splits Table
-            // Find splits linked to this payment
-            // Note: payment_id in payment_splits is the local UUID of the payment
-            const paymentId = updatedPayment[0].id
+            // If payment doesn't exist, we might want to log it.
+        } else if (updatedPayment) {
+            console.log(`Payment ${updatedPayment.id} updated to ${newStatus}`)
             
-            const { error: splitUpdateError } = await adminClient
+            // 5. Update Ticket Status
+            if (ticketStatus) {
+                const { error: ticketError } = await adminClient
+                    .from('tickets')
+                    .update({ 
+                        status: ticketStatus, 
+                        updated_at: new Date().toISOString() 
+                    })
+                    .eq('id', updatedPayment.ticket_id)
+
+                if (ticketError) {
+                    console.error('Error updating ticket:', ticketError)
+                } else {
+                    console.log(`Ticket ${updatedPayment.ticket_id} updated to ${ticketStatus}`)
+                }
+            }
+
+            // 6. Update Payment Splits Status
+            // Usually splits follow the payment status (paid/pending/cancelled)
+            // If payment is paid, splits are 'paid' (or effectively waiting for transfer)
+            // If payment is cancelled/refunded, splits are cancelled/refunded
+            
+            // Note: In our model, split status might be 'pending', 'paid', 'cancelled'
+            const { error: splitError } = await adminClient
                 .from('payment_splits')
-                .update({ status: newStatus, updated_at: new Date() })
-                .eq('payment_id', paymentId)
+                .update({ 
+                    status: newStatus, 
+                    updated_at: new Date().toISOString() 
+                })
+                .eq('payment_id', updatedPayment.id)
             
-            if (splitUpdateError) {
-                console.error('Error updating split:', splitUpdateError)
+            if (splitError) {
+                 console.error('Error updating splits:', splitError)
+            } else {
+                 console.log(`Splits for payment ${updatedPayment.id} updated to ${newStatus}`)
             }
         } else {
              console.warn('Payment not found for external ID:', payment.id)

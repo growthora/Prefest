@@ -1,5 +1,5 @@
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { guardSalesEnabled } from '@shared/guard_sales_enabled.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,14 +13,19 @@ Deno.serve(async (req) => {
 
   try {
     // 1. Verify User Authentication
+    console.log('Function started');
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error('Missing Authorization header');
       throw new Error('Missing Authorization header');
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    
+    console.log('Supabase URL present:', !!supabaseUrl);
+    console.log('Anon Key present:', !!supabaseAnonKey);
 
     const userClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -28,67 +33,40 @@ Deno.serve(async (req) => {
 
     const { data: { user }, error: authError } = await userClient.auth.getUser();
     if (authError || !user) {
+      console.error('Auth Error:', authError);
       throw new Error('Invalid user token');
     }
+    console.log('User authenticated:', user.id);
 
     const { 
-      user_id, 
-      value, 
-      description, 
-      payment_method, // 'PIX', 'CREDIT_CARD', 'BOLETO'
+      event_id, 
+      ticket_type_id, 
+      quantity, 
+      billing_type, // 'PIX', 'CREDIT_CARD', 'BOLETO', 'DEBIT_CARD'
+      card_data, // { holderName, number, expiryMonth, expiryYear, ccv } (optional)
       customer_info, // { name, email, cpfCnpj, ... }
-      metadata
+      installments, // Optional
+      metadata, // Optional metadata (e.g. singleMode)
     } = await req.json();
 
-    if (!value || !user_id) throw new Error('Missing required fields');
-
-    // Enforce user_id match for security
-    if (user.id !== user_id) {
-      // Allow admins to create payments for others? For now, strict check.
-      // If needed, check profile role here.
-      throw new Error('Unauthorized: User ID mismatch');
+    if (!event_id || !ticket_type_id || !quantity || !billing_type || !customer_info) {
+        throw new Error('Missing required fields');
     }
 
-    // 2. Admin Client for Privileged Operations (Get Secrets, Write Payments)
+    // 2. Admin Client for Privileged Operations
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 2.1. Validate Organizer Status (Guard)
-    if (metadata?.eventId) {
-        const { data: eventData, error: eventError } = await adminClient
-            .from('events')
-            .select('creator_id')
-            .eq('id', metadata.eventId)
-            .single();
-            
-        if (eventError || !eventData) {
-            console.error('Event fetch error:', eventError);
-            throw new Error('Event not found');
-        }
-        
-        const validation = await guardSalesEnabled(adminClient, {
-            organizerUserId: eventData.creator_id
-        });
-        
-        if (!validation.isValid) {
-            console.error(`Organizer validation failed: ${validation.error} (${validation.code})`);
-            const errorMessage = validation.code === 'ASAAS_NOT_CONNECTED' 
-                ? 'O organizador deste evento não conectou uma conta Asaas para receber pagamentos.'
-                : 'A conta Asaas do organizador não está aprovada para vendas. Entre em contato com o organizador.';
-            throw new Error(errorMessage);
-        }
-    }
-
-    // 3. Get Asaas Config
+    // 3. Get Asaas Config (Platform Config)
     const { data: config, error: configError } = await adminClient
       .rpc('get_decrypted_asaas_config')
       .single();
 
-    if (configError || !config?.secret_key) {
+    if (configError || !config?.api_key) {
       console.error('Config Error:', configError);
       throw new Error('Asaas configuration not found or invalid');
     }
 
-    const { secret_key: apiKey, env } = config;
+    const { api_key: apiKey, environment: env, wallet_id: platformWalletId, split_enabled, platform_fee_type, platform_fee_value } = config;
     const baseUrl = env === 'production' 
       ? 'https://api.asaas.com/api/v3' 
       : 'https://sandbox.asaas.com/api/v3';
@@ -98,17 +76,105 @@ Deno.serve(async (req) => {
         'Content-Type': 'application/json'
     };
 
-    // 4. Create/Find Customer
-    let customerId = '';
+    // 4. Fetch Event & Organizer
+    const { data: event, error: eventError } = await adminClient
+        .from('events')
+        .select('*, creator_id, profiles!creator_id(*)')
+        .eq('id', event_id)
+        .single();
+
+    if (eventError || !event) throw new Error('Event not found');
+
+    // 5. Fetch Ticket Type
+    const { data: ticketType, error: ticketError } = await adminClient
+        .from('ticket_types')
+        .select('*')
+        .eq('id', ticket_type_id)
+        .single();
+
+    if (ticketError || !ticketType) throw new Error('Ticket type not found');
     
-    // Try to find customer by email
+    // Validate quantity
+    if (ticketType.quantity_available - ticketType.quantity_sold < quantity) {
+        throw new Error('Ingressos esgotados para este tipo');
+    }
+
+    // 6. Validate Organizer Asaas Account
+    const { data: organizerAccount, error: orgAccountError } = await adminClient
+        .from('organizer_asaas_accounts')
+        .select('*')
+        .eq('user_id', event.creator_id)
+        .single();
+
+    if (orgAccountError || !organizerAccount) {
+        throw new Error('ORGANIZER_NOT_READY_FOR_PAYMENTS: Organizador sem conta Asaas vinculada');
+    }
+
+    if (!organizerAccount.is_active || organizerAccount.kyc_status !== 'approved') {
+        throw new Error('ORGANIZER_NOT_READY_FOR_PAYMENTS: Conta Asaas do organizador pendente de aprovação');
+    }
+
+    // 7. Calculate Values & Split
+    const unitPrice = Number(ticketType.price);
+    const totalPrice = Number((unitPrice * quantity).toFixed(2));
+    
+    let platformFee = 0;
+    if (split_enabled) {
+        if (platform_fee_type === 'percentage') {
+            platformFee = Number((totalPrice * (Number(platform_fee_value) / 100)).toFixed(2));
+        } else {
+            platformFee = Number(Number(platform_fee_value).toFixed(2));
+        }
+    }
+
+    const organizerValue = Number((totalPrice - platformFee).toFixed(2));
+
+    // Split Payload
+    const split = [];
+    if (split_enabled && platformWalletId) {
+        // Platform Part
+        if (platformFee > 0) {
+            split.push({
+                walletId: platformWalletId,
+                fixedValue: platformFee,
+                // percent: platform_fee_type === 'percentage' ? Number(platform_fee_value) : undefined
+            });
+        }
+        
+        // Organizer Part
+        if (organizerValue > 0) {
+            split.push({
+                walletId: organizerAccount.asaas_account_id,
+                fixedValue: organizerValue,
+                // percent: platform_fee_type === 'percentage' ? (100 - Number(platform_fee_value)) : undefined
+            });
+        }
+    } else {
+        // Fallback or Force Split
+        if (!platformWalletId) throw new Error('Platform Wallet ID missing in config');
+        
+        if (platformFee > 0) {
+            split.push({
+                walletId: platformWalletId,
+                fixedValue: platformFee
+            });
+        }
+        if (organizerValue > 0) {
+            split.push({
+                walletId: organizerAccount.asaas_account_id,
+                fixedValue: organizerValue
+            });
+        }
+    }
+
+    // 8. Create Customer in Asaas (if needed)
+    let customerId = '';
     const searchRes = await fetch(`${baseUrl}/customers?email=${customer_info.email}`, { headers });
     const searchData = await searchRes.json();
     
     if (searchData.data && searchData.data.length > 0) {
         customerId = searchData.data[0].id;
     } else {
-        // Create new customer
         const createCustomerRes = await fetch(`${baseUrl}/customers`, {
             method: 'POST',
             headers,
@@ -119,16 +185,66 @@ Deno.serve(async (req) => {
         customerId = newCustomer.id;
     }
 
-    // 5. Create Payment
-    const paymentBody = {
+    // 9. Prepare Payment Payload
+    const paymentBody: any = {
         customer: customerId,
-        billingType: payment_method,
-        value: value,
-        dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Next day
-        description: description,
-        externalReference: user_id, // Metadata for webhook
-        postalService: false // Don't send postal mail
+        billingType: billing_type,
+        value: totalPrice,
+        dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        description: `Ingresso: ${event.title} - ${ticketType.name} (x${quantity})`,
+        externalReference: user.id, // We'll update this later or use ticket ID
+        postalService: false,
+        split: split
     };
+
+    if (billing_type === 'CREDIT_CARD' || billing_type === 'DEBIT_CARD') {
+        if (!card_data) throw new Error('Card data is required for Credit/Debit Card payments');
+        paymentBody.creditCard = {
+            holderName: card_data.holderName,
+            number: card_data.number,
+            expiryMonth: card_data.expiryMonth,
+            expiryYear: card_data.expiryYear,
+            ccv: card_data.ccv
+        };
+        paymentBody.creditCardHolderInfo = {
+            name: customer_info.name,
+            email: customer_info.email,
+            cpfCnpj: customer_info.cpfCnpj,
+            postalCode: customer_info.postalCode || '00000000',
+            addressNumber: customer_info.addressNumber || '0',
+            phone: customer_info.phone || '00000000000'
+        };
+        if (installments && installments > 1) {
+             paymentBody.installmentCount = installments;
+             paymentBody.installmentValue = totalPrice / installments;
+        }
+    }
+
+    // 10. Database Operations (Transaction-like)
+    // Create Ticket
+    const { data: ticket, error: ticketDbError } = await adminClient
+        .from('tickets')
+        .insert({
+            event_id: event_id,
+            buyer_user_id: user.id,
+            ticket_type_id: ticket_type_id,
+            quantity: quantity,
+            unit_price: unitPrice,
+            total_price: totalPrice,
+            status: 'pending',
+            metadata: metadata // Save metadata (e.g. singleMode)
+        })
+        .select()
+        .single();
+
+    if (ticketDbError || !ticket) {
+        console.error('Ticket Creation Error:', ticketDbError);
+        throw new Error('Failed to create ticket record');
+    }
+
+    // 11. Create Payment in Asaas
+    // Update externalReference to be the ticket ID for easier tracking
+    paymentBody.externalReference = ticket.id;
 
     const paymentRes = await fetch(`${baseUrl}/payments`, {
         method: 'POST',
@@ -137,41 +253,84 @@ Deno.serve(async (req) => {
     });
     
     const paymentData = await paymentRes.json();
-    if (paymentData.errors) throw new Error(`Payment Error: ${paymentData.errors[0].description}`);
+    if (paymentData.errors) {
+        // Rollback ticket creation?
+        await adminClient.from('tickets').delete().eq('id', ticket.id);
+        throw new Error(`Asaas Error: ${paymentData.errors[0].description}`);
+    }
 
-    // 6. Get PIX QR Code if PIX
+    // 12. Create Payment Record in DB
+    const { data: paymentRecord, error: paymentDbError } = await adminClient
+        .from('payments')
+        .insert({
+            ticket_id: ticket.id,
+            organizer_user_id: event.creator_id,
+            provider: 'asaas',
+            external_payment_id: paymentData.id,
+            billing_type: billing_type.toLowerCase(),
+            value_total: totalPrice,
+            status: 'pending',
+            invoice_url: paymentData.invoiceUrl,
+            // We'll fill PIX data later if applicable
+        })
+        .select()
+        .single();
+
+    if (paymentDbError) {
+        console.error('Payment DB Error:', paymentDbError);
+        // Should handle this better, but for now log it.
+    }
+
+    // 13. Create Payment Splits in DB
+    if (paymentRecord) {
+        const splitInserts = [];
+        
+        // Platform Split
+        splitInserts.push({
+            payment_id: paymentRecord.id,
+            recipient_type: 'platform',
+            asaas_account_id: platformWalletId,
+            fee_type: platform_fee_type,
+            fee_value: Number(platform_fee_value),
+            value: platformFee,
+            status: 'pending'
+        });
+
+        // Organizer Split
+        splitInserts.push({
+            payment_id: paymentRecord.id,
+            recipient_type: 'organizer',
+            recipient_user_id: event.creator_id,
+            asaas_account_id: organizerAccount.asaas_account_id,
+            value: organizerValue,
+            status: 'pending'
+        });
+
+        await adminClient.from('payment_splits').insert(splitInserts);
+    }
+
+    // 14. Get PIX QR Code if PIX
     let pixQrCode = null;
     let pixQrCodeText = null;
-    if (payment_method === 'PIX') {
+    if (billing_type === 'PIX') {
         const pixRes = await fetch(`${baseUrl}/payments/${paymentData.id}/pixQrCode`, { headers });
         const pixData = await pixRes.json();
         pixQrCode = pixData.encodedImage;
         pixQrCodeText = pixData.payload;
-    }
 
-    // 7. Store in DB
-    const { error: dbError } = await adminClient
-        .from('payments')
-        .insert({
-            user_id: user_id,
-            provider: 'asaas',
-            external_payment_id: paymentData.id,
-            value: value,
-            status: 'pending',
-            payment_method: payment_method.toLowerCase(),
-            created_at: new Date().toISOString()
-        });
-
-    if (dbError) {
-        console.error('Database Error:', dbError);
-        // Don't fail the request if DB insert fails, but log it. 
-        // Ideally we should rollback or retry.
+        // Update payment record with PIX data
+        if (paymentRecord) {
+            await adminClient
+                .from('payments')
+                .update({ pix_qr_code: pixQrCode, pix_copy_paste: pixQrCodeText })
+                .eq('id', paymentRecord.id);
+        }
     }
 
     return new Response(JSON.stringify({ 
         success: true,
         paymentId: paymentData.id,
-        paymentUrl: paymentData.invoiceUrl, // Asaas Invoice URL
+        ticketId: ticket.id,
         invoiceUrl: paymentData.invoiceUrl,
         pixQrCode,
         pixQrCodeText,

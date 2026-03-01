@@ -15,6 +15,8 @@ import { couponService } from '@/services/coupon.service';
 import { toast } from 'sonner';
 import { TicketSelector } from './TicketSelector';
 import { MatchGuidelinesModal } from './MatchGuidelinesModal';
+import { CreditCardForm, CreditCardData } from './payment/CreditCardForm';
+import { PixPaymentModal } from './payment/PixPaymentModal';
 import type { TicketTypeDB } from '@/services/event.service';
 import { supabase } from '@/lib/supabase';
 
@@ -105,13 +107,26 @@ interface TicketPurchaseProps {
   isParticipating?: boolean;
 }
 
-type CheckoutStep = 'select_ticket_type' | 'personal_data' | 'payment';
+type CheckoutStep = 'select_ticket_type' | 'personal_data' | 'payment' | 'free_confirmation';
 
 export function TicketPurchase({ event, onPurchase, isParticipating = false }: TicketPurchaseProps) {
   const { profile, user } = useAuth();
   const [step, setStep] = useState<CheckoutStep>('select_ticket_type');
+  const [ticketId, setTicketId] = useState<string | null>(null);
   const [singleMode, setSingleMode] = useState(profile?.single_mode || false);
   const [showMatchGuidelines, setShowMatchGuidelines] = useState(false);
+
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [selectedTicketTypeId, setSelectedTicketTypeId] = useState<string>();
+  const [selectedTicketType, setSelectedTicketType] = useState<TicketTypeDB>();
+  const [fullName, setFullName] = useState(profile?.full_name || '');
+  const [cpf, setCpf] = useState('');
+  const [email, setEmail] = useState(profile?.email || '');
+  const [phone, setPhone] = useState('');
+  const [age, setAge] = useState('');
 
   React.useEffect(() => {
     if (age && parseInt(age) < 18) {
@@ -136,20 +151,17 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     setSingleMode(true);
     toast.success("Modo Match ativado!");
   };
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [couponCode, setCouponCode] = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
-  const [validatingCoupon, setValidatingCoupon] = useState(false);
-  const [selectedTicketTypeId, setSelectedTicketTypeId] = useState<string>();
-  const [selectedTicketType, setSelectedTicketType] = useState<TicketTypeDB>();
-  const [fullName, setFullName] = useState(profile?.full_name || '');
-  const [cpf, setCpf] = useState('');
-  const [email, setEmail] = useState(profile?.email || '');
-  const [phone, setPhone] = useState('');
-  const [age, setAge] = useState('');
   const [gender, setGender] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'CARD'>('PIX');
+  const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'BOLETO'>('PIX');
   const [hasAvailableTicketTypes, setHasAvailableTicketTypes] = useState<boolean | null>(null);
+  
+  // Credit Card State
+  const [cardData, setCardData] = useState<CreditCardData | null>(null);
+  const [isCardValid, setIsCardValid] = useState(false);
+
+  // Pix Modal State
+  const [pixModalOpen, setPixModalOpen] = useState(false);
+  const [pixData, setPixData] = useState<{ qrCode: string, copyPaste: string } | null>(null);
 
   const handleTicketSelect = (ticketTypeId: string, ticketType: TicketTypeDB) => {
     setSelectedTicketTypeId(ticketTypeId);
@@ -170,13 +182,62 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     return true;
   };
 
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
     if (step === 'select_ticket_type') {
       if (!selectedTicketTypeId) {
         toast.error('Selecione um tipo de ingresso');
         return;
       }
-      setStep('personal_data');
+      
+      setIsProcessing(true);
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !session) {
+            toast.error('Você precisa estar logado.');
+            return;
+        }
+
+        // Refresh session to ensure valid token
+        const { data: { session: freshSession }, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError) {
+             toast.error('Sessão expirada. Faça login novamente.');
+             return;
+        }
+        const currentSession = freshSession || session;
+
+        const { data, error } = await supabase.functions.invoke('init-ticket-checkout-v2', {
+            body: { 
+                event_id: event.id,
+                ticket_type_id: selectedTicketTypeId,
+                quantity: 1 
+            },
+            headers: { Authorization: `Bearer ${currentSession.access_token}` }
+        });
+
+        if (error) throw error;
+
+        if (data.type === 'paid') {
+            setTicketId(data.ticket_id);
+            setStep('personal_data'); // Force personal data step for PAID tickets too
+        } else {
+            if (data.nextStep === 'confirm') {
+                setStep('free_confirmation');
+            } else {
+                setStep('personal_data');
+            }
+        }
+
+      } catch (error: any) {
+        console.error('Checkout init error:', error);
+        let errorMessage = error.message || 'Erro ao iniciar checkout';
+        if (errorMessage && (errorMessage.includes('Invalid JWT') || errorMessage.includes('401'))) {
+            errorMessage = 'Sessão inválida. Tente fazer login novamente.';
+        }
+        toast.error(errorMessage);
+      } finally {
+        setIsProcessing(false);
+      }
       return;
     }
 
@@ -184,7 +245,13 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
       if (!hasValidPersonalData()) {
         return;
       }
-      setStep('payment');
+      
+      // If paid, go to payment. If free, go to confirmation
+      if (selectedTicketType && selectedTicketType.price > 0) {
+          setStep('payment');
+      } else {
+          setStep('free_confirmation');
+      }
       return;
     }
   };
@@ -221,94 +288,105 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   const handlePurchase = async () => {
     if (isParticipating) return;
     
-    if (!selectedTicketTypeId) {
-      toast.error('Selecione um tipo de ingresso');
-      return;
-    }
-
-     if (!hasValidPersonalData()) {
-      return;
-    }
-    
     try {
       setIsProcessing(true);
 
-      if (total === 0) {
-        await onPurchase(singleMode, selectedTicketTypeId, total);
-        toast.success('Ingresso gratuito confirmado! Você já pode conhecer quem vai à festa.');
-        return;
-      }
-
-      const { data, error } = await supabase.functions.invoke('create-asaas-payment', {
-        body: {
-          user_id: user?.id || profile?.id,
-          value: total,
-          description: `Ingresso: ${event.title} - ${selectedTicketType?.name}`,
-          payment_method: paymentMethod === 'CARD' ? 'CREDIT_CARD' : 'PIX',
-          customer_info: {
-            name: fullName,
-            email: email,
-            cpfCnpj: cpf.replace(/\D/g, ''),
-            phone: phone.replace(/\D/g, ''),
-            postalCode: '00000000', // Optional or add field
-            addressNumber: '0' // Optional or add field
-          },
-          metadata: {
-            eventId: event.id,
-            ticketTypeId: selectedTicketTypeId,
-            singleMode
-          }
-        }
-      });
-
-      if (error) {
-        console.error('Payment Error:', error);
-        
-        let errorMessage = error.message || 'Erro desconhecido';
-        
-        // Handle specific Asaas/Organizer errors
-        if (errorMessage.includes('organizador') && errorMessage.includes('Asaas')) {
-           toast.error(errorMessage, {
-             duration: 5000,
-             action: {
-               label: 'Entendi',
-               onClick: () => {}
-             }
-           });
-           return;
-        }
-
-        toast.error(`Erro ao iniciar pagamento: ${errorMessage}`);
-        return;
-      }
-
-      if (data?.paymentUrl) {
-        window.location.href = data.paymentUrl;
-        return;
-      }
-
-      if (data?.pixQrCode || data?.pixQrCodeText) {
-        // Handle PIX display (maybe redirect to a success page with QR code, or show modal)
-        // For now, if we have a payment URL (invoice URL), use that as it's easiest
-        if (data.invoiceUrl) {
-             window.location.href = data.invoiceUrl;
-             return;
-        }
-        // If only raw PIX data returned, we might need a UI to show it.
-        // Let's assume the function returns an invoiceUrl for PIX too usually.
-        // If not, we might need to handle raw PIX display.
-      }
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (data?.invoiceUrl) {
-          window.location.href = data.invoiceUrl;
-          return;
+      if (sessionError || !session) {
+        toast.error('Você precisa estar logado para comprar ingressos.');
+        return;
       }
 
-      toast.error('Não foi possível obter a URL de pagamento. Tente novamente.');
+      // Refresh session to ensure valid token
+      const { data: { session: freshSession }, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError) {
+         toast.error('Sessão expirada. Faça login novamente.');
+         return;
+      }
+      const currentSession = freshSession || session;
 
-    } catch (error) {
+      if (total === 0) {
+        // FREE FLOW
+        // 1. Save Profile (if data exists in state)
+        if (fullName && cpf && email && phone) {
+            const { error: profileError } = await supabase.functions.invoke('save-buyer-profile-v2', {
+                body: { full_name: fullName, cpf, phone, email },
+                headers: { Authorization: `Bearer ${currentSession.access_token}` }
+            });
+            if (profileError) {
+                console.error('Profile save error:', profileError);
+                // Continue anyway? Or stop?
+                // If profile save fails, ticket issue might fail if profile is required by constraint.
+                // But let's try to continue.
+            }
+        }
+
+        // 2. Issue Ticket
+        const { error: ticketError } = await supabase.functions.invoke('issue-free-ticket-v2', {
+            body: { 
+                event_id: event.id,
+                ticket_type_id: selectedTicketTypeId,
+                quantity: 1 
+            },
+            headers: { Authorization: `Bearer ${currentSession.access_token}` }
+        });
+
+        if (ticketError) throw ticketError;
+
+        toast.success('Ingresso gratuito confirmado! Você já pode conhecer quem vai à festa.');
+        await onPurchase(singleMode, selectedTicketTypeId, 0);
+
+      } else {
+        // PAID FLOW
+        if (!ticketId) {
+            toast.error('Erro: Ticket não inicializado. Tente novamente.');
+            return;
+        }
+
+        // 1. Save Profile (Mandatory for Paid too)
+        if (fullName && cpf && email && phone) {
+            const { error: profileError } = await supabase.functions.invoke('save-buyer-profile-v2', {
+                body: { full_name: fullName, cpf, phone, email },
+                headers: { Authorization: `Bearer ${currentSession.access_token}` }
+            });
+            if (profileError) {
+                console.warn('Profile save warning (paid):', profileError);
+            }
+        }
+
+        const payload = {
+            ticket_id: ticketId,
+            billing_type: paymentMethod === 'PIX' ? 'pix' : 'CREDIT_CARD'
+        };
+
+        const { data, error } = await supabase.functions.invoke('asaas-create-ticket-payment-v3', {
+            body: payload,
+            headers: { Authorization: `Bearer ${currentSession.access_token}` }
+        });
+
+        if (error) throw error;
+
+        if (data.pixQrCode || data.pixQrCodeText) {
+            setPixData({
+                qrCode: data.pixQrCode,
+                copyPaste: data.pixQrCodeText || data.pixQrCode
+            });
+            setPixModalOpen(true);
+        } else if (data.invoiceUrl) {
+            window.location.href = data.invoiceUrl;
+        } else {
+            toast.error('Não foi possível obter a URL de pagamento. Tente novamente.');
+        }
+      }
+
+    } catch (error: any) {
       console.error('Purchase error:', error);
-      toast.error('Erro inesperado ao processar o pagamento');
+      let errorMessage = error.message || 'Erro inesperado ao processar o pagamento';
+      if (errorMessage.includes('Invalid JWT')) {
+          errorMessage = 'Sessão inválida. Tente fazer login novamente.';
+      }
+      toast.error(errorMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -490,6 +568,43 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
           </div>
         )}
 
+        {step === 'free_confirmation' && (
+          <div className="space-y-6">
+             <div className="flex flex-col items-center justify-center space-y-2 text-center">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                    <Check className="w-8 h-8 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold">Confirme sua inscrição</h3>
+                <p className="text-muted-foreground text-sm max-w-xs mx-auto">
+                    Você está prestes a garantir seu ingresso gratuito para <strong>{event.title}</strong>.
+                </p>
+             </div>
+             
+             <div className="bg-muted/30 p-4 rounded-xl space-y-3 text-sm border border-border">
+                <div className="flex justify-between border-b border-border/50 pb-2">
+                    <span className="text-muted-foreground">Participante</span>
+                    <span className="font-medium">{fullName}</span>
+                </div>
+                <div className="flex justify-between border-b border-border/50 pb-2">
+                    <span className="text-muted-foreground">CPF</span>
+                    <span className="font-medium">{cpf}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="text-muted-foreground">Ingresso</span>
+                    <span className="font-medium">{selectedTicketType?.name}</span>
+                </div>
+             </div>
+             
+             <div className="pt-2">
+              <SingleModeToggle 
+                enabled={singleMode} 
+                onToggle={handleToggleSingleMode}
+                isLocked={!!(age && parseInt(age) < 18)} 
+              />
+            </div>
+          </div>
+        )}
+
         {step === 'payment' && (
           <>
             <div className="mb-6">
@@ -530,28 +645,29 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
                 >
                   <span className="font-semibold uppercase tracking-widest">Pix</span>
                   <span className="text-[11px] text-muted-foreground">
-                    Método prioritário, rápido e seguro.
+                    QR Code Instantâneo
                   </span>
                 </button>
                 <button
                   type="button"
                   className={cn(
                     'flex flex-col items-start gap-1 rounded-2xl border px-4 py-3 text-left text-xs transition-all',
-                    paymentMethod === 'CARD'
+                    paymentMethod === 'CREDIT_CARD'
                       ? 'border-primary bg-primary/5'
                       : 'border-border hover:border-primary/40'
                   )}
-                  onClick={() => setPaymentMethod('CARD')}
+                  onClick={() => setPaymentMethod('CREDIT_CARD')}
                 >
                   <span className="font-semibold uppercase tracking-widest flex items-center gap-1">
                     <CreditCard className="w-3 h-3" />
-                    Cartão
+                    Crédito
                   </span>
                   <span className="text-[11px] text-muted-foreground">
-                    Pague com crédito ou débito.
+                    Redirecionar para Asaas
                   </span>
                 </button>
               </div>
+
               <p className="text-[11px] text-muted-foreground">
                 Após a compra, você já poderá conhecer quem vai à festa.
               </p>
@@ -707,6 +823,17 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         onClose={() => setShowMatchGuidelines(false)} 
         onAccept={confirmMatchEnabled} 
       />
+
+      {pixData && (
+        <PixPaymentModal 
+            isOpen={pixModalOpen}
+            onClose={() => setPixModalOpen(false)}
+            qrCodeImage={pixData.qrCode}
+            copyPasteCode={pixData.copyPaste}
+            amount={total}
+            expirationDate={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()}
+        />
+      )}
     </div>
   );
 }

@@ -9,7 +9,8 @@ import {
   LogOut,
   Lock,
   ChevronRight,
-  Shield
+  Shield,
+  Trash2
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { userService } from '@/services/user.service';
@@ -142,6 +143,12 @@ export const ProfileMenu = () => {
               <Link to={ROUTE_PATHS.PROFILE} className="cursor-pointer">
                 <UserIcon className="mr-2 h-4 w-4" />
                 <span>Minha conta</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link to={ROUTE_PATHS.DELETE_ACCOUNT} className="cursor-pointer text-destructive focus:text-destructive">
+                <Trash2 className="mr-2 h-4 w-4" />
+                <span>Deletar Conta</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>

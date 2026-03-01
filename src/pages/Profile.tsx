@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Shield, Camera, Key, FileText, AlertTriangle, LayoutDashboard, Ticket, User as UserIcon, Heart } from "lucide-react";
+import { Shield, Camera, Key, FileText, AlertTriangle, LayoutDashboard, Ticket, User as UserIcon, Heart, Trash2 } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { EventGrid } from "@/components/EventCards";
 import { useAuth } from "@/contexts/AuthContext";
@@ -312,6 +312,10 @@ export default function Profile() {
                 Admin
               </Button>
             )}
+            <Button onClick={() => navigate('/deletar-conta')} variant="destructive" className="gap-2">
+              <Trash2 className="w-4 h-4" />
+              Deletar Conta
+            </Button>
           </div>
         </div>
 

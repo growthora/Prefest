@@ -2,6 +2,7 @@ export const ROUTE_PATHS = {
   HOME: '/',
   LOGIN: '/login',
   MY_EVENTS: '/meus-eventos',
+  DELETE_ACCOUNT: '/deletar-conta',
   EVENTS: '/eventos',
   EVENT_DETAILS: '/eventos/:slug',
   CREATE_EVENT: '/eventos/criar',

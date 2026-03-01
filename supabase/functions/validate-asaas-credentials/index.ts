@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
     }
 
     const baseUrl = environment === 'production' 
-      ? 'https://api.asaas.com/api/v3' 
+      ? 'https://api.asaas.com/v3' 
       : 'https://sandbox.asaas.com/api/v3';
 
     // Validate by fetching customers endpoint (limit 1)

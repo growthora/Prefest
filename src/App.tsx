@@ -25,6 +25,7 @@ const TermsOfUse = lazy(() => import("./pages/TermsOfUse"));
 const MyEvents = lazy(() => import("./pages/MyEvents"));
 const EventDetails = lazy(() => import("./pages/EventDetails"));
 const Profile = lazy(() => import("./pages/Profile"));
+const DeletarConta = lazy(() => import("./pages/DeletarConta"));
 const PublicProfile = lazy(() => import("./pages/PublicProfile"));
 const Chat = lazy(() => import("./pages/Chat"));
 const ChatMobile = lazy(() => import("./pages/mobile/ChatMobile"));
@@ -152,6 +153,7 @@ const AppRoutes = () => {
       <Route path={ROUTE_PATHS.MY_EVENTS} element={<MyEvents />} />
       <Route path={ROUTE_PATHS.EVENT_DETAILS} element={<EventDetails />} />
       <Route path={ROUTE_PATHS.PROFILE} element={<Profile />} />
+      <Route path={ROUTE_PATHS.DELETE_ACCOUNT} element={<DeletarConta />} />
       <Route path={ROUTE_PATHS.PUBLIC_PROFILE} element={<PublicProfile />} />
       <Route path="/chat" element={<ChatDesktopRoute />} />
       <Route path={ROUTE_PATHS.CHAT} element={<ChatDesktopRoute />} />
