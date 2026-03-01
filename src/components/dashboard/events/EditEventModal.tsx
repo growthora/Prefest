@@ -50,9 +50,15 @@ interface EditEventModalProps {
   onSuccess: () => void;
 }
 
+import { useOrganizerStatus } from '@/hooks/useOrganizerStatus';
+import { ROUTE_PATHS } from '@/lib/index';
+import { useNavigate } from 'react-router-dom';
+
 export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventModalProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
+  const { asaasStatus } = useOrganizerStatus();
+  const navigate = useNavigate();
 
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventSchema),
@@ -100,13 +106,43 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
   const onSubmit = async (data: EventFormValues) => {
     if (!event) return;
 
+    if (data.price > 0 && asaasStatus !== 'approved') {
+      toast({
+        title: "Conta Asaas necessária",
+        description: "Para definir um preço para o evento, você precisa conectar e aprovar sua conta Asaas.",
+        variant: "destructive",
+        action: (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="bg-white text-destructive hover:bg-gray-100 border-none"
+            onClick={() => {
+              onClose();
+              navigate(ROUTE_PATHS.ORGANIZER_PAYMENTS);
+            }}
+          >
+            Conectar
+          </Button>
+        ),
+      });
+      return;
+    }
+
     try {
       setIsLoading(true);
+      const isPaid = data.price > 0;
+      
       await eventService.updateEvent(event.id, {
         ...data,
         end_at: data.end_at || null,
         // Convert max_participants to number or null explicitly
-        max_participants: data.max_participants ? Number(data.max_participants) : null
+        max_participants: data.max_participants ? Number(data.max_participants) : null,
+        is_paid_event: isPaid,
+        // If it was free and now is paid, we might want to enable sales if approved? 
+        // Or just let the user toggle it. 
+        // But we must ensure if it is paid, asaas is approved (checked above).
+        // If it becomes free, sales_enabled is irrelevant or should be false?
+        sales_enabled: isPaid ? event.sales_enabled : false 
       });
 
       toast({

@@ -39,6 +39,9 @@ export interface Event {
   tickets_sold?: number | null;
   views?: number | null;
   is_published?: boolean;
+  is_paid_event?: boolean;
+  sales_enabled?: boolean;
+  asaas_required?: boolean;
 }
 
 export interface TicketTypeDB {
@@ -100,6 +103,9 @@ export interface CreateEventData {
   status?: 'draft' | 'published';
   price: number;
   max_participants?: number;
+  is_paid_event?: boolean;
+  sales_enabled?: boolean;
+  asaas_required?: boolean;
 }
 
 export class EventService {
@@ -164,6 +170,9 @@ export class EventService {
       category: eventData.category || null,
       image_url: eventData.image_url || null,
       max_participants: eventData.max_participants || null,
+      is_paid_event: eventData.is_paid_event ?? false,
+      sales_enabled: eventData.sales_enabled ?? false,
+      asaas_required: eventData.asaas_required ?? true,
     };
 
     console.log('💾 [EventService] Inserindo evento no banco:', eventToInsert);

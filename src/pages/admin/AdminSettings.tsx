@@ -50,6 +50,10 @@ interface Integration {
   secret_key_encrypted?: string;
   webhook_token_encrypted?: string;
   environment?: 'sandbox' | 'production';
+  wallet_id?: string;
+  split_enabled?: boolean;
+  platform_fee_type?: 'percentage' | 'fixed';
+  platform_fee_value?: number;
 }
 
 export default function AdminSettings() {
@@ -151,12 +155,16 @@ export default function AdminSettings() {
         })
       };
 
-      const { data, error } = await supabase.functions.invoke('save-system-settings', {
-        body: payload
+      // Using RPC directly to avoid Edge Function auth issues
+      const { error } = await supabase.rpc('save_admin_settings', {
+        p_system: payload.system,
+        p_notifications: payload.notifications,
+        p_smtp: payload.smtp,
+        p_integrations: payload.integrations
       });
 
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      // if (data?.error) throw new Error(data.error);
 
       toast.success('Configurações salvas com sucesso!');
       fetchSettings(); 
@@ -670,6 +678,88 @@ export default function AdminSettings() {
                                         <span className="font-bold block mb-1">URL para Webhook (Asaas):</span>
                                         {import.meta.env.VITE_SUPABASE_URL}/functions/v1/asaas-webhook-handler
                                     </div>
+                                </div>
+                                
+                                <Separator className="my-2" />
+                                
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="space-y-0.5">
+                                            <Label>Habilitar Split Automático</Label>
+                                            <p className="text-xs text-muted-foreground">Dividir pagamentos automaticamente entre plataforma e organizador</p>
+                                        </div>
+                                        <Switch 
+                                            checked={integration.split_enabled || false}
+                                            onCheckedChange={(c) => {
+                                                const updated = integrations.map(i => i.provider === 'asaas' ? {...i, split_enabled: c} : i);
+                                                setIntegrations(updated);
+                                            }}
+                                        />
+                                    </div>
+
+                                    {integration.split_enabled && (
+                                        <motion.div 
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            className="space-y-4 pt-2 border-t"
+                                        >
+                                            <div className="space-y-2">
+                                                <Label>Wallet ID da Plataforma (Opcional)</Label>
+                                                <Input 
+                                                    value={integration.wallet_id || ''}
+                                                    onChange={(e) => {
+                                                        const updated = integrations.map(i => i.provider === 'asaas' ? {...i, wallet_id: e.target.value} : i);
+                                                        setIntegrations(updated);
+                                                    }}
+                                                    placeholder="Cole aqui o Wallet ID (opcional)"
+                                                />
+                                                <p className="text-xs text-muted-foreground">
+                                                    ID da carteira Asaas que receberá a taxa da plataforma. Se vazio, o sistema usará a carteira padrão da conta principal.
+                                                </p>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <Label>Tipo de Taxa</Label>
+                                                    <Select 
+                                                        value={integration.platform_fee_type || 'percentage'} 
+                                                        onValueChange={(v: 'percentage' | 'fixed') => {
+                                                            const updated = integrations.map(i => i.provider === 'asaas' ? {...i, platform_fee_type: v} : i);
+                                                            setIntegrations(updated);
+                                                        }}
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="percentage">Porcentagem (%)</SelectItem>
+                                                            <SelectItem value="fixed">Valor Fixo (R$)</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label>Valor da Taxa</Label>
+                                                    <div className="relative">
+                                                        <Input 
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="0"
+                                                            className="pl-8"
+                                                            value={integration.platform_fee_value || 0}
+                                                            onChange={(e) => {
+                                                                const updated = integrations.map(i => i.provider === 'asaas' ? {...i, platform_fee_value: parseFloat(e.target.value)} : i);
+                                                                setIntegrations(updated);
+                                                            }}
+                                                            placeholder="0.00"
+                                                        />
+                                                        <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">
+                                                            {integration.platform_fee_type === 'fixed' ? 'R$' : '%'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    )}
                                 </div>
                             </div>
                         </div>

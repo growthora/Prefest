@@ -10,9 +10,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
+import { useOrganizerStatus } from '@/hooks/useOrganizerStatus';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/lib/index';
-import { PlusCircle, UserPlus, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { PlusCircle, UserPlus, Clock, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface CreateEventModalProps {
@@ -23,6 +24,7 @@ export function CreateEventModal({ trigger }: CreateEventModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { user, profile } = useAuth();
   const { checkAccess } = useFeatureAccess();
+  const { asaasStatus, loading: statusLoading } = useOrganizerStatus();
   const navigate = useNavigate();
 
   const handleCreateAccount = () => {
@@ -39,6 +41,11 @@ export function CreateEventModal({ trigger }: CreateEventModalProps) {
   const handleLogin = () => {
     setIsOpen(false);
     navigate(ROUTE_PATHS.LOGIN, { state: { returnTo: ROUTE_PATHS.CREATE_EVENT } });
+  };
+  
+  const handleConnectAsaas = () => {
+    setIsOpen(false);
+    navigate(ROUTE_PATHS.ORGANIZER_PAYMENTS);
   };
 
   const isOrganizer = profile?.roles?.includes('ORGANIZER') || profile?.role === 'admin';
@@ -68,6 +75,39 @@ export function CreateEventModal({ trigger }: CreateEventModalProps) {
 
     // Se é admin ou organizador aprovado
     if (profile?.role === 'admin' || (isOrganizer && organizerStatus === 'APPROVED')) {
+      // Verificar status do Asaas
+      if (asaasStatus !== 'approved' && !statusLoading) {
+        return (
+          <div className="space-y-4">
+            <Alert className="bg-orange-50 border-orange-200">
+              <AlertTriangle className="h-4 w-4 text-orange-600" />
+              <AlertTitle className="text-orange-800 font-semibold">Conta Asaas Necessária</AlertTitle>
+              <AlertDescription className="text-orange-700 text-sm mt-1">
+                Para criar eventos pagos e receber pagamentos, você precisa conectar e aprovar sua conta Asaas.
+              </AlertDescription>
+            </Alert>
+            
+            <Button onClick={handleConnectAsaas} className="w-full gap-2 h-11" variant="outline">
+              Conectar conta Asaas
+            </Button>
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">Ou</span>
+              </div>
+            </div>
+
+            <Button onClick={handleCreateNow} className="w-full gap-2 h-11 text-base shadow-sm" size="lg">
+              <PlusCircle className="w-4 h-4" />
+              Criar evento (Gratuito / Rascunho)
+            </Button>
+          </div>
+        );
+      }
+
       return (
         <Button onClick={handleCreateNow} className="w-full gap-2 h-11 text-base shadow-sm" size="lg">
           <PlusCircle className="w-4 h-4" />

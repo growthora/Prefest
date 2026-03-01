@@ -263,7 +263,22 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
 
       if (error) {
         console.error('Payment Error:', error);
-        toast.error(`Erro ao iniciar pagamento: ${error.message || 'Erro desconhecido'}`);
+        
+        let errorMessage = error.message || 'Erro desconhecido';
+        
+        // Handle specific Asaas/Organizer errors
+        if (errorMessage.includes('organizador') && errorMessage.includes('Asaas')) {
+           toast.error(errorMessage, {
+             duration: 5000,
+             action: {
+               label: 'Entendi',
+               onClick: () => {}
+             }
+           });
+           return;
+        }
+
+        toast.error(`Erro ao iniciar pagamento: ${errorMessage}`);
         return;
       }
 

@@ -22,7 +22,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { Edit, Eye, MoreHorizontal, Plus, Search, Trash2, Calendar, MapPin, Users } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Edit, Eye, MoreHorizontal, Plus, Search, Trash2, Calendar, MapPin, Users, ChevronRight, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import {
   DropdownMenu,
@@ -36,12 +37,22 @@ import { CreateEventModal } from '@/components/CreateEventModal';
 import { EventDetailsModal } from '@/components/dashboard/events/EventDetailsModal';
 import { EditEventModal } from '@/components/dashboard/events/EditEventModal';
 import { DeleteEventDialog } from '@/components/dashboard/events/DeleteEventDialog';
+import { useOrganizerStatus } from '@/hooks/useOrganizerStatus';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertTriangle } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ROUTE_PATHS } from '@/lib/index';
+import { useToast } from '@/components/ui/use-toast';
 
 export function OrganizerEvents() {
   const { user } = useAuth();
+  const { asaasStatus, loading: statusLoading } = useOrganizerStatus();
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<Event[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [togglingEventId, setTogglingEventId] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   // CRUD State
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -66,10 +77,80 @@ export function OrganizerEvents() {
     }
   };
 
+  const handleToggleSales = async (event: Event, checked: boolean) => {
+    if (checked) {
+        // If enabling sales, check Asaas status
+        if (event.is_paid_event && asaasStatus !== 'approved') {
+             toast({
+                title: "Conta Asaas necessária",
+                description: "Para habilitar vendas, você precisa conectar e aprovar sua conta Asaas.",
+                variant: "destructive",
+                action: (
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="bg-white text-destructive hover:bg-gray-100 border-none"
+                        onClick={() => navigate(ROUTE_PATHS.ORGANIZER_PAYMENTS)}
+                    >
+                        Conectar
+                    </Button>
+                ),
+            });
+            return;
+        }
+    }
+
+    try {
+        setTogglingEventId(event.id);
+        await eventService.updateEvent(event.id, { sales_enabled: checked });
+        
+        // Optimistic update
+        setEvents(events.map(e => e.id === event.id ? { ...e, sales_enabled: checked } : e));
+        
+        toast({
+            title: checked ? "Vendas habilitadas" : "Vendas desabilitadas",
+            description: `As vendas para o evento "${event.title}" foram ${checked ? 'habilitadas' : 'desabilitadas'}.`,
+        });
+    } catch (error) {
+        console.error('Error toggling sales:', error);
+        toast({
+            title: "Erro ao atualizar",
+            description: "Não foi possível atualizar o status de vendas.",
+            variant: "destructive"
+        });
+        // Revert optimistic update if needed, but here we just rely on next load or user retry
+        loadEvents();
+    } finally {
+        setTogglingEventId(null);
+    }
+  };
+
   const handleAction = (event: Event, action: 'view' | 'edit' | 'delete') => {
+    if (action === 'edit') {
+      const isPaid = event.price > 0;
+      if (isPaid && asaasStatus !== 'approved') {
+        toast({
+          title: "Conta Asaas necessária",
+          description: "Para editar ou gerenciar vendas de um evento pago, você precisa conectar e aprovar sua conta Asaas.",
+          variant: "destructive",
+          action: (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="bg-white text-destructive hover:bg-gray-100 border-none"
+              onClick={() => navigate(ROUTE_PATHS.ORGANIZER_PAYMENTS)}
+            >
+              Conectar
+            </Button>
+          ),
+        });
+        return;
+      }
+      setIsEditOpen(true);
+    }
+    
     setSelectedEvent(event);
     if (action === 'view') setIsViewOpen(true);
-    if (action === 'edit') setIsEditOpen(true);
     if (action === 'delete') setIsDeleteOpen(true);
   };
 
@@ -123,6 +204,22 @@ export function OrganizerEvents() {
         />
       </div>
 
+      {!statusLoading && asaasStatus !== 'approved' && (
+        <Alert className="bg-orange-50 border-orange-200 text-orange-900">
+          <AlertTriangle className="h-4 w-4 text-orange-600" />
+          <AlertTitle className="text-orange-800 font-semibold">Conta Asaas Necessária</AlertTitle>
+          <AlertDescription className="text-orange-700 mt-1 flex flex-col sm:flex-row sm:items-center gap-1">
+            <span>Para criar eventos pagos e receber pagamentos, é necessário conectar sua conta Asaas.</span>
+            <Link 
+              to={ROUTE_PATHS.ORGANIZER_PAYMENTS} 
+              className="font-semibold underline hover:text-orange-950 inline-flex items-center gap-1"
+            >
+              Configurar agora <ChevronRight className="h-3 w-3" />
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex items-center gap-2">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -144,6 +241,7 @@ export function OrganizerEvents() {
               <TableHead>Data</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Vendas</TableHead>
+              <TableHead>Participantes</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -165,6 +263,26 @@ export function OrganizerEvents() {
                   <Badge variant={new Date(event.event_date) > new Date() ? "default" : "secondary"}>
                     {new Date(event.event_date) > new Date() ? "Ativo" : "Realizado"}
                   </Badge>
+                </TableCell>
+                <TableCell>
+                    {event.is_paid_event ? (
+                        <div className="flex items-center gap-2">
+                             {togglingEventId === event.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                             ) : (
+                                <Switch
+                                    checked={event.sales_enabled}
+                                    onCheckedChange={(checked) => handleToggleSales(event, checked)}
+                                    disabled={togglingEventId === event.id}
+                                />
+                             )}
+                             <span className="text-sm text-muted-foreground">
+                                {event.sales_enabled ? 'On' : 'Off'}
+                             </span>
+                        </div>
+                    ) : (
+                        <span className="text-xs text-muted-foreground">Gratuito</span>
+                    )}
                 </TableCell>
                 <TableCell>
                   {event.current_participants} / {event.max_participants || '∞'}
@@ -256,6 +374,24 @@ export function OrganizerEvents() {
                        </span>
                     </div>
                  </div>
+
+                 {/* Sales Toggle for Mobile */}
+                 {event.is_paid_event && (
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/20 border border-secondary/30">
+                        <span className="text-sm font-medium flex items-center gap-2">
+                            Vendas {event.sales_enabled ? 'Habilitadas' : 'Desabilitadas'}
+                        </span>
+                        {togglingEventId === event.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        ) : (
+                            <Switch
+                                checked={event.sales_enabled}
+                                onCheckedChange={(checked) => handleToggleSales(event, checked)}
+                                disabled={togglingEventId === event.id}
+                            />
+                        )}
+                    </div>
+                 )}
               </CardContent>
               <CardFooter className="p-4 pt-0 grid grid-cols-3 gap-2">
                  <Button variant="outline" size="sm" className="w-full h-9 hover:bg-primary/5 hover:text-primary transition-colors" onClick={() => handleAction(event, 'view')}>

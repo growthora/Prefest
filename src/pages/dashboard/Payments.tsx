@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { eventService } from '@/services/event.service';
 import { DashboardLoader } from '@/components/dashboard/DashboardLoader';
+import { AsaasConnect } from '@/components/dashboard/organizer/AsaasConnect';
 
 export function Payments() {
   const { user } = useAuth();
@@ -35,14 +36,9 @@ export function Payments() {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Meus Pagamentos</h1>
-        <Button 
-          disabled 
-          title="Funcionalidade em breve"
-          className="self-start md:self-auto"
-        >
-          Solicitar Saque
-        </Button>
       </div>
+      
+      <AsaasConnect />
       
       <div className="grid gap-4 md:grid-cols-3">
         <Card>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { eventService, type CreateEventData } from '@/services/event.service';
 import { useAuth } from '@/hooks/useAuth';
+import { useOrganizerStatus } from '@/hooks/useOrganizerStatus';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,6 +31,7 @@ export type TicketType = {
 
 export const CreateEventForm = () => {
   const { user } = useAuth();
+  const { asaasStatus } = useOrganizerStatus();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -112,6 +114,28 @@ export const CreateEventForm = () => {
   const handleSubmit = async (e: React.FormEvent, status: 'draft' | 'published' = 'published') => {
     e.preventDefault();
     console.log(`🚀 [CreateEvent] Iniciando submissão. Status: ${status}`);
+
+    if (status === 'published') {
+      const isPaid = formData.price > 0 || ticketTypes.some(t => t.price > 0);
+      if (isPaid && asaasStatus !== 'approved') {
+        toast({
+          variant: "destructive",
+          title: "Conta Asaas necessária",
+          description: "Para publicar um evento com ingressos pagos, você precisa conectar e aprovar sua conta Asaas.",
+          action: (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="bg-white text-destructive hover:bg-gray-100 border-none"
+              onClick={() => navigate(ROUTE_PATHS.ORGANIZER_PAYMENTS)}
+            >
+              Conectar
+            </Button>
+          ),
+        });
+        return;
+      }
+    }
     
     const validationError = validateForm(status === 'published');
     if (validationError) {
@@ -143,7 +167,14 @@ export const CreateEventForm = () => {
       setError(null);
       console.log('💾 [CreateEvent] Enviando dados para o backend:', { formData, ticketTypes, status });
       
-      const dataToSubmit = { ...formData, status };
+      const isPaid = formData.price > 0 || ticketTypes.some(t => t.price > 0);
+      const dataToSubmit = { 
+        ...formData, 
+        status,
+        is_paid_event: isPaid,
+        sales_enabled: isPaid, // Auto-enable sales if paid, but guard will block if not approved
+        asaas_required: true
+      };
       const event = await eventService.createEvent(dataToSubmit, user.id);
       console.log('✅ [CreateEvent] Evento criado com sucesso:', event);
       

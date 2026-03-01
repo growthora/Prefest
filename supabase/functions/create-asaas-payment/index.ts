@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { guardSalesEnabled } from '@shared/guard_sales_enabled.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -50,6 +51,32 @@ Deno.serve(async (req) => {
 
     // 2. Admin Client for Privileged Operations (Get Secrets, Write Payments)
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+
+    // 2.1. Validate Organizer Status (Guard)
+    if (metadata?.eventId) {
+        const { data: eventData, error: eventError } = await adminClient
+            .from('events')
+            .select('creator_id')
+            .eq('id', metadata.eventId)
+            .single();
+            
+        if (eventError || !eventData) {
+            console.error('Event fetch error:', eventError);
+            throw new Error('Event not found');
+        }
+        
+        const validation = await guardSalesEnabled(adminClient, {
+            organizerUserId: eventData.creator_id
+        });
+        
+        if (!validation.isValid) {
+            console.error(`Organizer validation failed: ${validation.error} (${validation.code})`);
+            const errorMessage = validation.code === 'ASAAS_NOT_CONNECTED' 
+                ? 'O organizador deste evento não conectou uma conta Asaas para receber pagamentos.'
+                : 'A conta Asaas do organizador não está aprovada para vendas. Entre em contato com o organizador.';
+            throw new Error(errorMessage);
+        }
+    }
 
     // 3. Get Asaas Config
     const { data: config, error: configError } = await adminClient
