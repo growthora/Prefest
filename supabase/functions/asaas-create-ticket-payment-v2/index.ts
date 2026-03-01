@@ -107,48 +107,46 @@ Deno.serve(async (req) => {
 
     const organizerValue = Number((totalPrice - platformFee).toFixed(2));
 
-    // 5. Customer Info (Use Organizer Email as requested by User)
-    // User Requirement: "O pagamento utilize o EMAIL CONFIGURADO NA SUBCONTA ASAAS DO ORGANIZADOR"
-    // Priority: 1. asaas_account_email (DB), 2. Fallback
+    // 5. Customer Info (Buyer Data ONLY - FIXED)
+    // STRICT RULE: Never use Organizer data for Customer creation.
     
-    const organizerEmail = organizerAccount.asaas_account_email || 'pagamentos@prefest.com.br';
-    
-    // GUARDRAIL: Prevent using auth.user.email if it matches the buyer (unless buyer is organizer, but we enforce organizer email anyway)
-    // Actually, we are FORCING organizer email, so we don't use auth.user.email at all for customer creation.
-    // But user asked to block if customer.email === auth.user.email.
-    // Since we set customer.email = organizerEmail, this check is:
-    // if (organizerEmail === user.email) -> Block?
-    // No, user meant: "If code tries to use auth.user.email, block it".
-    // Since we are explicitly NOT using auth.user.email, we are safe.
-    // However, if organizerEmail happens to be same as user.email (e.g. organizer buying own ticket), that's fine?
-    // User said: "SE customer.email === auth.user.email: → BLOQUEAR".
-    // This implies user wants to ensure we are NOT using the Buyer's email.
-    // If Buyer == Organizer, then emails match, but source is correct.
-    // I will implement the source change which guarantees we use Organizer Email.
+    // Fetch Buyer Profile for correct data
+    const { data: buyerProfile, error: buyerError } = await adminClient
+      .from('profiles')
+      .select('full_name, cpf, email')
+      .eq('id', user.id)
+      .single();
+
+    if (buyerError || !buyerProfile) {
+        throw new Error('Buyer profile not found. Please complete your registration.');
+    }
+
+    const buyerEmail = buyerProfile.email || user.email;
+    const buyerName = buyerProfile.full_name;
+    const rawCpf = buyerProfile.cpf;
+    const buyerCpf = rawCpf ? rawCpf.replace(/\D/g, '') : '';
+
+    // STRICT VALIDATION
+    if (!buyerEmail) throw new Error('Email do comprador é obrigatório.');
+    if (!buyerName) throw new Error('Nome completo do comprador é obrigatório.');
+    if (!buyerCpf || (buyerCpf.length !== 11 && buyerCpf.length !== 14)) {
+        throw new Error('CPF/CNPJ do comprador inválido ou não informado.');
+    }
+
+    // Check strict separation
+    if (buyerEmail === organizerAccount.asaas_account_email) {
+        console.warn(`V2 Warning: Buyer Email matches Organizer Email (${buyerEmail}). Self-testing?`);
+    }
 
     const customerInfo = {
-        name: organizerAccount.asaas_account_name || 'Organizador Prefest', // We might need name too?
-        email: organizerEmail,
-        cpfCnpj: organizerAccount.asaas_account_cpf_cnpj || '00000000000', // We might need this too
+        name: buyerName,
+        email: buyerEmail,
+        cpfCnpj: buyerCpf,
+        externalReference: user.id,
+        notificationDisabled: false
     };
 
-    // If we don't have name/cpf in DB, we might fail. 
-    // But organizer_asaas_accounts usually doesn't store name/cpf directly?
-    // Let's check schema again. It has asaas_account_id, email. No name/cpf.
-    // We can fetch from Asaas /myAccount or just use generic name.
-    // Or fetch Profile of organizer?
-    // Let's fetch Profile of organizer (creatorProfile) to get name.
-    
-    const { data: orgProfile } = await adminClient
-        .from('profiles')
-        .select('full_name, cpf')
-        .eq('id', ticket.events.creator_id)
-        .single();
-        
-    if (orgProfile) {
-        customerInfo.name = orgProfile.full_name || customerInfo.name;
-        customerInfo.cpfCnpj = orgProfile.cpf || customerInfo.cpfCnpj;
-    }
+    console.log(`V2 Customer Info Prepared: ${JSON.stringify(customerInfo)}`);
 
     // 6. Create Customer in Asaas
     let customerId = '';

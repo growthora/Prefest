@@ -133,9 +133,8 @@ serve(async (req) => {
 
     const organizerValue = Number((totalPrice - platformFee).toFixed(2));
 
-    // 12. Customer Info (Organizer Email Strategy)
-    // Priority: 1. asaas_account_email (DB), 2. Fallback
-    const organizerEmail = organizerAccount.asaas_account_email || 'pagamentos@prefest.com.br';
+    // 12. Customer Info (Buyer Data ONLY)
+    // STRICT RULE: Never use Organizer data for Customer creation.
     
     // Helper to sanitize CPF/CNPJ
     const sanitizeCpfCnpj = (value: string | null) => {
@@ -143,26 +142,38 @@ serve(async (req) => {
         return value.replace(/\D/g, '');
     };
 
-    // CPF Strategy: Buyer (Priority)
-    let cpfCnpj = '';
+    // Buyer Data Extraction
+    const buyerEmail = buyerProfile?.email || user.email;
+    const buyerName = buyerProfile?.full_name;
+    const rawCpf = buyerProfile?.cpf;
+    const buyerCpf = sanitizeCpfCnpj(rawCpf);
 
-    // 1. Try Buyer Profile
-    if (buyerProfile && buyerProfile.cpf) {
-        cpfCnpj = sanitizeCpfCnpj(buyerProfile.cpf);
+    // STRICT VALIDATION
+    if (!buyerEmail) {
+        throw new Error('Email do comprador é obrigatório.');
+    }
+    if (!buyerName) {
+        throw new Error('Nome completo do comprador é obrigatório.');
+    }
+    if (!buyerCpf || (buyerCpf.length !== 11 && buyerCpf.length !== 14)) {
+        throw new Error('CPF/CNPJ do comprador inválido ou não informado. Atualize seu perfil.');
     }
 
-    // Validate CPF/CNPJ
-    if (!cpfCnpj || (cpfCnpj.length !== 11 && cpfCnpj.length !== 14)) {
-        console.warn(`CPF/CNPJ missing for buyer ${user.id}`);
-        throw new Error(`CPF do comprador obrigatório. Por favor, preencha seus dados corretamente antes de finalizar a compra.`);
+    // Check strict separation: Customer Email != Organizer Email
+    // (Optional warning, but allowed if organizer buys their own ticket for testing)
+    if (buyerEmail === organizerAccount.asaas_account_email) {
+        console.warn(`V3 Warning: Buyer Email matches Organizer Email (${buyerEmail}). This is only valid for self-testing.`);
     }
 
     const customerInfo = {
-        name: buyerProfile?.full_name || organizerAccount.asaas_account_name || 'Cliente Prefest',
-        email: organizerEmail, // Using Organizer Email to centralize notifications
-        cpfCnpj: cpfCnpj,
-        externalReference: user.id
+        name: buyerName,
+        email: buyerEmail,
+        cpfCnpj: buyerCpf,
+        externalReference: user.id,
+        notificationDisabled: false, // Ensure buyer receives Asaas emails
     };
+
+    console.log(`V3 Customer Info Prepared: ${JSON.stringify(customerInfo)}`);
 
     // 13. Create/Find Customer in Asaas
     let customerId = '';
