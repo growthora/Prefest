@@ -88,11 +88,11 @@ serve(async (req) => {
     // 8.1 Fetch Buyer Profile (Primary source for CPF)
     const { data: buyerProfile } = await adminClient
       .from('profiles')
-      .select('full_name, cpf, email')
+      .select('full_name, cpf, email, asaas_customer_id')
       .eq('id', user.id)
       .single();
 
-    console.log(`V3: Buyer Profile: ${user.id} - CPF: ${buyerProfile?.cpf}`);
+    console.log(`V3: Buyer Profile: ${user.id} - CPF: ${buyerProfile?.cpf} - Asaas ID: ${buyerProfile?.asaas_customer_id}`);
     console.log(`V3: Creator Profile: ${ticket.events.creator_id} - CPF: ${creatorProfile?.cpf}`);
 
     // 9. Get Asaas Config
@@ -177,24 +177,45 @@ serve(async (req) => {
 
     // 13. Create/Find Customer in Asaas
     let customerId = '';
-    // Search by email
-    const searchRes = await fetch(`${baseUrl}/customers?email=${customerInfo.email}`, { headers });
-    const searchData = await searchRes.json();
     
-    if (searchData.data && searchData.data.length > 0) {
-        customerId = searchData.data[0].id;
+    // Check if we already have the customer ID in our database
+    if (buyerProfile?.asaas_customer_id) {
+        console.log(`V3: Using cached Asaas Customer ID: ${buyerProfile.asaas_customer_id}`);
+        customerId = buyerProfile.asaas_customer_id;
     } else {
-        // Create new customer
-        const createCustomerRes = await fetch(`${baseUrl}/customers`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(customerInfo)
-        });
-        const newCustomer = await createCustomerRes.json();
-        if (newCustomer.errors) {
-             throw new Error(`Customer Creation Error: ${newCustomer.errors[0].description}`);
+        // Search by email
+        const searchRes = await fetch(`${baseUrl}/customers?email=${customerInfo.email}`, { headers });
+        const searchData = await searchRes.json();
+        
+        if (searchData.data && searchData.data.length > 0) {
+            customerId = searchData.data[0].id;
+            console.log(`V3: Found existing Asaas Customer ID by email: ${customerId}`);
+        } else {
+            // Create new customer
+            const createCustomerRes = await fetch(`${baseUrl}/customers`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(customerInfo)
+            });
+            const newCustomer = await createCustomerRes.json();
+            if (newCustomer.errors) {
+                 throw new Error(`Customer Creation Error: ${newCustomer.errors[0].description}`);
+            }
+            customerId = newCustomer.id;
+            console.log(`V3: Created new Asaas Customer ID: ${customerId}`);
         }
-        customerId = newCustomer.id;
+
+        // Update Profile with new Asaas Customer ID
+        const { error: updateProfileError } = await adminClient
+            .from('profiles')
+            .update({ asaas_customer_id: customerId })
+            .eq('id', user.id);
+            
+        if (updateProfileError) {
+            console.error('V3 Error: Failed to update profile with Asaas Customer ID', updateProfileError);
+        } else {
+            console.log(`V3: Updated profile ${user.id} with Asaas Customer ID ${customerId}`);
+        }
     }
 
     // 14. Prepare Payment Payload
@@ -208,6 +229,8 @@ serve(async (req) => {
     };
 
     // Handle Split
+    let splitConfigForDb = null;
+
     // FIX: Do NOT add platformWalletId to split array if we are the creator (Master Account).
     // The remaining value (Total - Split) stays with the Master Account automatically.
     if (split_enabled && organizerAccount.asaas_account_id) {
@@ -219,11 +242,15 @@ serve(async (req) => {
             
             // Only split to the Organizer. The rest (platformFee) stays in Master Account.
             if (organizerValue > 0) {
-                split.push({ 
+                const splitItem = { 
                     walletId: organizerAccount.asaas_account_id, 
                     fixedValue: organizerValue,
                     percentualValue: undefined // Ensure we use fixedValue
-                });
+                };
+                split.push(splitItem);
+                
+                // Store for DB insert
+                splitConfigForDb = splitItem;
             }
             
             if (split.length > 0) {
@@ -266,6 +293,32 @@ serve(async (req) => {
         })
         .select()
         .single();
+
+    // 17.5 Record Payment Split (MANDATORY)
+    if (splitConfigForDb && paymentRecord) {
+        console.log('V3: Recording Payment Split in Database...');
+        const { error: splitError } = await adminClient
+            .from('payment_splits')
+            .insert({
+                payment_id: paymentRecord.id,
+                recipient_type: 'organizer',
+                recipient_user_id: ticket.events.creator_id,
+                asaas_account_id: splitConfigForDb.walletId,
+                wallet_id: splitConfigForDb.walletId,
+                fee_type: 'fixed',
+                fee_value: splitConfigForDb.fixedValue,
+                value: splitConfigForDb.fixedValue,
+                status: 'pending',
+                split_rule: splitConfigForDb
+            });
+            
+        if (splitError) {
+             console.error('CRITICAL V3 ERROR: Failed to insert payment_splits', splitError);
+             throw new Error('Falha crítica ao registrar divisão de pagamento. Contacte o suporte.');
+        } else {
+             console.log('V3: Payment Split recorded successfully.');
+        }
+    }
 
     // 18. Handle PIX QR Code
     let pixQrCode = null;

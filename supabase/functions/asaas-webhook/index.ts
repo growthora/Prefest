@@ -12,6 +12,9 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  let adminClient;
+  let eventLogId = null;
+
   try {
     // Initialize Admin Client for database operations
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
@@ -21,7 +24,7 @@ serve(async (req) => {
         throw new Error('Missing Supabase environment variables')
     }
 
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey)
+    adminClient = createClient(supabaseUrl, supabaseServiceKey)
 
     // 1. Validate Webhook Token
     const incomingToken = req.headers.get('asaas-access-token')
@@ -59,6 +62,30 @@ serve(async (req) => {
 
     if (!event || !payment || !payment.id) {
         return new Response(JSON.stringify({ error: 'Invalid payload' }), { status: 400, headers: corsHeaders })
+    }
+
+    // 2.1 Log Integration Event (MANDATORY)
+    try {
+        const { data: eventLog, error: eventLogError } = await adminClient
+            .from('integration_events')
+            .insert({
+                provider: 'asaas',
+                external_event_id: body.id || `evt_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+                event_type: event,
+                payload: body,
+                received_at: new Date().toISOString(),
+                status: 'processing'
+            })
+            .select('id')
+            .single();
+            
+        if (eventLogError) {
+            console.error('CRITICAL: Failed to log integration event', eventLogError);
+        } else {
+            eventLogId = eventLog.id;
+        }
+    } catch (e) {
+        console.error('Error logging integration event:', e);
     }
 
     console.log(`Received event: ${event} for payment ${payment.id}`)
@@ -146,23 +173,47 @@ serve(async (req) => {
             }
 
             // 6. Update Payment Splits Status
-            // Usually splits follow the payment status (paid/pending/cancelled)
-            // If payment is paid, splits are 'paid' (or effectively waiting for transfer)
-            // If payment is cancelled/refunded, splits are cancelled/refunded
+            // Logic: PAYMENT_CONFIRMED/RECEIVED -> 'received'
+            //        PAYMENT_REFUNDED -> 'refunded'
+            let splitStatus = newStatus;
+            if (newStatus === 'paid') splitStatus = 'received';
             
-            // Note: In our model, split status might be 'pending', 'paid', 'cancelled'
-            const { error: splitError } = await adminClient
+            const { error: splitError, count: splitCount } = await adminClient
                 .from('payment_splits')
                 .update({ 
-                    status: newStatus, 
+                    status: splitStatus, 
                     updated_at: new Date().toISOString() 
                 })
                 .eq('payment_id', updatedPayment.id)
+                .select('id', { count: 'exact' });
             
             if (splitError) {
-                 console.error('Error updating splits:', splitError)
+                 console.error('Error updating splits:', splitError);
+                 if (eventLogId) {
+                     await adminClient.from('integration_events').update({ 
+                         error_message: `Split update error: ${splitError.message}` 
+                     }).eq('id', eventLogId);
+                 }
+            } else if (splitCount === 0) {
+                 console.warn(`CRITICAL WARNING: No payment_splits found for payment ${updatedPayment.id}. This means split was not recorded during checkout.`);
+                 if (eventLogId) {
+                     await adminClient.from('integration_events').update({ 
+                         error_message: `CRITICAL: No payment_splits found for payment ${updatedPayment.id}` 
+                     }).eq('id', eventLogId);
+                 }
             } else {
-                 console.log(`Splits for payment ${updatedPayment.id} updated to ${newStatus}`)
+                 console.log(`Splits for payment ${updatedPayment.id} updated to ${splitStatus}`);
+            }
+
+            // 7. Update Integration Event Status (Success)
+            if (eventLogId) {
+                await adminClient
+                    .from('integration_events')
+                    .update({ 
+                        status: 'processed', 
+                        processed_at: new Date().toISOString() 
+                    })
+                    .eq('id', eventLogId);
             }
         } else {
              console.warn('Payment not found for external ID:', payment.id)
@@ -175,6 +226,22 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Unexpected error:', error)
+    
+    if (adminClient && eventLogId) {
+        try {
+            await adminClient
+                .from('integration_events')
+                .update({ 
+                    status: 'failed', 
+                    error_message: error.message,
+                    processed_at: new Date().toISOString() 
+                })
+                .eq('id', eventLogId);
+        } catch (logError) {
+            console.error('Failed to log error to integration_events:', logError);
+        }
+    }
+
     return new Response(JSON.stringify({ error: error.message }), {
       status: 200, // Always return 200 to avoid webhook retries on logic errors, unless transient
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
