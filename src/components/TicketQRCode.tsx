@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import QRCode from 'qrcode';
 
 interface TicketQRCodeProps {
   ticketId: string;
@@ -33,28 +34,46 @@ export default function TicketQRCode({
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
 
   useEffect(() => {
-    if (status === 'used' || status === 'canceled' || status === 'invalid') {
-       // Não gerar QR Code para ingressos inválidos/usados
-       setQrCodeUrl('');
-       return;
-    }
+    const generateQRCode = async () => {
+      if (status === 'used' || status === 'canceled' || status === 'invalid') {
+         // Não gerar QR Code para ingressos inválidos/usados
+         setQrCodeUrl('');
+         return;
+      }
 
-    if (ticketCode) {
-      const size = 300;
-      const url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(ticketCode)}&format=png`;
-      setQrCodeUrl(url);
-    } else if (ticketId && eventId && ticketToken) {
-      // Fallback legacy JSON format
-      const payload = JSON.stringify({
-        t: ticketId,
-        e: eventId,
-        k: ticketToken
-      });
-      
-      const size = 300;
-      const url = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(payload)}&format=png`;
-      setQrCodeUrl(url);
-    }
+      try {
+        let dataToEncode = '';
+
+        if (ticketCode) {
+          dataToEncode = ticketCode;
+        } else if (ticketId && eventId && ticketToken) {
+          // Fallback legacy JSON format
+          dataToEncode = JSON.stringify({
+            t: ticketId,
+            e: eventId,
+            k: ticketToken
+          });
+        }
+
+        if (dataToEncode) {
+          // Generate QR Code locally using 'qrcode' library
+          const url = await QRCode.toDataURL(dataToEncode, {
+            width: 300,
+            margin: 2,
+            color: {
+              dark: '#000000',
+              light: '#ffffff',
+            },
+            errorCorrectionLevel: 'M'
+          });
+          setQrCodeUrl(url);
+        }
+      } catch (err) {
+        console.error('Error generating QR code:', err);
+      }
+    };
+
+    generateQRCode();
   }, [ticketId, eventId, ticketToken, ticketCode, status]);
 
   const downloadQRCode = () => {

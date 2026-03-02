@@ -540,15 +540,15 @@ export default function AdminSettings() {
 
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-2">
-                                                    <Label>Tipo de Taxa</Label>
+                                                    <div className="flex items-center gap-2">
+                                                        <Label>Tipo de Taxa</Label>
+                                                        <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded border border-border text-muted-foreground font-medium uppercase tracking-wider">Fixo no Sistema</span>
+                                                    </div>
                                                     <Select 
-                                                        value={integration.platform_fee_type || 'percentage'} 
-                                                        onValueChange={(v: 'percentage' | 'fixed') => {
-                                                            const updated = integrations.map(i => i.provider === 'asaas' ? {...i, platform_fee_type: v} : i);
-                                                            setIntegrations(updated);
-                                                        }}
+                                                        disabled={true}
+                                                        value="percentage"
                                                     >
-                                                        <SelectTrigger>
+                                                        <SelectTrigger className="bg-muted/50 cursor-not-allowed opacity-70">
                                                             <SelectValue />
                                                         </SelectTrigger>
                                                         <SelectContent>
@@ -558,24 +558,25 @@ export default function AdminSettings() {
                                                     </Select>
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <Label>Valor da Taxa</Label>
+                                                    <div className="flex items-center gap-2">
+                                                        <Label>Valor da Taxa</Label>
+                                                        <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded border border-border text-muted-foreground font-medium uppercase tracking-wider">Somente Leitura</span>
+                                                    </div>
                                                     <div className="relative">
                                                         <Input 
+                                                            disabled={true}
                                                             type="number"
-                                                            step="0.01"
-                                                            min="0"
-                                                            className="pl-8"
-                                                            value={integration.platform_fee_value || 0}
-                                                            onChange={(e) => {
-                                                                const updated = integrations.map(i => i.provider === 'asaas' ? {...i, platform_fee_value: parseFloat(e.target.value)} : i);
-                                                                setIntegrations(updated);
-                                                            }}
-                                                            placeholder="0.00"
+                                                            className="pl-8 bg-muted/50 cursor-not-allowed opacity-70 font-medium text-foreground"
+                                                            value={10}
+                                                            placeholder="10.00"
                                                         />
-                                                        <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">
-                                                            {integration.platform_fee_type === 'fixed' ? 'R$' : '%'}
+                                                        <span className="absolute left-3 top-2.5 text-muted-foreground text-sm opacity-70">
+                                                            %
                                                         </span>
                                                     </div>
+                                                    <p className="text-[11px] text-muted-foreground">
+                                                        A taxa está configurada fixamente em 10% no código para garantir estabilidade.
+                                                    </p>
                                                 </div>
                                             </div>
                                         </motion.div>

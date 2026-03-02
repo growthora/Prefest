@@ -383,7 +383,7 @@ Deno.serve(async (req) => {
     await adminClient.from('tickets').update({ status: 'pending' }).eq('id', ticket.id);
 
     // 17. Record Payment
-    const { data: paymentRecord } = await adminClient
+    const { data: paymentRecord, error: paymentError } = await adminClient
         .from('payments')
         .insert({
             ticket_id: ticket.id,
@@ -391,13 +391,18 @@ Deno.serve(async (req) => {
             organizer_user_id: ticket.events.creator_id,
             provider: 'asaas',
             external_payment_id: paymentData.id,
-            billing_type: billing_type.toLowerCase(),
-            value_total: totalPrice,
+            payment_method: billing_type.toLowerCase(),
+            value: totalPrice,
             status: 'pending',
-            invoice_url: paymentData.invoiceUrl,
+            payment_url: paymentData.invoiceUrl,
         })
         .select()
         .single();
+
+    if (paymentError) {
+        console.error('CRITICAL V3 ERROR: Failed to insert payment', paymentError);
+        throw new Error('Falha ao registrar pagamento no sistema. Contacte o suporte.');
+    }
 
     // 17.5 Record Payment Split (MANDATORY)
     if (splitConfigForDb && paymentRecord) {
@@ -435,7 +440,7 @@ Deno.serve(async (req) => {
         if (paymentRecord) {
             await adminClient
                 .from('payments')
-                .update({ pix_qr_code: pixQrCode, pix_copy_paste: pixQrCodeText })
+                .update({ pix_qr_code: pixQrCodeText }) // Saving CopyPaste code in pix_qr_code column as it's more useful
                 .eq('id', paymentRecord.id);
         }
     }
