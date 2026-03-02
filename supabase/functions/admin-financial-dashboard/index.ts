@@ -92,10 +92,10 @@ Deno.serve(async (req) => {
 
         // 2. Get Asaas Config
         const { data: config, error: configError } = await serviceClient.rpc('get_decrypted_asaas_config').single();
-        if (configError || !config) throw new Error('Failed to load Asaas config');
+        if (configError || !config || !config.is_enabled) throw new Error('Failed to load Asaas config or disabled');
 
-        const { secret_key, env } = config;
-        const apiKey = secret_key;
+        const { api_key, env } = config;
+        const apiKey = api_key;
         const baseUrl = env === 'production' ? 'https://www.asaas.com/api/v3' : 'https://sandbox.asaas.com/api/v3';
 
         // 3. Call Asaas

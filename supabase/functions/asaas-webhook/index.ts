@@ -34,6 +34,11 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: 'Config error' }), { status: 500, headers: corsHeaders })
     }
 
+    if (config && !config.is_enabled) {
+         console.warn('Asaas integration is disabled globally. Ignoring webhook.');
+         return new Response(JSON.stringify({ ignored: true, reason: 'integration_disabled' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+
     // If webhook token is configured, validate it
     if (config && config.webhook_token) {
         if (incomingToken !== config.webhook_token) {

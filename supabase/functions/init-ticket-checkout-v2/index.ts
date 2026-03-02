@@ -67,6 +67,16 @@ Deno.serve(async (req) => {
     const isFree = totalPrice === 0;
 
     if (!isFree) {
+      // 5. Validate Asaas Configuration (Global)
+      const { data: asaasConfig, error: configError } = await adminClient
+        .rpc('get_public_asaas_config')
+        .single();
+      
+      if (configError || !asaasConfig || !asaasConfig.is_enabled) {
+          console.error('Asaas Config Error:', configError || 'Disabled');
+          throw new Error('O sistema de pagamentos (Asaas) não está configurado ou habilitado na plataforma.');
+      }
+
       // PAID FLOW: Create reserved ticket
       const { data: ticket, error: createError } = await adminClient
         .from('tickets')

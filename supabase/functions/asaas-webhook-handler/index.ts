@@ -36,13 +36,13 @@ Deno.serve(async (req) => {
 
     if (configError || !config) {
          console.error('Configuration error or missing:', configError);
-         // If we can't load config, we can't validate token. 
-         // Safest is to reject (401/500) or return 200 to stop retries if it's permanent?
-         // Security wise: 500 or 401. But user wants NO penalties.
-         // If it's a config error, Asaas retrying might be good if DB is temp down.
-         // But if it's permanent, we get penalized.
-         // Let's return 401 (Unauthorized) which implies "Fix your auth/config".
          return unauthorized();
+    }
+
+    // Check if integration is enabled
+    if (!config.is_enabled) {
+         console.warn('Asaas integration is disabled globally. Ignoring webhook.');
+         return ok('ignored_disabled');
     }
     
     if (config.webhook_token !== asaasToken) {

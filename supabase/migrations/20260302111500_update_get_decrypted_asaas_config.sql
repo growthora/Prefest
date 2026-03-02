@@ -18,16 +18,16 @@ DECLARE
 BEGIN
   RETURN QUERY
   SELECT 
-    pgp_sym_decrypt(decode(secret_key_encrypted, 'base64'), v_encryption_key) as api_key,
-    pgp_sym_decrypt(decode(webhook_token_encrypted, 'base64'), v_encryption_key) as webhook_token,
-    environment as env,
-    wallet_id,
-    split_enabled,
-    platform_fee_type,
-    (platform_fee_value::numeric) as platform_fee_value,
-    is_enabled
-  FROM integrations
-  WHERE provider = 'asaas'
+    pgp_sym_decrypt(decode(i.secret_key_encrypted, 'base64'), v_encryption_key) as api_key,
+    pgp_sym_decrypt(decode(i.webhook_token_encrypted, 'base64'), v_encryption_key) as webhook_token,
+    i.environment as env,
+    i.wallet_id,
+    i.split_enabled,
+    i.platform_fee_type,
+    (i.platform_fee_value::numeric) as platform_fee_value,
+    i.is_enabled
+  FROM integrations i
+  WHERE i.provider = 'asaas'
   LIMIT 1;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

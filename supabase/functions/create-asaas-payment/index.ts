@@ -41,9 +41,9 @@ Deno.serve(async (req) => {
       .rpc('get_decrypted_asaas_config')
       .single();
 
-    if (configError || !config?.api_key) {
+    if (configError || !config?.api_key || !config.is_enabled) {
       console.error('Config Error:', configError);
-      throw new Error('Asaas configuration not found or invalid');
+      throw new Error('Asaas configuration not found, invalid, or disabled');
     }
 
     const { api_key: apiKey, environment: env, wallet_id: platformWalletId, split_enabled, platform_fee_type, platform_fee_value } = config;

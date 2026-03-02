@@ -34,8 +34,8 @@ serve(async (req) => {
 
     const { data: config, error: configError } = await adminClient.rpc('get_decrypted_asaas_config')
     
-    if (configError || !config || !config.api_key) {
-        return new Response(JSON.stringify({ error: 'Asaas configuration error' }), { status: 500, headers: corsHeaders })
+    if (configError || !config || !config.api_key || !config.is_enabled) {
+        return new Response(JSON.stringify({ error: 'Asaas configuration error or disabled' }), { status: 500, headers: corsHeaders })
     }
 
     const API_URL = config.env === 'production' 
