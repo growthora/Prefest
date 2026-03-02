@@ -1,9 +1,9 @@
-import React, { Suspense, lazy } from "react";
+import React, { Suspense, lazy, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation, useNavigate } from "react-router-dom";
 import { ROUTE_PATHS, buildEventDetailsPath } from "@/lib/index";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ConfirmProvider } from "@/contexts/ConfirmContext";
@@ -12,7 +12,8 @@ import { GlobalLoader } from "@/components/GlobalLoader";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { LoginForm } from "@/components/LoginForm";
 import { ForgotPassword } from "@/pages/Auth/ForgotPassword";
-import { UpdatePassword } from "@/pages/Auth/UpdatePassword";
+import { ResetPassword } from "@/pages/Auth/ResetPassword";
+import { AuthError } from "@/pages/Auth/AuthError";
 import { CreateEventForm } from "@/components/CreateEventForm";
 import { EventList } from "@/components/EventList";
 const Home = lazy(() => import("./pages/Home"));
@@ -120,7 +121,7 @@ const AppRoutes = () => {
       <Routes>
         <Route path={ROUTE_PATHS.LOGIN} element={<LoginForm />} />
       <Route path={ROUTE_PATHS.FORGOT_PASSWORD} element={<ForgotPassword />} />
-      <Route path={ROUTE_PATHS.UPDATE_PASSWORD} element={<UpdatePassword />} />
+      <Route path={ROUTE_PATHS.UPDATE_PASSWORD} element={<ResetPassword />} />
       <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminOverview />} />
@@ -204,6 +205,38 @@ const AppRoutes = () => {
   );
 };
 
+// Interceptor for Supabase Auth Errors (Hash Fragment)
+const AuthErrorInterceptor = () => {
+  const { hash } = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (hash && (hash.includes('error=') || hash.includes('error_code='))) {
+      // Remove the leading #
+      const params = new URLSearchParams(hash.substring(1));
+      
+      const error = params.get('error');
+      const errorCode = params.get('error_code');
+      const errorDescription = params.get('error_description');
+
+      if (error || errorCode) {
+        // Construct query string for the error page
+        const searchParams = new URLSearchParams();
+        if (error) searchParams.set('error', error);
+        if (errorCode) searchParams.set('error_code', errorCode);
+        if (errorDescription) searchParams.set('error_description', errorDescription);
+
+        console.log('Intercepted Auth Error:', { error, errorCode, errorDescription });
+        
+        // Redirect to /auth/error with params
+        navigate(`${ROUTE_PATHS.AUTH_ERROR}?${searchParams.toString()}`, { replace: true });
+      }
+    }
+  }, [hash, navigate]);
+
+  return null;
+};
+
 const App = () => {
   console.log('🚀 App iniciando...');
   
@@ -216,6 +249,7 @@ const App = () => {
               <Toaster />
               <Sonner position="top-center" richColors />
               <BrowserRouter>
+                <AuthErrorInterceptor />
                 <ScrollToTop />
                 <Suspense fallback={<GlobalLoader />}>
                   <AppRoutes />

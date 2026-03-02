@@ -192,7 +192,22 @@ class AuthService {
     // [MODIFIED] Use native Supabase Auth method instead of custom SMTP Edge Function
     // This ensures all auth emails are handled by Supabase Auth service as requested
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/atualizar-senha`,
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    if (error) throw error;
+    return data;
+  }
+
+  // Verificar OTP para redefinição de senha
+  async verifyOtp(email: string, token: string) {
+    // [SECURITY] Validação de contexto de email para Auth
+    assertAuthEmailSafety();
+
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'recovery',
     });
 
     if (error) throw error;

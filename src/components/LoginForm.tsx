@@ -13,6 +13,7 @@ import { ROUTE_PATHS } from '@/lib/index';
 import { Info } from 'lucide-react';
 import { IMAGES } from '@/assets/images';
 import { authService } from '@/services/auth.service';
+import { translateAuthError } from '@/utils/authErrors';
 
 export const LoginForm = () => {
   const { signIn, signUp, isLoading, error } = useAuth();
@@ -65,6 +66,8 @@ export const LoginForm = () => {
       if (message.toLowerCase().includes('email not confirmed')) {
         message = 'Seu e-mail ainda não foi confirmado.';
         setShowResend(true);
+      } else {
+        message = translateAuthError(message);
       }
       
       setLocalError(message);

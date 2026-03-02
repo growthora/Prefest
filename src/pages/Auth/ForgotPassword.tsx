@@ -9,6 +9,8 @@ import { authService } from '@/services/auth.service';
 import { ROUTE_PATHS } from '@/lib/index';
 import { ArrowLeft, Mail } from 'lucide-react';
 
+import { translateAuthError } from '@/utils/authErrors';
+
 export const ForgotPassword = () => {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -25,7 +27,8 @@ export const ForgotPassword = () => {
       await authService.resetPasswordForEmail(email);
       setSuccess(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao enviar email de recuperação');
+      const message = err instanceof Error ? err.message : 'Erro ao enviar email de recuperação';
+      setError(translateAuthError(message));
     } finally {
       setIsLoading(false);
     }
