@@ -32,6 +32,15 @@ class MatchService {
     return data && data.length > 0 ? data[0] : null;
   }
 
+  // Listar matches de um evento específico
+  async getEventMatches(eventId: string): Promise<Match[]> {
+    // Como a RPC list_matches não filtra por evento, vamos fazer uma query direta na view ou tabela se possível
+    // Ou filtrar o resultado da RPC se ela retornar event_id
+    const { data, error } = await supabase.rpc('list_matches');
+    if (error) throw error;
+    return (data || []).filter((m: Match) => m.event_id === eventId);
+  }
+
   async markMatchSeen(matchId: string): Promise<void> {
     const { error } = await supabase.rpc('mark_match_seen', { p_match_id: matchId });
     if (error) throw error;

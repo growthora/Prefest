@@ -15,6 +15,7 @@ interface TicketQRCodeProps {
   eventTitle: string;
   eventDate: string;
   eventLocation: string;
+  isEventRealized?: boolean;
 }
 
 export default function TicketQRCode({ 
@@ -26,13 +27,14 @@ export default function TicketQRCode({
   checkInAt,
   eventTitle, 
   eventDate, 
-  eventLocation 
+  eventLocation,
+  isEventRealized = false
 }: TicketQRCodeProps) {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
 
   useEffect(() => {
     if (status === 'used' || status === 'canceled' || status === 'invalid') {
-       // Não gerar QR Code para ingressos inválidos/usados para evitar confusão
+       // Não gerar QR Code para ingressos inválidos/usados
        setQrCodeUrl('');
        return;
     }
@@ -100,7 +102,7 @@ export default function TicketQRCode({
   const statusInfo = getStatusInfo(status || 'valid');
 
   return (
-    <Card className={`overflow-hidden border-none shadow-lg bg-card ${status === 'used' ? 'opacity-75' : ''}`}>
+    <Card className={`overflow-hidden border-none shadow-lg bg-card ${isEventRealized ? 'opacity-80' : ''}`}>
       <CardHeader className="bg-primary/5 pb-4">
         <div className="flex justify-between items-start gap-4">
            <div className="flex-1">
@@ -110,15 +112,28 @@ export default function TicketQRCode({
                <span>{eventLocation}</span>
              </div>
            </div>
-           <Badge variant={statusInfo.variant} className="shrink-0">
-             {statusInfo.icon}
-             <span className="ml-1">{statusInfo.label}</span>
-           </Badge>
+           {isEventRealized ? (
+             <Badge variant="secondary" className="shrink-0 bg-gray-100 text-gray-600">
+               <Clock className="w-3 h-3 mr-1" />
+               Realizado
+             </Badge>
+           ) : (
+             <Badge variant={statusInfo.variant} className="shrink-0">
+               {statusInfo.icon}
+               <span className="ml-1">{statusInfo.label}</span>
+             </Badge>
+           )}
         </div>
       </CardHeader>
       <CardContent className="pt-6 flex flex-col items-center">
         <div className="bg-white p-4 rounded-xl shadow-sm border mb-6 relative">
-          {status === 'used' ? (
+          {isEventRealized ? (
+            <div className="w-48 h-48 flex flex-col items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 text-center p-4">
+               <Clock className="w-16 h-16 text-gray-400 mb-2" />
+               <span className="text-sm font-medium text-gray-500">Evento Realizado</span>
+               <span className="text-xs text-gray-400 mt-1">Este ingresso não é mais válido</span>
+            </div>
+          ) : status === 'used' ? (
             <div className="w-48 h-48 flex flex-col items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
                <CheckCircle2 className="w-16 h-16 text-green-500 mb-2" />
                <span className="text-sm font-medium text-gray-500">Check-in Realizado</span>
@@ -135,7 +150,12 @@ export default function TicketQRCode({
              <p>{ticketCode ? `CÓD: ${ticketCode}` : `ID: ${ticketId.slice(0, 8)}...`}</p>
            </div>
            
-           {status === 'used' ? (
+           {isEventRealized ? (
+              <div className="p-3 bg-gray-50 text-gray-600 rounded-lg text-sm border border-gray-100">
+                <p className="font-medium">Evento finalizado</p>
+                <p className="text-xs mt-1">Esperamos que tenha aproveitado!</p>
+              </div>
+           ) : status === 'used' ? (
               <div className="p-3 bg-orange-50 text-orange-800 rounded-lg text-sm border border-orange-100">
                 <p className="font-medium">Ingresso confirmado!</p>
                 {checkInAt && (

@@ -351,7 +351,7 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
           {user ? (
             <div className="-mt-8 relative group">
               <NavLink 
-                to={ROUTE_PATHS.EM_ALTA} 
+                to={ROUTE_PATHS.MY_EVENTS} 
                 className={({isActive}) => cn(
                   "flex items-center justify-center w-16 h-16 rounded-full border-4 border-white shadow-xl transition-all duration-300 bg-primary text-white",
                   isActive 
@@ -384,14 +384,14 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
           )}
 
           <NavLink 
-            to={ROUTE_PATHS.MY_EVENTS} 
+            to={ROUTE_PATHS.PROFILE} 
             className={({isActive}) => cn(
               "flex flex-col items-center gap-1 transition-colors",
               isActive ? "text-primary" : "text-gray-400 hover:text-gray-600"
             )}
           >
-            <Ticket size={24} />
-            <span className="text-[10px] font-medium">Ingressos</span>
+            <User size={24} />
+            <span className="text-[10px] font-medium">Perfil</span>
           </NavLink>
 
           {user ? (

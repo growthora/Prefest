@@ -185,6 +185,44 @@ serve(async (req) => {
                     console.error('Error updating ticket:', ticketError)
                 } else {
                     console.log(`Ticket ${updatedPayment.ticket_id} updated to ${ticketStatus}`)
+
+                    // 5.1 Create Event Participant (for attendance) if PAID
+                    if (ticketStatus === 'paid') {
+                        const { data: existingParticipant } = await adminClient
+                            .from('event_participants')
+                            .select('id')
+                            .eq('ticket_id', updatedPayment.ticket_id)
+                            .single();
+
+                        if (!existingParticipant) {
+                            // Fetch ticket details
+                            const { data: ticketData } = await adminClient
+                                .from('tickets')
+                                .select('*')
+                                .eq('id', updatedPayment.ticket_id)
+                                .single();
+
+                            if (ticketData) {
+                                const { error: participantError } = await adminClient
+                                    .from('event_participants')
+                                    .insert({
+                                        event_id: ticketData.event_id,
+                                        user_id: ticketData.buyer_user_id,
+                                        ticket_type_id: ticketData.ticket_type_id,
+                                        ticket_quantity: ticketData.quantity,
+                                        total_paid: ticketData.total_price,
+                                        status: 'valid',
+                                        ticket_id: ticketData.id
+                                    });
+                                
+                                if (participantError) {
+                                    console.error('Error creating participant:', participantError);
+                                } else {
+                                    console.log(`Participant created for ticket ${ticketData.id}`);
+                                }
+                            }
+                        }
+                    }
                 }
             }
 

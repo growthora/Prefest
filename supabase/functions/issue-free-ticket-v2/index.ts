@@ -24,6 +24,14 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
+    // NEW: Check Event Purchase Availability (Global Blockade)
+    const { data: isAvailable, error: validationError } = await adminClient
+      .rpc('check_event_purchase_availability', { p_event_id: event_id });
+
+    if (validationError || !isAvailable) {
+      throw new Error(validationError?.message || 'Este evento já foi realizado ou as vendas estão encerradas.');
+    }
+
     // 1. Verify Profile Exists
     const { data: profile } = await adminClient
       .from('buyer_profiles')

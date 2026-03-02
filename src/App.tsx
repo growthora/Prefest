@@ -23,6 +23,8 @@ const SellTickets = lazy(() => import("./pages/SellTickets"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfUse = lazy(() => import("./pages/TermsOfUse"));
 const MyEvents = lazy(() => import("./pages/MyEvents"));
+const TicketDetails = lazy(() => import("./pages/TicketDetails"));
+const EventMatches = lazy(() => import("./pages/EventMatches"));
 const EventDetails = lazy(() => import("./pages/EventDetails"));
 const Profile = lazy(() => import("./pages/Profile"));
 const DeletarConta = lazy(() => import("./pages/DeletarConta"));
@@ -161,6 +163,8 @@ const AppRoutes = () => {
       <Route element={<ProtectedRoute />}>
         <Route path={ROUTE_PATHS.CREATE_EVENT} element={<CreateEventForm />} />
         <Route path={ROUTE_PATHS.MY_EVENTS} element={<MyEvents />} />
+        <Route path="/ingressos/:ticketId" element={<TicketDetails />} />
+        <Route path="/eventos/:eventId/matchs" element={<EventMatches />} />
         <Route path={ROUTE_PATHS.PROFILE} element={<Profile />} />
         <Route path={ROUTE_PATHS.DELETE_ACCOUNT} element={<DeletarConta />} />
         <Route path={ROUTE_PATHS.TICKET_SCANNER} element={<TicketScanner />} />

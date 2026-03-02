@@ -446,6 +446,7 @@ export default function EventDetails() {
           category: supabaseEvent.category || 'Geral',
           attendeesCount: supabaseEvent.current_participants,
           tags: supabaseEvent.category ? [supabaseEvent.category] : [],
+          status: supabaseEvent.status, // Add status mapping
         };
         setEvent(convertedEvent);
         
@@ -703,6 +704,24 @@ export default function EventDetails() {
                 transition={{ delay: 0.1 }}
                 className="lg:col-span-8"
               >
+            
+            {/* Realized Event Banner */}
+            {event.status === 'realizado' && (
+              <div className="mb-6 p-4 rounded-xl bg-muted/50 border border-muted flex items-center gap-3">
+                <div className="p-2 bg-muted rounded-full">
+                  <Clock className="w-5 h-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Este evento já foi realizado</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {isParticipating 
+                      ? "Você está visualizando o histórico deste evento pois participou dele."
+                      : "As vendas para este evento estão encerradas."}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Hero Image Section with multi-image support */}
             <div className="relative mb-8">
               <Carousel className="w-full">

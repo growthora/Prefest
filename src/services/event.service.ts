@@ -27,7 +27,7 @@ export interface Event {
   gallery_images?: string[] | null;
   category: string | null;
   category_id: string | null;
-  status: 'draft' | 'published';
+  status: 'draft' | 'published' | 'realizado';
   price: number;
   max_participants: number | null;
   current_participants: number;

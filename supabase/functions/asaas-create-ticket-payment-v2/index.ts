@@ -37,6 +37,14 @@ Deno.serve(async (req) => {
       throw new Error('Ticket not found or invalid');
     }
 
+    // NEW: Check Event Purchase Availability (Global Blockade)
+    const { data: isAvailable, error: validationError } = await adminClient
+      .rpc('check_event_purchase_availability', { p_event_id: ticket.events.id });
+    
+    if (validationError || !isAvailable) {
+      throw new Error(validationError?.message || 'Este evento já foi realizado ou as vendas estão encerradas.');
+    }
+
     // Verify status
     if (ticket.status !== 'reserved' && ticket.status !== 'pending') {
       throw new Error('Ticket status invalid for payment');

@@ -106,6 +106,7 @@ export interface Event {
   category: string;
   attendeesCount: number;
   tags: string[];
+  status?: string;
 }
 
 export interface Message {

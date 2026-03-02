@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Flame, Ticket, CreditCard, ShieldCheck, Info, Tag, X } from 'lucide-react';
+import { Check, Flame, Ticket, CreditCard, ShieldCheck, Info, Tag, X, Ban } from 'lucide-react';
 import { Event } from '@/lib/index';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -425,11 +426,18 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   
   const total = Math.max(0, basePrice + serviceFee - discount);
 
+  const isEventRealized = event.status === 'realizado';
+
   return (
     <div className="w-full max-w-2xl mx-auto space-y-8">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold tracking-tight">Checkout do Ingresso</h2>
+          {isEventRealized && (
+            <Badge variant="destructive" className="animate-pulse">
+                Evento Realizado
+            </Badge>
+          )}
         </div>
 
         <div className="grid grid-cols-3 gap-2 text-xs font-semibold uppercase tracking-widest">
@@ -522,6 +530,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
                 onSelect={handleTicketSelect}
                 selectedTicketTypeId={selectedTicketTypeId}
                 onLoaded={(types) => setHasAvailableTicketTypes(types.length > 0)}
+                isEventRealized={isEventRealized}
               />
               {hasAvailableTicketTypes === false && (
                 <p className="text-xs text-red-500 font-medium">
@@ -835,16 +844,24 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
             "h-14 rounded-2xl font-bold text-lg transition-all",
             isParticipating 
               ? "bg-green-600 hover:bg-green-600 cursor-not-allowed" 
-              : "bg-primary hover:bg-primary/90 shadow-[0_10px_20px_-5px_rgba(255,0,127,0.4)] hover:scale-[1.02] active:scale-[0.98]"
+              : isEventRealized
+                ? "bg-muted text-muted-foreground cursor-not-allowed hover:bg-muted"
+                : "bg-primary hover:bg-primary/90 shadow-[0_10px_20px_-5px_rgba(255,0,127,0.4)] hover:scale-[1.02] active:scale-[0.98]"
           )}
           disabled={
             isProcessing ||
             isParticipating ||
+            isEventRealized ||
             (step === 'select_ticket_type' && !selectedTicketTypeId) ||
             (step === 'payment' && !selectedTicketTypeId)
           }
         >
-          {isParticipating ? (
+          {isEventRealized ? (
+            <>
+                <Ban className="w-5 h-5 mr-2" />
+                Evento realizado
+            </>
+          ) : isParticipating ? (
             <>
               <Check className="w-5 h-5 mr-2" />
               Você já está inscrito!
@@ -867,6 +884,12 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
           )}
         </Button>
       </div>
+
+      {isEventRealized && (
+        <p className="text-center text-sm font-medium text-destructive mt-2">
+            Este evento já foi realizado e não aceita novos ingressos.
+        </p>
+      )}
 
       <p className="text-center text-[10px] text-muted-foreground uppercase tracking-[0.15em] opacity-50">
         Ao confirmar, você concorda com nossos termos de uso e políticas de privacidade. © 2026 Spark Events.

@@ -1,288 +1,189 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Calendar, MapPin, Clock, Users, Heart, Ticket, Filter, Sparkles } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { Layout } from '@/components/Layout';
-import { ROUTE_PATHS } from '@/lib/index';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { eventService, EventParticipant, Event } from '@/services/event.service';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { eventService, EventParticipant, Event } from '@/services/event.service';
-import { IMAGES } from '@/assets/images';
-import { toast } from 'sonner';
-import TicketQRCode from '@/components/TicketQRCode';
-
-interface UserEvent {
-  id: string;
-  slug?: string;
-  title: string;
-  event_date: string;
-  location: string;
-  image_url: string | null;
-  current_participants: number;
-  price: number;
-  category: string | null;
-  event_type?: 'festive' | 'formal';
-}
+import { Calendar, MapPin, Ticket, Heart, Clock, History } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { GlobalLoader } from '@/components/GlobalLoader';
 
 type TicketWithEvent = EventParticipant & { event: Event };
 
+const EventCard = ({ ticket, isPast = false, navigate }: { ticket: TicketWithEvent, isPast?: boolean, navigate: (path: string) => void }) => {
+  const event = ticket.event;
+  
+  return (
+      <Card className={`overflow-hidden border-border/50 shadow-sm transition-all hover:shadow-md ${isPast ? 'opacity-90' : ''}`}>
+          <div className="h-32 bg-muted relative">
+              {event.image_url ? (
+                  <img src={event.image_url} alt={event.title} className={`w-full h-full object-cover ${isPast ? 'grayscale' : ''}`} />
+              ) : (
+                  <div className="w-full h-full bg-secondary flex items-center justify-center">
+                    <Ticket className="h-10 w-10 text-secondary-foreground/20" />
+                  </div>
+              )}
+              
+              {isPast && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[1px]">
+                      <Badge variant="secondary" className="text-sm font-medium px-3 py-1 shadow-sm">
+                        Evento Realizado
+                      </Badge>
+                  </div>
+              )}
+              
+              {!isPast && (
+                <div className="absolute top-2 right-2">
+                    <Badge className="bg-green-500/90 hover:bg-green-500 text-white border-none shadow-sm">
+                        Confirmado
+                    </Badge>
+                </div>
+              )}
+          </div>
+          
+          <CardContent className="p-4">
+              <h3 className="font-bold text-lg mb-3 line-clamp-1">{event.title}</h3>
+              <div className="space-y-2 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 shrink-0" />
+                      <span className="capitalize">
+                        {format(new Date(event.event_date), "EEEE, dd 'de' MMMM", { locale: ptBR })}
+                      </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 shrink-0" />
+                      <span>
+                        {format(new Date(event.event_date), "HH:mm", { locale: ptBR })}
+                      </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 shrink-0" />
+                      <span className="line-clamp-1">{event.location}</span>
+                  </div>
+              </div>
+          </CardContent>
+          
+          <CardFooter className="p-4 pt-0 grid grid-cols-2 gap-3">
+              <Button 
+                variant="outline" 
+                className="w-full hover:bg-secondary/50" 
+                onClick={() => navigate(`/ingressos/${ticket.id}`)}
+              >
+                  <Ticket className="mr-2 h-4 w-4" />
+                  Ver Ingresso
+              </Button>
+              <Button 
+                className="w-full bg-primary hover:bg-primary/90" 
+                onClick={() => navigate(`/eventos/${event.id}/matchs`)}
+              >
+                  <Heart className="mr-2 h-4 w-4 fill-current" />
+                  Ver Matchs
+              </Button>
+          </CardFooter>
+      </Card>
+  );
+};
+
 export default function MyEvents() {
-  const { user, profile } = useAuth();
-  const [filter, setFilter] = useState('all');
-  const [userEvents, setUserEvents] = useState<UserEvent[]>([]);
-  const [userTickets, setUserTickets] = useState<TicketWithEvent[]>([]);
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('tickets');
+  const [tickets, setTickets] = useState<TicketWithEvent[]>([]);
 
   useEffect(() => {
-    loadData();
+    if (user) loadData();
   }, [user]);
 
   const loadData = async () => {
-    if (!user) {
-      console.log('⚠️ Sem usuário logado');
-      setLoading(false);
-      return;
-    }
-
     try {
       setLoading(true);
-      console.log('🔄 Carregando dados do usuário:', user.id);
-      
-      // Load events for "Match do Evento"
-      const events = await eventService.getUserEvents(user.id);
-      setUserEvents(events);
-
-      // Load tickets for "Meus Ingressos"
-      const tickets = await eventService.getUserTickets(user.id);
-      setUserTickets(tickets);
-
+      if (!user) return;
+      const data = await eventService.getUserTickets(user.id);
+      // Ordenar: Futuros primeiro, depois realizados (mais recentes primeiro)
+      const sorted = data.sort((a, b) => {
+        const dateA = new Date(a.event.event_date).getTime();
+        const dateB = new Date(b.event.event_date).getTime();
+        return dateB - dateA; // Decrescente
+      });
+      setTickets(sorted);
     } catch (error) {
-      console.error('❌ Erro ao carregar dados:', error);
-      toast.error('Erro ao carregar seus dados');
+      console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredEvents = userEvents
-    .filter(event => {
-      const eventDate = new Date(event.event_date);
-      const now = new Date();
-      
-      if (filter === 'upcoming') return eventDate >= now;
-      if (filter === 'past') return eventDate < now;
-      return true;
-    })
-    .sort((a, b) => {
-      const dateA = new Date(a.event_date).getTime();
-      const dateB = new Date(b.event_date).getTime();
-      return dateA - dateB;
-    });
+  // Agrupar por evento para exibir um card por evento
+  const uniqueEventsMap = new Map();
+  tickets.forEach(t => {
+      if (!uniqueEventsMap.has(t.event.id)) {
+          uniqueEventsMap.set(t.event.id, t);
+      }
+  });
+  
+  const uniqueTickets = Array.from(uniqueEventsMap.values());
+  
+  const upcomingEvents = uniqueTickets.filter(t => t.event.status !== 'realizado');
+  const pastEvents = uniqueTickets.filter(t => t.event.status === 'realizado');
 
-  const filteredTickets = userTickets
-    .filter(ticket => {
-      if (!ticket.event) return false;
-      const eventDate = new Date(ticket.event.event_date);
-      const now = new Date();
-      
-      if (filter === 'upcoming') return eventDate >= now;
-      if (filter === 'past') return eventDate < now;
-      return true;
-    })
-    .sort((a, b) => {
-      const dateA = new Date(a.event!.event_date).getTime();
-      const dateB = new Date(b.event!.event_date).getTime();
-      return dateA - dateB;
-    });
+  if (loading) return <GlobalLoader />;
 
   return (
-    <Layout>
-      <div className="max-w-6xl mx-auto px-4 py-6 lg:py-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6 lg:mb-8"
-        >
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 lg:gap-6 mb-6 lg:mb-8">
-            <div>
-              <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold tracking-tight mb-2">Meus Eventos</h1>
-              <p className="text-sm lg:text-base text-muted-foreground">
-                Gerencie seus ingressos e conecte-se com outros participantes
-              </p>
+    <div className="container max-w-md mx-auto p-4 pb-24 min-h-screen">
+      <h1 className="text-2xl font-bold mb-6 px-1">Meus Eventos</h1>
+      
+      {uniqueTickets.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="bg-muted p-4 rounded-full mb-4">
+              <Ticket className="h-8 w-8 text-muted-foreground" />
             </div>
-            
-            <div className="flex items-center gap-4 w-full md:w-auto">
-              <Select value={filter} onValueChange={setFilter}>
-                <SelectTrigger className="w-full md:w-48">
-                  <Filter className="w-4 h-4 mr-2" />
-                  <SelectValue placeholder="Filtrar eventos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os eventos</SelectItem>
-                  <SelectItem value="upcoming">Próximos</SelectItem>
-                  <SelectItem value="past">Passados</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {profile?.single_mode && (
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="mb-8 p-6 rounded-2xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20"
-            >
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                  <Heart className="w-5 h-5 text-primary fill-current" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-primary">Conhecer a galera ativo 🔥</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Você pode acessar a aba de solteiros em qualquer evento que participar
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-8">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="events">Match do Evento</TabsTrigger>
-              <TabsTrigger value="tickets">Meus Ingressos</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </motion.div>
-
-        {activeTab === 'tickets' ? (
-          loading ? (
-            <div className="text-center py-16">
-              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-6 animate-pulse">
-                <Ticket className="w-8 h-8 text-muted-foreground" />
-              </div>
-              <p className="text-muted-foreground">Carregando seus ingressos...</p>
-            </div>
-          ) : filteredTickets.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-center py-16"
-            >
-              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-6">
-                <Ticket className="w-8 h-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Nenhum ingresso encontrado</h3>
-              <p className="text-muted-foreground mb-6">
-                Você ainda não tem ingressos para eventos.
-              </p>
-              <Button asChild>
-                <Link to={ROUTE_PATHS.HOME}>
-                  Explorar Eventos
-                </Link>
-              </Button>
-            </motion.div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredTickets.map((ticket, index) => (
-                <motion.div
-                  key={ticket.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <TicketQRCode 
-                    ticketId={ticket.id}
-                    eventId={ticket.event_id}
-                    ticketToken={ticket.ticket_token || ''}
-                    ticketCode={ticket.ticket_code}
-                    status={ticket.status || 'valid'}
-                    checkInAt={ticket.check_in_at}
-                    eventTitle={ticket.event?.title || 'Evento'}
-                    eventDate={ticket.event ? new Date(ticket.event.event_date).toLocaleDateString('pt-BR') : ''}
-                    eventLocation={ticket.event?.location || ''}
-                  />
-                </motion.div>
-              ))}
-            </div>
-          )
-        ) : loading ? (
-          <div className="text-center py-16">
-            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-6 animate-pulse">
-              <Ticket className="w-8 h-8 text-muted-foreground" />
-            </div>
-            <p className="text-muted-foreground">Carregando seus eventos...</p>
-          </div>
-        ) : filteredEvents.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center py-16"
-          >
-            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-6">
-              <Ticket className="w-8 h-8 text-muted-foreground" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">Nenhum evento encontrado</h3>
-            <p className="text-muted-foreground mb-6">
-              Participe de eventos para encontrar pessoas.
+            <h3 className="text-lg font-medium">Nenhum evento encontrado</h3>
+            <p className="text-muted-foreground mt-2 mb-6 max-w-xs">
+              Você ainda não comprou ingressos para nenhum evento.
             </p>
-            <Button asChild>
-              <Link to={ROUTE_PATHS.HOME}>
-                Explorar Eventos
-              </Link>
+            <Button onClick={() => navigate('/explorar-eventos')}>
+              Explorar Eventos
             </Button>
-          </motion.div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredEvents.map((event, index) => (
-              <motion.div
-                key={event.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <Card className="overflow-hidden border-none shadow-lg h-full hover:shadow-xl transition-shadow">
-                  <div className="relative h-48">
-                    <img
-                      src={event.image_url || IMAGES.EVENT_PLACEHOLDER}
-                      alt={event.title}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute top-4 right-4">
-                      <Badge className="bg-white/90 text-primary backdrop-blur-sm">
-                        {new Date(event.event_date).toLocaleDateString('pt-BR')}
-                      </Badge>
-                    </div>
-                  </div>
-                  <CardContent className="p-6">
-                    <h3 className="font-bold text-xl mb-2">{event.title}</h3>
-                    <div className="space-y-2 text-muted-foreground text-sm mb-6">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4" />
-                        <span>{event.location}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4" />
-                        <span>{event.current_participants} participantes</span>
-                      </div>
-                    </div>
-                    <Button className="w-full gap-2" asChild>
-                      <Link to={`/eventos/${event.slug || event.id}?tab=match`}>
-                        <Sparkles className="w-4 h-4" />
-                        Ver Match da Galera
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        )}
-      </div>
-    </Layout>
+        </div>
+      ) : (
+        <Tabs defaultValue="upcoming" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="upcoming">Próximos</TabsTrigger>
+            <TabsTrigger value="history">Histórico</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="upcoming" className="space-y-4">
+            {upcomingEvents.length > 0 ? (
+              upcomingEvents.map((ticket) => (
+                <EventCard key={ticket.id} ticket={ticket} navigate={navigate} />
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <p>Nenhum evento próximo.</p>
+                <Button variant="link" onClick={() => navigate('/explorar-eventos')}>
+                  Explorar novos eventos
+                </Button>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="history" className="space-y-4">
+            {pastEvents.length > 0 ? (
+              pastEvents.map((ticket) => (
+                <EventCard key={ticket.id} ticket={ticket} isPast={true} navigate={navigate} />
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <History className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>Nenhum evento realizado.</p>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      )}
+    </div>
   );
 }
