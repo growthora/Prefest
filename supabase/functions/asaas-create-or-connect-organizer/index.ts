@@ -35,7 +35,7 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: 'Asaas configuration error' }), { status: 500, headers: corsHeaders })
     }
 
-    const API_URL = config.environment === 'production' 
+    const API_URL = config.env === 'production' 
         ? 'https://api.asaas.com/v3' 
         : 'https://sandbox.asaas.com/api/v3'
 

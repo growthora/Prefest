@@ -1,7 +1,7 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { guardSalesEnabled } from '@shared/guard_sales_enabled.ts'
+import { guardSalesEnabled } from '../_shared/guard_sales_enabled.ts'
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts'
 import { requireAuth } from '../_shared/requireAuth.ts'
 
@@ -75,7 +75,7 @@ serve(async (req) => {
         })
     }
 
-    const API_URL = config.environment === 'production' 
+    const API_URL = config.env === 'production' 
         ? 'https://api.asaas.com/v3' 
         : 'https://sandbox.asaas.com/api/v3'
 
