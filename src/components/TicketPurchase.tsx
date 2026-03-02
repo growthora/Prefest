@@ -357,6 +357,11 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
 
       } else {
         // PAID FLOW
+        if (total < 5) {
+            toast.error('O valor mínimo para pagamento é de R$ 5,00. Por favor, escolha outro ingresso.');
+            return;
+        }
+
         if (!ticketId) {
             toast.error('Erro: Ticket não inicializado. Tente novamente.');
             return;
@@ -405,6 +410,8 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
       let errorMessage = error.message || 'Erro inesperado ao processar o pagamento';
       if (errorMessage.includes('Invalid JWT')) {
           errorMessage = 'Sessão inválida. Tente fazer login novamente.';
+      } else if (errorMessage.includes('menor que R$ 5,00') || errorMessage.includes('valor da cobrança')) {
+          errorMessage = 'O valor mínimo para pagamento é de R$ 5,00. Por favor, escolha outro ingresso.';
       }
       toast.error(errorMessage);
     } finally {

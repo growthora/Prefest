@@ -53,24 +53,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             
             // Buscar perfil em paralelo se possível, ou sequencial
             try {
-              const userProfile = await authService.getProfile(user.id);
-              console.log('👤 Perfil obtido:', userProfile?.email);
-              setProfile(userProfile);
-            } catch (profileError: any) {
-              console.error('❌ Erro ao buscar perfil:', profileError);
-              
-              // Se o erro for de autenticação (401/403), o token é inválido para o banco
-              if (profileError?.code === 'PGRST301' || profileError?.message?.includes('JWT') || profileError?.status === 401) {
-                 console.warn('⚠️ Token inválido detectado ao buscar perfil. Forçando logout.');
-                 await authService.signOut();
-                 setUser(null);
-                 setProfile(null);
-                 setAuthStatus('unauthenticated');
-                 return;
+                const userProfile = await authService.getProfile(user.id);
+                console.log('👤 Perfil obtido:', userProfile?.email);
+                setProfile(userProfile);
+              } catch (profileError: any) {
+                console.error('❌ Erro ao buscar perfil:', profileError);
+                
+                // Se o erro for de autenticação (401/403), o token é inválido para o banco
+                // Mas cuidado com erros de RLS ou "não encontrado" (PGRST116)
+                if (profileError?.code === 'PGRST301' || profileError?.message?.includes('JWT') || profileError?.status === 401) {
+                   console.warn('⚠️ Token inválido detectado ao buscar perfil. Forçando logout.');
+                   await authService.signOut();
+                   setUser(null);
+                   setProfile(null);
+                   setAuthStatus('unauthenticated');
+                   return;
+                }
+                
+                // Se o perfil não existe (PGRST116), não deslogamos. O usuário pode ter sido criado manualmente ou falha no trigger.
+                if (profileError?.code === 'PGRST116') {
+                  console.warn('⚠️ Perfil não encontrado para usuário autenticado via Auth. Mantendo sessão.');
+                  // Opcional: Tentar criar perfil aqui se não existir?
+                  // Por enquanto, apenas não deslogamos.
+                }
               }
-              // Outros erros (ex: perfil não existe) não invalidam a sessão
-            }
-            setAuthStatus('authenticated');
+              setAuthStatus('authenticated');
           } catch (validationError) {
             console.warn('⚠️ Sessão inválida detectada:', validationError);
             await authService.signOut();
@@ -152,8 +159,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(loggedUser);
         setAuthStatus('authenticated');
         
-        const userProfile = await authService.getProfile(loggedUser.id);
-        setProfile(userProfile);
+        try {
+          const userProfile = await authService.getProfile(loggedUser.id);
+          setProfile(userProfile);
+        } catch (profileErr: any) {
+          console.warn('⚠️ Erro ao buscar perfil no login:', profileErr);
+          // Não falhamos o login se o perfil não carregar, a sessão existe
+          if (profileErr?.code === 'PGRST116') {
+             // Perfil não existe
+          }
+        }
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao fazer login';
@@ -176,8 +191,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Aguardar um pouco para o trigger criar o perfil
         await new Promise(resolve => setTimeout(resolve, 1000));
-        const userProfile = await authService.getProfile(newUser.id);
-        setProfile(userProfile);
+        try {
+          const userProfile = await authService.getProfile(newUser.id);
+          setProfile(userProfile);
+        } catch (profileErr) {
+          console.warn('⚠️ Erro ao buscar perfil após cadastro:', profileErr);
+        }
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar conta';

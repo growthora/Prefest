@@ -46,7 +46,14 @@ export const LoginForm = () => {
 
     try {
       await signIn(formData.email, formData.password);
-      navigate(location.state?.returnTo || '/');
+      
+      // Determine redirect path
+      const returnTo = location.state?.returnTo || location.state?.from?.pathname;
+      const targetPath = (returnTo && returnTo !== '/login') 
+        ? returnTo 
+        : '/'; // Default to Home
+
+      navigate(targetPath);
     } catch (err) {
       let message = err instanceof Error ? err.message : 'Erro ao fazer login';
       
