@@ -115,3 +115,12 @@ export interface Event {
 // SUPABASE: Usa o serviço nativo do Supabase Auth (RECOMENDADO/OBRIGATÓRIO)
 // CUSTOM: Usa SMTP do banco via Edge Functions (PROIBIDO para Auth)
 export const AUTH_EMAIL_PROVIDER: 'SUPABASE' | 'CUSTOM' = 'SUPABASE';
+
+// Contexto de envio de email
+export enum EMAIL_CONTEXT {
+  AUTH = 'AUTH',   // signup, reset password, magic link, change email, reauthentication
+  CUSTOM = 'CUSTOM' // notificações, marketing, eventos, admin
+}
+
+// Regra: SMTP do banco permitido SOMENTE em CUSTOM
+export const ALLOWED_SMTP_CONTEXTS = [EMAIL_CONTEXT.CUSTOM];

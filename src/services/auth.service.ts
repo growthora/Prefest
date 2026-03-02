@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import { invokeEdgeFunction } from '@/services/apiClient';
+import { assertAuthEmailSafety } from '@/utils/email-security';
 
 export interface SignUpData {
   email: string;
@@ -67,6 +68,9 @@ class AuthService {
 
   // Cadastro de novo usuário
   async signUp({ email, password, fullName, cpf, birthDate, isOrganizer = false }: SignUpData) {
+    // [SECURITY] Validação de contexto de email para Auth
+    assertAuthEmailSafety();
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -180,6 +184,11 @@ class AuthService {
 
   // Enviar email de redefinição de senha
   async resetPasswordForEmail(email: string) {
+    // [SECURITY] Validação de contexto de email para Auth
+    // Garante que estamos usando APENAS o Supabase Auth Nativo
+    // Se por algum motivo o sistema tentar usar SMTP customizado, isso lançará um erro
+    assertAuthEmailSafety();
+
     // [MODIFIED] Use native Supabase Auth method instead of custom SMTP Edge Function
     // This ensures all auth emails are handled by Supabase Auth service as requested
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -192,6 +201,9 @@ class AuthService {
 
   // Atualizar senha
   async updatePassword(password: string) {
+    // [SECURITY] Validação de contexto de email para Auth
+    assertAuthEmailSafety();
+
     const { data, error } = await supabase.auth.updateUser({
       password: password
     });
@@ -201,6 +213,9 @@ class AuthService {
 
   // Reenviar email de confirmação
   async resendConfirmationEmail(email: string) {
+    // [SECURITY] Validação de contexto de email para Auth
+    assertAuthEmailSafety();
+
     const { data, error } = await supabase.auth.resend({
       type: 'signup',
       email: email,

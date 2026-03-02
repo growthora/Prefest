@@ -1,6 +1,6 @@
 
 import { supabase } from '@/lib/supabase';
-import { AUTH_EMAIL_PROVIDER } from '@/lib';
+import { AUTH_EMAIL_PROVIDER, EMAIL_CONTEXT } from '@/lib';
 
 interface InvokeOptions {
   body?: any;
@@ -29,7 +29,7 @@ export async function invokeEdgeFunction<T = any>(
     ];
     
     if (PROHIBITED_AUTH_FUNCTIONS.includes(functionName)) {
-      const errorMsg = `[SECURITY] A função '${functionName}' foi bloqueada pois usa SMTP do banco. O projeto está configurado para usar Supabase Auth Nativo (AUTH_EMAIL_PROVIDER='SUPABASE').`;
+      const errorMsg = `[SECURITY] A função '${functionName}' foi bloqueada. Contexto: ${EMAIL_CONTEXT.AUTH}. O projeto está configurado para usar Supabase Auth Nativo (AUTH_EMAIL_PROVIDER='SUPABASE').`;
       
       if (import.meta.env.DEV) {
         console.error(errorMsg);
@@ -99,7 +99,6 @@ export async function apiFetch(url: string, options: RequestInit = {}) {
     headers: {
       ...(options.headers || {}),
       'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
     },
   });
 }
