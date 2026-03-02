@@ -191,19 +191,24 @@ Deno.serve(async (req) => {
       throw new Error('Organizer not ready for payments');
     }
 
-    // 11. Calculate Values
-    const totalPrice = Number(ticket.total_price);
+    // 11. Calculate Values (Surcharge Model)
+    // ticket.total_price is the subtotal (ticket price - discounts)
+    // We add the service fee on top of this value.
+    const ticketPrice = Number(ticket.total_price);
     
-    let platformFee = 0;
+    let serviceFee = 0;
     if (split_enabled) {
         if (platform_fee_type === 'percentage') {
-            platformFee = Number((totalPrice * (Number(platform_fee_value) / 100)).toFixed(2));
+            serviceFee = Number((ticketPrice * (Number(platform_fee_value) / 100)).toFixed(2));
         } else {
-            platformFee = Number(Number(platform_fee_value).toFixed(2));
+            serviceFee = Number(Number(platform_fee_value).toFixed(2));
         }
     }
 
-    const organizerValue = Number((totalPrice - platformFee).toFixed(2));
+    const totalToCharge = Number((ticketPrice + serviceFee).toFixed(2));
+    const organizerValue = ticketPrice;
+
+    console.log(`V3 Calculation: Ticket ${ticketPrice} + Fee ${serviceFee} = Total ${totalToCharge}`);
 
     // 12. Customer Info (Buyer Data ONLY)
     // STRICT RULE: Never use Organizer data for Customer creation.
@@ -291,40 +296,77 @@ Deno.serve(async (req) => {
     const paymentBody: any = {
         customer: customerId,
         billingType: billing_type.toUpperCase(),
-        value: totalPrice,
+        value: totalToCharge,
         dueDate: new Date().toISOString().split('T')[0], // Today
-        description: `Ingresso: ${ticket.events.title}`,
+        description: `Ingresso: ${ticket.events.title} (R$ ${ticketPrice.toFixed(2)}) + Taxa (R$ ${serviceFee.toFixed(2)})`,
         externalReference: ticket.id,
     };
 
     // Handle Split
-    let splitConfigForDb = null;
+    const splitsToRecord = [];
 
-    if (split_enabled && organizerAccount.asaas_account_id) {
-        // Prevent splitting to the Master Account itself
-        if (organizerAccount.asaas_account_id === platformWalletId) {
-            console.log(`V3 Split Skipped: Organizer Wallet (${organizerAccount.asaas_account_id}) is the same as Platform Wallet.`);
-        } else {
-            const split = [];
+    if (split_enabled) {
+        const split = [];
+        
+        // 1. Organizer Split (Ticket Price)
+        if (organizerAccount.asaas_account_id && organizerValue > 0) {
+            const organizerSplit = { 
+                walletId: organizerAccount.asaas_account_id, 
+                fixedValue: organizerValue,
+            };
+            split.push(organizerSplit);
             
-            // Only split to the Organizer. The rest (platformFee) stays in Master Account.
-            if (organizerValue > 0) {
-                const splitItem = { 
-                    walletId: organizerAccount.asaas_account_id, 
-                    fixedValue: organizerValue,
-                    percentualValue: undefined
-                };
-                split.push(splitItem);
-                
-                // Store for DB insert
-                splitConfigForDb = splitItem;
-            }
-            
-            if (split.length > 0) {
-                // @ts-ignore: dynamic property
-                paymentBody.split = split;
-                console.log(`V3 Split Configured: Total ${totalPrice} -> Organizer ${organizerValue}`);
-            }
+            splitsToRecord.push({
+                recipient_type: 'organizer',
+                recipient_user_id: ticket.events.creator_id,
+                wallet_id: organizerAccount.asaas_account_id,
+                amount: organizerValue
+            });
+        }
+
+        // 2. Platform Split (Service Fee)
+        // If platformWalletId is provided, send it explicitly. 
+        // If not, Asaas keeps the remainder in the master account (implicit split).
+        if (serviceFee > 0) {
+             if (platformWalletId && platformWalletId !== organizerAccount.asaas_account_id) {
+                 const platformSplit = {
+                     walletId: platformWalletId,
+                     fixedValue: serviceFee
+                 };
+                 split.push(platformSplit);
+
+                 splitsToRecord.push({
+                    recipient_type: 'platform',
+                    recipient_user_id: null, // Platform
+                    wallet_id: platformWalletId,
+                    amount: serviceFee
+                });
+             } else {
+                 // Implicit split to master account
+                 console.log('V3: Platform Fee stays in Master Account (Implicit Split)');
+                 
+                 // Still record it in our database for accounting
+                 splitsToRecord.push({
+                    recipient_type: 'platform',
+                    recipient_user_id: null, // Platform
+                    wallet_id: 'MASTER_ACCOUNT', // Placeholder
+                    amount: serviceFee
+                });
+             }
+        }
+        
+        // Validation: Ensure we don't exceed total
+        // Note: If using implicit split (no platform wallet), totalSplitValue < totalToCharge is VALID.
+        // But if using explicit split (platform wallet present), they should match.
+        const totalSplitValue = split.reduce((acc, item) => acc + item.fixedValue, 0);
+        
+        if (totalSplitValue > totalToCharge) {
+            throw new Error(`Erro de cálculo no Split: Total Split (${totalSplitValue}) > Total Cobrado (${totalToCharge})`);
+        }
+
+        if (split.length > 0) {
+            paymentBody.split = split;
+            console.log(`V3 Split Configured:`, JSON.stringify(split));
         }
     }
 
@@ -354,31 +396,34 @@ Deno.serve(async (req) => {
             organizer_user_id: ticket.events.creator_id,
             provider: 'asaas',
             external_payment_id: paymentData.id,
-            billing_type: billing_type.toLowerCase(),
-            value_total: totalPrice,
+            payment_method: billing_type.toLowerCase(),
+            value: totalToCharge,
             status: 'pending',
-            invoice_url: paymentData.invoiceUrl,
+            payment_url: paymentData.invoiceUrl,
         })
         .select()
         .single();
 
     // 17.5 Record Payment Split (MANDATORY)
-    if (splitConfigForDb && paymentRecord) {
-        console.log('V3: Recording Payment Split in Database...');
+    if (splitsToRecord.length > 0 && paymentRecord) {
+        console.log('V3: Recording Payment Splits in Database...');
+        
+        const splitRows = splitsToRecord.map(split => ({
+            payment_id: paymentRecord.id,
+            recipient_type: split.recipient_type,
+            recipient_user_id: split.recipient_user_id,
+            asaas_account_id: split.wallet_id,
+            wallet_id: split.wallet_id,
+            fee_type: 'fixed',
+            fee_value: split.amount,
+            value: split.amount,
+            status: 'pending',
+            split_rule: split
+        }));
+
         const { error: splitError } = await adminClient
             .from('payment_splits')
-            .insert({
-                payment_id: paymentRecord.id,
-                recipient_type: 'organizer',
-                recipient_user_id: ticket.events.creator_id,
-                asaas_account_id: splitConfigForDb.walletId,
-                wallet_id: splitConfigForDb.walletId,
-                fee_type: 'fixed',
-                fee_value: splitConfigForDb.fixedValue,
-                value: splitConfigForDb.fixedValue,
-                status: 'pending',
-                split_rule: splitConfigForDb
-            });
+            .insert(splitRows);
             
         if (splitError) {
              console.error('CRITICAL V3 ERROR: Failed to insert payment_splits', splitError);
@@ -398,7 +443,7 @@ Deno.serve(async (req) => {
         if (paymentRecord) {
             await adminClient
                 .from('payments')
-                .update({ pix_qr_code: pixQrCode, pix_copy_paste: pixQrCodeText })
+                .update({ pix_qr_code: pixQrCodeText })
                 .eq('id', paymentRecord.id);
         }
     }
