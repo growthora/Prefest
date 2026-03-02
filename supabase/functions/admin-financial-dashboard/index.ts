@@ -1,10 +1,16 @@
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts"
 import { requireAuth } from "../_shared/requireAuth.ts"
 import { requireRole } from "../_shared/requireRole.ts"
 
 Deno.serve(async (req) => {
+  // FASE 1: PROVA DEFINITIVA - DIAGNÓSTICO (Logo na entrada)
+  const authProbe = req.headers.get("Authorization") ?? ""
+  console.log("[ENTRY-PROBE] Auth present:", Boolean(authProbe))
+  console.log("[ENTRY-PROBE] Auth prefix:", authProbe.slice(0, 18)) 
+  console.log("[ENTRY-PROBE] Auth len:", authProbe.length)
+
   // Handle CORS
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
@@ -92,10 +98,10 @@ Deno.serve(async (req) => {
 
         // 2. Get Asaas Config
         const { data: config, error: configError } = await serviceClient.rpc('get_decrypted_asaas_config').single();
-        if (configError || !config || !config.is_enabled) throw new Error('Failed to load Asaas config or disabled');
+        if (configError || !config) throw new Error('Failed to load Asaas config');
 
-        const { api_key, env } = config;
-        const apiKey = api_key;
+        const { secret_key, env } = config;
+        const apiKey = secret_key;
         const baseUrl = env === 'production' ? 'https://www.asaas.com/api/v3' : 'https://sandbox.asaas.com/api/v3';
 
         // 3. Call Asaas
@@ -140,6 +146,10 @@ Deno.serve(async (req) => {
   } catch (error: any) {
     console.error(`[admin-financial-dashboard] Error:`, error);
     
+    if (error instanceof Response) {
+      return error;
+    }
+
     // Return specific status codes based on error type if possible, or 400/500
     const status = error.message?.includes('Unauthorized') ? 401 
                  : error.message?.includes('Access denied') ? 403

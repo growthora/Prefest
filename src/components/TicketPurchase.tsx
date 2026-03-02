@@ -512,29 +512,10 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     }
   };
 
-  const [feeConfig, setFeeConfig] = useState<{
-    split_enabled: boolean;
-    platform_fee_type: string;
-    platform_fee_value: number;
-  }>({
-    split_enabled: true,
-    platform_fee_type: 'percentage',
-    platform_fee_value: 20 // Default fallback to match database
-  });
-
-  React.useEffect(() => {
-    const fetchFeeConfig = async () => {
-        const { data, error } = await supabase.rpc('get_public_asaas_config');
-        if (!error && data && data.length > 0) {
-            setFeeConfig(data[0]);
-        }
-    };
-    fetchFeeConfig();
-  }, []);
-
   const basePrice = selectedTicketType?.price ?? event.price;
-  
+  const serviceFee = basePrice * 0.1;
   let discount = 0;
+  
   if (appliedCoupon) {
     if (appliedCoupon.discount_type === 'percentage') {
       discount = basePrice * (appliedCoupon.discount_value / 100);
@@ -542,19 +523,8 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
       discount = appliedCoupon.discount_value;
     }
   }
-
-  const priceAfterDiscount = Math.max(0, basePrice - discount);
   
-  let serviceFee = 0;
-  if (feeConfig.split_enabled) {
-      if (feeConfig.platform_fee_type === 'percentage') {
-          serviceFee = priceAfterDiscount * (Number(feeConfig.platform_fee_value) / 100);
-      } else {
-          serviceFee = Number(feeConfig.platform_fee_value);
-      }
-  }
-
-  const total = priceAfterDiscount + serviceFee;
+  const total = Math.max(0, basePrice + serviceFee - discount);
 
   const isEventRealized = event.status === 'realizado';
 

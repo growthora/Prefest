@@ -68,14 +68,14 @@ serve(async (req) => {
     // 3. Get Asaas Config (Securely)
     const { data: config, error: configError } = await adminClient.rpc('get_decrypted_asaas_config')
     
-    if (configError || !config || !config.api_key || !config.is_enabled) {
-        return new Response(JSON.stringify({ error: 'Asaas configuration not found, invalid, or disabled' }), {
+    if (configError || !config || !config.api_key) {
+        return new Response(JSON.stringify({ error: 'Asaas configuration not found or invalid' }), {
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
     }
 
-    const API_URL = config.env === 'production' 
+    const API_URL = config.environment === 'production' 
         ? 'https://api.asaas.com/v3' 
         : 'https://sandbox.asaas.com/api/v3'
 

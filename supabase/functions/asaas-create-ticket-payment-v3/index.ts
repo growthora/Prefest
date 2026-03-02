@@ -1,8 +1,14 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts"
 import { requireAuth } from "../_shared/requireAuth.ts"
 
 Deno.serve(async (req) => {
+  // FASE 1: PROVA DEFINITIVA - DIAGNÓSTICO (Logo na entrada)
+  const authProbe = req.headers.get("Authorization") ?? ""
+  console.log("[ENTRY-PROBE] Auth present:", Boolean(authProbe))
+  console.log("[ENTRY-PROBE] Auth prefix:", authProbe.slice(0, 18)) 
+  console.log("[ENTRY-PROBE] Auth len:", authProbe.length)
+
   // 1. Handle CORS (Strictly first)
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
@@ -84,9 +90,34 @@ Deno.serve(async (req) => {
       throw new Error(`Ticket status invalid for payment: ${ticket.status}`);
     }
 
+    // 9. Get Asaas Config
+    const { data: config, error: configError } = await adminClient
+      .rpc('get_decrypted_asaas_config')
+      .single();
+
+    if (configError || !config?.api_key) {
+      throw new Error('Asaas configuration not found');
+    }
+
+    const { api_key: apiKey, env, wallet_id: platformWalletId, split_enabled, platform_fee_type, platform_fee_value } = config;
+
     // 7.5 Apply Coupon Logic (Server-Side Recalculation)
     const basePrice = Number(ticket.unit_price) * Number(ticket.quantity);
-    let finalPrice = basePrice;
+    let serviceFee = 0;
+    
+    // Calculate Service Fee (Taxa de Serviço) - Must match Frontend (10% or Config)
+    // Assuming config is the source of truth, but falling back to 10% if not configured or if frontend logic dominates
+    // For now, we use the config if available, otherwise 10%
+    if (platform_fee_type === 'percentage') {
+        serviceFee = (basePrice * (Number(platform_fee_value) || 10)) / 100;
+    } else {
+        serviceFee = Number(platform_fee_value) || 0;
+    }
+
+    // Ensure service fee is at least 0
+    serviceFee = Math.max(0, serviceFee);
+
+    let finalPrice = basePrice + serviceFee;
     let discountAmount = 0;
     let appliedCouponId = null;
 
@@ -119,19 +150,24 @@ Deno.serve(async (req) => {
             discountAmount = coupon.discount_value;
         }
         
-        // Cap discount at base price
+        // Cap discount at base price (Organizer absorbs discount, usually)
         if (discountAmount > basePrice) discountAmount = basePrice;
         
-        finalPrice = basePrice - discountAmount;
+        finalPrice = basePrice + serviceFee - discountAmount;
         appliedCouponId = coupon.id;
         
         console.log(`V3: Coupon Applied: ${coupon.code} - Discount: ${discountAmount} - Final: ${finalPrice}`);
     } else {
         // Reset if no coupon provided (ensure clean state)
-        finalPrice = basePrice;
+        finalPrice = basePrice + serviceFee;
         discountAmount = 0;
         appliedCouponId = null;
     }
+    
+    // Round to 2 decimals
+    finalPrice = Number(finalPrice.toFixed(2));
+    serviceFee = Number(serviceFee.toFixed(2));
+    discountAmount = Number(discountAmount.toFixed(2));
 
     // Update Ticket with Final Price (Source of Truth)
     const { error: updateTicketError } = await adminClient
@@ -167,19 +203,10 @@ Deno.serve(async (req) => {
 
     console.log(`V3: Buyer Profile: ${user.id} - CPF: ${buyerProfile?.cpf ? '***' : 'MISSING'} - Asaas ID: ${buyerProfile?.asaas_customer_id}`);
     
-    // 9. Get Asaas Config
-    const { data: config, error: configError } = await adminClient
-      .rpc('get_decrypted_asaas_config')
-      .single();
-
-    if (configError || !config?.api_key || !config.is_enabled) {
-      throw new Error('Asaas configuration not found or disabled');
-    }
-
-    const { api_key: apiKey, env, wallet_id: platformWalletId, split_enabled, platform_fee_type, platform_fee_value } = config;
+    // Config already fetched above (Step 9 moved up)
     const baseUrl = env === 'production' ? 'https://www.asaas.com/api/v3' : 'https://sandbox.asaas.com/api/v3';
     const headers = { 'access_token': apiKey, 'Content-Type': 'application/json' };
-
+    
     // 10. Validate Organizer Account
     const { data: organizerAccount, error: orgAccountError } = await adminClient
       .from('organizer_asaas_accounts')
@@ -191,24 +218,17 @@ Deno.serve(async (req) => {
       throw new Error('Organizer not ready for payments');
     }
 
-    // 11. Calculate Values (Surcharge Model)
-    // ticket.total_price is the subtotal (ticket price - discounts)
-    // We add the service fee on top of this value.
-    const ticketPrice = Number(ticket.total_price);
+    // 11. Calculate Values
+    const totalPrice = Number(ticket.total_price);
     
-    let serviceFee = 0;
-    if (split_enabled) {
-        if (platform_fee_type === 'percentage') {
-            serviceFee = Number((ticketPrice * (Number(platform_fee_value) / 100)).toFixed(2));
-        } else {
-            serviceFee = Number(Number(platform_fee_value).toFixed(2));
-        }
-    }
+    // Platform Fee is the Service Fee calculated earlier
+    let platformFee = serviceFee;
 
-    const totalToCharge = Number((ticketPrice + serviceFee).toFixed(2));
-    const organizerValue = ticketPrice;
-
-    console.log(`V3 Calculation: Ticket ${ticketPrice} + Fee ${serviceFee} = Total ${totalToCharge}`);
+    // Organizer Value = Total - Platform Fee
+    // Which equals: (Base + Fee - Discount) - Fee = Base - Discount
+    const organizerValue = Number((totalPrice - platformFee).toFixed(2));
+    
+    console.log(`V3 Financials: Base ${basePrice} | Fee ${serviceFee} | Discount ${discountAmount} | Total ${totalPrice} | Org ${organizerValue}`);
 
     // 12. Customer Info (Buyer Data ONLY)
     // STRICT RULE: Never use Organizer data for Customer creation.
@@ -293,80 +313,52 @@ Deno.serve(async (req) => {
     }
 
     // 14. Prepare Payment Payload
+    // Format description to include fee breakdown
+    let description = `Ingresso: ${ticket.events.title} (R$ ${basePrice.toFixed(2)})`;
+    if (serviceFee > 0) {
+        description += ` + Taxa de serviço (R$ ${serviceFee.toFixed(2)})`;
+    }
+    if (discountAmount > 0) {
+        description += ` - Desconto (R$ ${discountAmount.toFixed(2)})`;
+    }
+
     const paymentBody: any = {
         customer: customerId,
         billingType: billing_type.toUpperCase(),
-        value: totalToCharge,
+        value: totalPrice,
         dueDate: new Date().toISOString().split('T')[0], // Today
-        description: `Ingresso: ${ticket.events.title} (R$ ${ticketPrice.toFixed(2)}) + Taxa (R$ ${serviceFee.toFixed(2)})`,
+        description: description,
         externalReference: ticket.id,
     };
 
     // Handle Split
-    const splitsToRecord = [];
+    let splitConfigForDb = null;
 
-    if (split_enabled) {
-        const split = [];
-        
-        // 1. Organizer Split (Ticket Price)
-        if (organizerAccount.asaas_account_id && organizerValue > 0) {
-            const organizerSplit = { 
-                walletId: organizerAccount.asaas_account_id, 
-                fixedValue: organizerValue,
-            };
-            split.push(organizerSplit);
+    if (split_enabled && organizerAccount.asaas_account_id) {
+        // Prevent splitting to the Master Account itself
+        if (organizerAccount.asaas_account_id === platformWalletId) {
+            console.log(`V3 Split Skipped: Organizer Wallet (${organizerAccount.asaas_account_id}) is the same as Platform Wallet.`);
+        } else {
+            const split = [];
             
-            splitsToRecord.push({
-                recipient_type: 'organizer',
-                recipient_user_id: ticket.events.creator_id,
-                wallet_id: organizerAccount.asaas_account_id,
-                amount: organizerValue
-            });
-        }
-
-        // 2. Platform Split (Service Fee)
-        // If platformWalletId is provided, send it explicitly. 
-        // If not, Asaas keeps the remainder in the master account (implicit split).
-        if (serviceFee > 0) {
-             if (platformWalletId && platformWalletId !== organizerAccount.asaas_account_id) {
-                 const platformSplit = {
-                     walletId: platformWalletId,
-                     fixedValue: serviceFee
-                 };
-                 split.push(platformSplit);
-
-                 splitsToRecord.push({
-                    recipient_type: 'platform',
-                    recipient_user_id: null, // Platform
-                    wallet_id: platformWalletId,
-                    amount: serviceFee
-                });
-             } else {
-                 // Implicit split to master account
-                 console.log('V3: Platform Fee stays in Master Account (Implicit Split)');
-                 
-                 // Still record it in our database for accounting
-                 splitsToRecord.push({
-                    recipient_type: 'platform',
-                    recipient_user_id: null, // Platform
-                    wallet_id: 'MASTER_ACCOUNT', // Placeholder
-                    amount: serviceFee
-                });
-             }
-        }
-        
-        // Validation: Ensure we don't exceed total
-        // Note: If using implicit split (no platform wallet), totalSplitValue < totalToCharge is VALID.
-        // But if using explicit split (platform wallet present), they should match.
-        const totalSplitValue = split.reduce((acc, item) => acc + item.fixedValue, 0);
-        
-        if (totalSplitValue > totalToCharge) {
-            throw new Error(`Erro de cálculo no Split: Total Split (${totalSplitValue}) > Total Cobrado (${totalToCharge})`);
-        }
-
-        if (split.length > 0) {
-            paymentBody.split = split;
-            console.log(`V3 Split Configured:`, JSON.stringify(split));
+            // Only split to the Organizer. The rest (platformFee) stays in Master Account.
+            if (organizerValue > 0) {
+                const splitItem = { 
+                    walletId: organizerAccount.asaas_account_id, 
+                    fixedValue: organizerValue,
+                    percentualValue: undefined
+                };
+                split.push(splitItem);
+                
+                // Store for DB insert
+                splitConfigForDb = splitItem;
+            }
+            
+            if (split.length > 0) {
+                // @ts-ignore: dynamic property
+                paymentBody.split = split;
+                console.log(`V3 Split Configured: Total ${totalPrice} -> Organizer ${organizerValue}`);
+            }
         }
     }
 
@@ -396,34 +388,31 @@ Deno.serve(async (req) => {
             organizer_user_id: ticket.events.creator_id,
             provider: 'asaas',
             external_payment_id: paymentData.id,
-            payment_method: billing_type.toLowerCase(),
-            value: totalToCharge,
+            billing_type: billing_type.toLowerCase(),
+            value_total: totalPrice,
             status: 'pending',
-            payment_url: paymentData.invoiceUrl,
+            invoice_url: paymentData.invoiceUrl,
         })
         .select()
         .single();
 
     // 17.5 Record Payment Split (MANDATORY)
-    if (splitsToRecord.length > 0 && paymentRecord) {
-        console.log('V3: Recording Payment Splits in Database...');
-        
-        const splitRows = splitsToRecord.map(split => ({
-            payment_id: paymentRecord.id,
-            recipient_type: split.recipient_type,
-            recipient_user_id: split.recipient_user_id,
-            asaas_account_id: split.wallet_id,
-            wallet_id: split.wallet_id,
-            fee_type: 'fixed',
-            fee_value: split.amount,
-            value: split.amount,
-            status: 'pending',
-            split_rule: split
-        }));
-
+    if (splitConfigForDb && paymentRecord) {
+        console.log('V3: Recording Payment Split in Database...');
         const { error: splitError } = await adminClient
             .from('payment_splits')
-            .insert(splitRows);
+            .insert({
+                payment_id: paymentRecord.id,
+                recipient_type: 'organizer',
+                recipient_user_id: ticket.events.creator_id,
+                asaas_account_id: splitConfigForDb.walletId,
+                wallet_id: splitConfigForDb.walletId,
+                fee_type: 'fixed',
+                fee_value: splitConfigForDb.fixedValue,
+                value: splitConfigForDb.fixedValue,
+                status: 'pending',
+                split_rule: splitConfigForDb
+            });
             
         if (splitError) {
              console.error('CRITICAL V3 ERROR: Failed to insert payment_splits', splitError);
@@ -443,7 +432,7 @@ Deno.serve(async (req) => {
         if (paymentRecord) {
             await adminClient
                 .from('payments')
-                .update({ pix_qr_code: pixQrCodeText })
+                .update({ pix_qr_code: pixQrCode, pix_copy_paste: pixQrCodeText })
                 .eq('id', paymentRecord.id);
         }
     }

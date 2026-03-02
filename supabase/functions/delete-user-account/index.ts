@@ -1,5 +1,5 @@
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts'
 import { requireAuth } from "../_shared/requireAuth.ts"
 
@@ -89,8 +89,8 @@ Deno.serve(async (req) => {
       // Get Asaas Config
       const { data: config, error: configError } = await adminClient.rpc('get_decrypted_asaas_config')
       
-      if (!configError && config?.api_key && config.is_enabled) {
-        const apiKey = config.api_key
+      if (!configError && config?.secret_key) {
+        const apiKey = config.secret_key
         const apiUrl = config.env === 'production' 
           ? 'https://api.asaas.com/v3' 
           : 'https://sandbox.asaas.com/api/v3'

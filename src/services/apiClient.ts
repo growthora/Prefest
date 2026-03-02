@@ -42,10 +42,9 @@ export async function invokeEdgeFunction<T = any>(
   }
 
   const { requiresAuth = true } = options;
+  let token: string | undefined;
 
   try {
-    let token: string | undefined;
-
     if (requiresAuth) {
       // 1. Obter sessão atual
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -74,6 +73,23 @@ export async function invokeEdgeFunction<T = any>(
     });
 
     if (error) {
+      console.error(`[apiClient] Raw error from ${functionName}:`, error);
+
+      // FASE 6: Tratamento de erro 401 (Sessão Expirada/Inválida)
+      // O SDK pode retornar erro como objeto ou string dependendo da versão/falha
+      const errorMsg = (error.message || JSON.stringify(error)).toLowerCase();
+      
+      if (errorMsg.includes('invalid jwt') || errorMsg.includes('401') || errorMsg.includes('jwt expired')) {
+         console.error(`[apiClient] Erro 401/JWT Inválido na função ${functionName}. Forçando logout.`);
+         
+         // Limpar sessão local
+         await supabase.auth.signOut();
+         
+         // Redirecionar para login preservando o contexto (se possível)
+         if (typeof window !== 'undefined') {
+             window.location.href = `/login?reason=session_expired&next=${encodeURIComponent(window.location.pathname)}`;
+         }
+      }
       throw error;
     }
 

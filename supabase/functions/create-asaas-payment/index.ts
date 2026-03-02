@@ -1,5 +1,5 @@
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { requireAuth } from '../_shared/requireAuth.ts';
 
@@ -41,9 +41,9 @@ Deno.serve(async (req) => {
       .rpc('get_decrypted_asaas_config')
       .single();
 
-    if (configError || !config?.api_key || !config.is_enabled) {
+    if (configError || !config?.api_key) {
       console.error('Config Error:', configError);
-      throw new Error('Asaas configuration not found, invalid, or disabled');
+      throw new Error('Asaas configuration not found or invalid');
     }
 
     const { api_key: apiKey, environment: env, wallet_id: platformWalletId, split_enabled, platform_fee_type, platform_fee_value } = config;

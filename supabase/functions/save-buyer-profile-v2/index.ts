@@ -1,9 +1,15 @@
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { requireAuth } from "../_shared/requireAuth.ts";
 
 Deno.serve(async (req) => {
+  // FASE 1: PROVA DEFINITIVA - DIAGNÓSTICO (Logo na entrada)
+  const authProbe = req.headers.get("Authorization") ?? ""
+  console.log("[ENTRY-PROBE] Auth present:", Boolean(authProbe))
+  console.log("[ENTRY-PROBE] Auth prefix:", authProbe.slice(0, 18)) 
+  console.log("[ENTRY-PROBE] Auth len:", authProbe.length)
+
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
