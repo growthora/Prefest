@@ -41,9 +41,14 @@ export class ErrorBoundary extends Component<Props, State> {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {this.state.error && (
+              {this.state.error && import.meta.env.DEV && (
                 <div className="p-3 bg-muted rounded-md text-sm font-mono overflow-auto max-h-40">
                   {this.state.error.toString()}
+                </div>
+              )}
+              {!import.meta.env.DEV && (
+                <div className="p-3 bg-muted rounded-md text-sm">
+                   Por favor, recarregue a página ou tente novamente mais tarde.
                 </div>
               )}
               <Button 

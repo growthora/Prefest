@@ -30,7 +30,7 @@ const PublicProfile = lazy(() => import("./pages/PublicProfile"));
 const Chat = lazy(() => import("./pages/Chat"));
 const ChatMobile = lazy(() => import("./pages/mobile/ChatMobile"));
 const TicketScanner = lazy(() => import("./pages/TicketScanner"));
-const AdminRoute = lazy(() => import("@/components/AdminRoute"));
+// const AdminRoute = lazy(() => import("@/components/AdminRoute")); // Replaced by ProtectedRoute
 const AdminLayout = lazy(() => import("@/components/dashboard/AdminLayout"));
 const AdminOverview = lazy(() => import("@/pages/admin/AdminOverview"));
 const AdminEvents = lazy(() => import("@/pages/admin/AdminEvents"));
@@ -46,7 +46,8 @@ const SupportHub = lazy(() => import("./pages/Support/SupportHub"));
 const HelpCenter = lazy(() => import("./pages/Support/HelpCenter"));
 const ContactUs = lazy(() => import("./pages/Support/ContactUs"));
 const FAQ = lazy(() => import("./pages/Support/FAQ"));
-const OrganizerRoute = lazy(() => import("@/components/OrganizerRoute"));
+// const OrganizerRoute = lazy(() => import("@/components/OrganizerRoute")); // Replaced by ProtectedRoute
+const ProtectedRoute = lazy(() => import("@/components/ProtectedRoute"));
 const DashboardLayout = lazy(() => import("@/components/dashboard/DashboardLayout"));
 const Overview = lazy(() => import("@/pages/dashboard/Overview"));
 const OrganizerEvents = lazy(() => import("@/pages/dashboard/OrganizerEvents"));
@@ -116,7 +117,7 @@ const AppRoutes = () => {
         <Route path={ROUTE_PATHS.LOGIN} element={<LoginForm />} />
       <Route path={ROUTE_PATHS.FORGOT_PASSWORD} element={<ForgotPassword />} />
       <Route path={ROUTE_PATHS.UPDATE_PASSWORD} element={<UpdatePassword />} />
-      <Route element={<AdminRoute />}>
+      <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminOverview />} />
           <Route path="eventos" element={<AdminEvents />} />
@@ -130,7 +131,7 @@ const AppRoutes = () => {
           <Route path="estatisticas" element={<AdminStats />} />
         </Route>
       </Route>
-      <Route path={ROUTE_PATHS.TICKET_SCANNER} element={<TicketScanner />} />
+      {/* <Route path={ROUTE_PATHS.TICKET_SCANNER} element={<TicketScanner />} /> Moved to ProtectedRoute */}
       <Route path={ROUTE_PATHS.HOME} element={<Home />} />
       <Route path={ROUTE_PATHS.EXPLORE} element={<ExploreEvents />} />
       <Route path={ROUTE_PATHS.EM_ALTA} element={<EmAlta />} />
@@ -149,16 +150,23 @@ const AppRoutes = () => {
       <Route path={ROUTE_PATHS.CONTACT_US} element={<ContactUs />} />
       <Route path={ROUTE_PATHS.FAQ} element={<FAQ />} />
       <Route path={ROUTE_PATHS.EVENTS} element={<EventList />} />
-      <Route path={ROUTE_PATHS.CREATE_EVENT} element={<CreateEventForm />} />
-      <Route path={ROUTE_PATHS.MY_EVENTS} element={<MyEvents />} />
       <Route path={ROUTE_PATHS.EVENT_DETAILS} element={<EventDetails />} />
-      <Route path={ROUTE_PATHS.PROFILE} element={<Profile />} />
-      <Route path={ROUTE_PATHS.DELETE_ACCOUNT} element={<DeletarConta />} />
       <Route path={ROUTE_PATHS.PUBLIC_PROFILE} element={<PublicProfile />} />
-      <Route path="/chat" element={<ChatDesktopRoute />} />
-      <Route path={ROUTE_PATHS.CHAT} element={<ChatDesktopRoute />} />
-      <Route path="/m/chat" element={<ChatMobileRoute />} />
-      <Route path="/m/chat/:matchId" element={<ChatMobileRoute />} />
+      
+      {/* Protected Routes */}
+      <Route element={<ProtectedRoute />}>
+        <Route path={ROUTE_PATHS.CREATE_EVENT} element={<CreateEventForm />} />
+        <Route path={ROUTE_PATHS.MY_EVENTS} element={<MyEvents />} />
+        <Route path={ROUTE_PATHS.PROFILE} element={<Profile />} />
+        <Route path={ROUTE_PATHS.DELETE_ACCOUNT} element={<DeletarConta />} />
+        <Route path={ROUTE_PATHS.TICKET_SCANNER} element={<TicketScanner />} />
+        
+        {/* Chat Routes */}
+        <Route path="/chat" element={<ChatDesktopRoute />} />
+        <Route path={ROUTE_PATHS.CHAT} element={<ChatDesktopRoute />} />
+        <Route path="/m/chat" element={<ChatMobileRoute />} />
+        <Route path="/m/chat/:matchId" element={<ChatMobileRoute />} />
+      </Route>
 
       {/* Redirects for old routes */}
       <Route path="/profile" element={<Navigate to={ROUTE_PATHS.PROFILE} replace />} />
@@ -170,7 +178,7 @@ const AppRoutes = () => {
       <Route path="/evento/:slug" element={<RedirectToEventDetails />} />
 
       {/* Organizer Dashboard Routes */}
-      <Route element={<OrganizerRoute />}>
+      <Route element={<ProtectedRoute requireOrganizerApproved={true} />}>
         <Route path={ROUTE_PATHS.ORGANIZER_DASHBOARD} element={<DashboardLayout />}>
           <Route index element={<Overview />} />
           <Route path="eventos" element={<OrganizerEvents />} />

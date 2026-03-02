@@ -200,3 +200,23 @@
     @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/40;
   }
 }
+
+@media print {
+  /* Print Hardening: Hide sensitive sections */
+  [data-sensitive="true"] {
+    display: none !important;
+  }
+  
+  /* Hide typical sensitive elements */
+  .no-print, 
+  button, 
+  input[type="password"],
+  [role="dialog"] {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+}

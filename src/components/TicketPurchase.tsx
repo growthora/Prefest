@@ -19,6 +19,8 @@ import { CreditCardForm, CreditCardData } from './payment/CreditCardForm';
 import { PixPaymentModal } from './payment/PixPaymentModal';
 import type { TicketTypeDB } from '@/services/event.service';
 import { supabase } from '@/lib/supabase';
+import { Honeypot } from './security/Honeypot';
+import { useSensitiveDataProtection } from '@/hooks/useSensitiveDataProtection';
 
 interface SingleModeToggleProps {
   enabled: boolean;
@@ -162,6 +164,14 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   // Pix Modal State
   const [pixModalOpen, setPixModalOpen] = useState(false);
   const [pixData, setPixData] = useState<{ qrCode: string, copyPaste: string } | null>(null);
+  const [idempotencyKey, setIdempotencyKey] = useState<string>('');
+
+  // Generate Idempotency Key when ticketId changes (new transaction intent)
+  React.useEffect(() => {
+    if (ticketId) {
+      setIdempotencyKey(crypto.randomUUID());
+    }
+  }, [ticketId]);
 
   const handleTicketSelect = (ticketTypeId: string, ticketType: TicketTypeDB) => {
     setSelectedTicketTypeId(ticketTypeId);
@@ -255,6 +265,16 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
       return;
     }
   };
+
+  const { sensitiveStyle, isDevToolsOpen } = useSensitiveDataProtection();
+
+  // Anti-Bot: Honeypot state
+  const [isBot, setIsBot] = useState(false);
+
+  if (isBot) {
+    // Silent fail for bots
+    return null;
+  }
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) {
@@ -357,12 +377,16 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
 
         const payload = {
             ticket_id: ticketId,
-            billing_type: paymentMethod === 'PIX' ? 'pix' : 'CREDIT_CARD'
+            billing_type: paymentMethod === 'PIX' ? 'pix' : 'CREDIT_CARD',
+            coupon_code: appliedCoupon ? appliedCoupon.code : undefined
         };
 
         const { data, error } = await supabase.functions.invoke('asaas-create-ticket-payment-v3', {
             body: payload,
-            headers: { Authorization: `Bearer ${currentSession.access_token}` }
+            headers: { 
+                Authorization: `Bearer ${currentSession.access_token}`,
+                'Idempotency-Key': idempotencyKey
+            }
         });
 
         if (error) throw error;
@@ -479,27 +503,39 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
           </div>
         </Card>
 
-        {step === 'select_ticket_type' && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-widest">Tipo de ingresso</span>
-              <p className="text-xs text-muted-foreground">
-                Escolha o tipo de ingresso que deseja adquirir para este evento.
-              </p>
-            </div>
-            <TicketSelector
-              eventId={event.id}
-              onSelect={handleTicketSelect}
-              selectedTicketTypeId={selectedTicketTypeId}
-              onLoaded={(types) => setHasAvailableTicketTypes(types.length > 0)}
-            />
-            {hasAvailableTicketTypes === false && (
-              <p className="text-xs text-red-500 font-medium">
-                Nenhum ingresso disponível no momento. Este evento não está aceitando novas compras.
-              </p>
-            )}
-          </div>
-        )}
+        {/* Honeypot Field */}
+        <Honeypot fieldName="fax" onChange={setIsBot} />
+
+        <AnimatePresence mode="wait">
+          {step === 'select_ticket_type' && (
+            <motion.div
+              key="select_ticket_type"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="space-y-4"
+              style={sensitiveStyle}
+            >
+              <div className="space-y-2">
+                <span className="text-xs font-semibold uppercase tracking-widest">Tipo de ingresso</span>
+                <p className="text-xs text-muted-foreground">
+                  Escolha o tipo de ingresso que deseja adquirir para este evento.
+                </p>
+              </div>
+              <TicketSelector
+                eventId={event.id}
+                onSelect={handleTicketSelect}
+                selectedTicketTypeId={selectedTicketTypeId}
+                onLoaded={(types) => setHasAvailableTicketTypes(types.length > 0)}
+              />
+              {hasAvailableTicketTypes === false && (
+                <p className="text-xs text-red-500 font-medium">
+                  Nenhum ingresso disponível no momento. Este evento não está aceitando novas compras.
+                </p>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {step === 'personal_data' && (
           <div className="space-y-4">

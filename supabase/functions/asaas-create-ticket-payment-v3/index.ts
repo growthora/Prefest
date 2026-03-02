@@ -1,22 +1,19 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts'
 
 serve(async (req) => {
   // 1. Handle CORS (Strictly first)
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     // 2. Validate Authorization Header
     const authHeader = req.headers.get('Authorization')
-    console.log("V3 Debug: Received Auth Header:", authHeader ? authHeader.substring(0, 50) + "..." : "MISSING");
+    console.log("V3 Debug: Received Auth Header:", authHeader ? "PRESENT" : "MISSING");
 
     if (!authHeader) {
       console.error("V3 Debug: Missing Authorization header");
@@ -53,11 +50,49 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    // 5.5 Check Rate Limit (10 requests per minute per user)
+    const { data: isAllowed, error: rateLimitError } = await adminClient.rpc('check_rate_limit', {
+        p_key: `payment_creation:${user.id}`,
+        p_limit: 10,
+        p_window_seconds: 60
+    });
+
+    if (rateLimitError) {
+        console.error('Rate Limit Check Error:', rateLimitError);
+        // Fail closed for security
+        throw new Error('System busy, please try again later.');
+    }
+
+    if (isAllowed === false) {
+        return new Response(
+            JSON.stringify({ error: 'Too many requests. Please wait a moment.' }),
+            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+    }
+
     // 6. Parse Request Body
-    const { ticket_id, billing_type } = await req.json()
+    const { ticket_id, billing_type, coupon_code } = await req.json()
 
     if (!ticket_id || !billing_type) {
       throw new Error('Missing required fields: ticket_id, billing_type')
+    }
+
+    // 6.5 Check Idempotency
+    const idempotencyKey = req.headers.get('Idempotency-Key');
+    if (idempotencyKey) {
+        const { data: existingKey } = await adminClient
+            .from('idempotency_keys')
+            .select('*')
+            .eq('key', idempotencyKey)
+            .single();
+
+        if (existingKey && new Date(existingKey.expires_at) > new Date()) {
+            console.log(`V3: Idempotency Key Hit: ${idempotencyKey}`);
+            return new Response(JSON.stringify(existingKey.response_body), {
+                status: existingKey.response_status,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+        }
     }
 
     // 7. Fetch Ticket (Verify ownership)
@@ -78,6 +113,73 @@ serve(async (req) => {
       throw new Error(`Ticket status invalid for payment: ${ticket.status}`);
     }
 
+    // 7.5 Apply Coupon Logic (Server-Side Recalculation)
+    const basePrice = Number(ticket.unit_price) * Number(ticket.quantity);
+    let finalPrice = basePrice;
+    let discountAmount = 0;
+    let appliedCouponId = null;
+
+    if (coupon_code) {
+        const { data: coupon, error: couponError } = await adminClient
+            .from('coupons')
+            .select('*')
+            .eq('code', coupon_code.toUpperCase())
+            .eq('active', true)
+            .single();
+
+        if (couponError || !coupon) {
+            throw new Error('Cupom inválido ou expirado');
+        }
+
+        // Validate Expiration
+        if (coupon.valid_until && new Date(coupon.valid_until) < new Date()) {
+            throw new Error('Cupom expirado');
+        }
+
+        // Validate Max Uses
+        if (coupon.max_uses && coupon.current_uses >= coupon.max_uses) {
+            throw new Error('Limite de uso do cupom atingido');
+        }
+
+        // Calculate Discount
+        if (coupon.discount_type === 'percentage') {
+            discountAmount = (basePrice * coupon.discount_value) / 100;
+        } else {
+            discountAmount = coupon.discount_value;
+        }
+        
+        // Cap discount at base price
+        if (discountAmount > basePrice) discountAmount = basePrice;
+        
+        finalPrice = basePrice - discountAmount;
+        appliedCouponId = coupon.id;
+        
+        console.log(`V3: Coupon Applied: ${coupon.code} - Discount: ${discountAmount} - Final: ${finalPrice}`);
+    } else {
+        // Reset if no coupon provided (ensure clean state)
+        finalPrice = basePrice;
+        discountAmount = 0;
+        appliedCouponId = null;
+    }
+
+    // Update Ticket with Final Price (Source of Truth)
+    const { error: updateTicketError } = await adminClient
+        .from('tickets')
+        .update({
+            total_price: finalPrice,
+            discount_amount: discountAmount,
+            coupon_id: appliedCouponId,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', ticket.id);
+
+    if (updateTicketError) {
+        throw new Error('Failed to update ticket price');
+    }
+    
+    // Refresh ticket object locally
+    ticket.total_price = finalPrice;
+
     // 8. Fetch Creator Profile (for name/cpf fallback)
     const { data: creatorProfile, error: creatorError } = await adminClient
       .from('profiles')
@@ -92,8 +194,8 @@ serve(async (req) => {
       .eq('id', user.id)
       .single();
 
-    console.log(`V3: Buyer Profile: ${user.id} - CPF: ${buyerProfile?.cpf} - Asaas ID: ${buyerProfile?.asaas_customer_id}`);
-    console.log(`V3: Creator Profile: ${ticket.events.creator_id} - CPF: ${creatorProfile?.cpf}`);
+    console.log(`V3: Buyer Profile: ${user.id} - CPF: ${buyerProfile?.cpf ? '***' : 'MISSING'} - Asaas ID: ${buyerProfile?.asaas_customer_id}`);
+    console.log(`V3: Creator Profile: ${ticket.events.creator_id}`);
 
     // 9. Get Asaas Config
     const { data: config, error: configError } = await adminClient
@@ -173,7 +275,8 @@ serve(async (req) => {
         notificationDisabled: false, // Ensure buyer receives Asaas emails
     };
 
-    console.log(`V3 Customer Info Prepared: ${JSON.stringify(customerInfo)}`);
+    // console.log(`V3 Customer Info Prepared: ${JSON.stringify(customerInfo)}`); // REDACTED FOR PRIVACY
+    console.log(`V3: Preparing Asaas Customer for User ${user.id} (Email and CPF validated)`);
 
     // 13. Create/Find Customer in Asaas
     let customerId = '';
@@ -283,6 +386,7 @@ serve(async (req) => {
         .from('payments')
         .insert({
             ticket_id: ticket.id,
+            user_id: user.id, // Buyer ID
             organizer_user_id: ticket.events.creator_id,
             provider: 'asaas',
             external_payment_id: paymentData.id,
@@ -337,13 +441,24 @@ serve(async (req) => {
         }
     }
 
-    return new Response(JSON.stringify({ 
+    const responseBody = { 
         success: true,
         paymentId: paymentData.id,
         invoiceUrl: paymentData.invoiceUrl,
         pixQrCode,
         pixQrCodeText,
-    }), {
+    };
+
+    // Save Idempotency Key
+    if (idempotencyKey) {
+        await adminClient.from('idempotency_keys').insert({
+            key: idempotencyKey,
+            response_body: responseBody,
+            response_status: 200
+        });
+    }
+
+    return new Response(JSON.stringify(responseBody), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200
     });

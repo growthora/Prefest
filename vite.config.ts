@@ -239,5 +239,29 @@ export default defineConfig(({ mode }) => {
           : process.env.VITE_ENABLE_ROUTE_MESSAGING !== 'false'
       ),
     },
+    build: {
+          target: 'esnext',
+          // Production console removal & minification
+          minify: 'esbuild',
+          sourcemap: mode !== 'production', // Disable sourcemaps in production
+          cssMinify: true,
+          rollupOptions: {
+              output: {
+                  manualChunks(id) {
+                      if (id.includes('node_modules')) {
+                          return 'vendor';
+                      }
+                  },
+                  // Hash naming for cache busting and mild obfuscation
+                  entryFileNames: 'assets/[hash].js',
+                  chunkFileNames: 'assets/[hash].js',
+                  assetFileNames: 'assets/[hash].[ext]'
+              }
+          }
+      },
+      esbuild: {
+          drop: mode === 'production' ? ['console', 'debugger'] : [],
+          legalComments: 'none', // Remove comments
+      },
   }
 });
