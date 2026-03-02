@@ -69,14 +69,14 @@ const EventCard = ({ ticket, isPast = false, navigate }: { ticket: TicketWithEve
           <CardFooter className="p-4 pt-0 grid grid-cols-2 md:grid-cols-1 gap-3">
               <Button 
                 variant="outline" 
-                className="w-full hover:bg-secondary/50" 
+                className="w-full hover:bg-secondary/50 col-span-1 md:col-span-1" 
                 onClick={() => navigate(`/ingressos/${ticket.id}`)}
               >
                   <Ticket className="mr-2 h-4 w-4" />
                   Ver Ingresso
               </Button>
               <Button 
-                className="w-full bg-primary hover:bg-primary/90 md:hidden" 
+                className="w-full bg-primary hover:bg-primary/90 md:hidden col-span-1" 
                 onClick={() => navigate(`/eventos/${event.id}/matchs`)}
               >
                   <Heart className="mr-2 h-4 w-4 fill-current" />

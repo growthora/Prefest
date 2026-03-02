@@ -105,7 +105,7 @@ export default function CompleteProfile() {
           window.location.href = redirectPath;
         } else {
           // Fallback seguro se não houver redirect válido
-          window.location.href = '/eventos';
+          window.location.href = '/';
         }
       }, 1000);
 

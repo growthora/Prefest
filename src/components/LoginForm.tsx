@@ -25,9 +25,11 @@ export const LoginForm = () => {
     if (isRecoveryMode) {
       navigate(ROUTE_PATHS.UPDATE_PASSWORD, { replace: true });
     } else if (user) {
-      navigate(ROUTE_PATHS.MY_EVENTS, { replace: true });
+      // Se já estiver logado, redirecionar para a home ou página anterior
+      const returnTo = location.state?.returnTo || location.state?.from?.pathname || ROUTE_PATHS.HOME;
+      navigate(returnTo, { replace: true });
     }
-  }, [user, isRecoveryMode, navigate]);
+  }, [user, isRecoveryMode, navigate, location.state]);
 
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showResend, setShowResend] = useState(false);
