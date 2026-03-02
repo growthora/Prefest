@@ -131,6 +131,22 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   const [selectedTicketTypeId, setSelectedTicketTypeId] = useState<string>();
   const [selectedTicketType, setSelectedTicketType] = useState<TicketTypeDB>();
   const [autoResume, setAutoResume] = useState(false);
+  
+  // Fee Configuration State
+  const [feeConfig, setFeeConfig] = useState<{ platform_fee_type: 'percentage' | 'fixed', platform_fee_value: number }>({
+    platform_fee_type: 'percentage',
+    platform_fee_value: 10 // FIXED: 10% hardcoded as requested
+  });
+
+  // Removed dynamic fetch to ensure fixed 10% fee
+  /*
+  React.useEffect(() => {
+    const fetchFeeConfig = async () => {
+        ...
+    };
+    fetchFeeConfig();
+  }, []);
+  */
 
   // Initialize from URL params if present (Auto-Resume flow)
   React.useEffect(() => {
@@ -501,7 +517,9 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     } catch (error: any) {
       console.error('Purchase error:', error);
       let errorMessage = error.message || 'Erro inesperado ao processar o pagamento';
-      if (errorMessage.includes('Invalid JWT')) {
+      const errorStr = errorMessage.toLowerCase();
+      
+      if (errorStr.includes('invalid jwt') || errorStr.includes('401') || errorStr.includes('unauthorized')) {
           errorMessage = 'Sessão inválida. Tente fazer login novamente.';
       } else if (errorMessage.includes('menor que R$ 5,00') || errorMessage.includes('valor da cobrança')) {
           errorMessage = 'O valor mínimo para pagamento é de R$ 5,00. Por favor, escolha outro ingresso.';
@@ -513,7 +531,18 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   };
 
   const basePrice = selectedTicketType?.price ?? event.price;
-  const serviceFee = basePrice * 0.1;
+  
+  // Dynamic Service Fee Calculation
+  let serviceFee = 0;
+  if (feeConfig.platform_fee_type === 'percentage') {
+    serviceFee = (basePrice * feeConfig.platform_fee_value) / 100;
+  } else {
+    serviceFee = feeConfig.platform_fee_value;
+  }
+  
+  // Ensure fee is at least 0
+  serviceFee = Math.max(0, serviceFee);
+  
   let discount = 0;
   
   if (appliedCoupon) {

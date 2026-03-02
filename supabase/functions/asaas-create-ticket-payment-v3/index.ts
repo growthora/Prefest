@@ -17,6 +17,7 @@ Deno.serve(async (req) => {
 
   try {
     // 2. Validate Authorization Header & Verify User using requireAuth
+    console.log(`[asaas-create-ticket-payment-v3] Request received: ${req.method} ${req.url}`);
     const { user } = await requireAuth(req);
 
     // 5. Initialize Admin Client for Privileged Operations (Service Role)
@@ -105,14 +106,16 @@ Deno.serve(async (req) => {
     const basePrice = Number(ticket.unit_price) * Number(ticket.quantity);
     let serviceFee = 0;
     
-    // Calculate Service Fee (Taxa de Serviço) - Must match Frontend (10% or Config)
-    // Assuming config is the source of truth, but falling back to 10% if not configured or if frontend logic dominates
-    // For now, we use the config if available, otherwise 10%
+    // Calculate Service Fee (Taxa de Serviço) - FIXED: 10% Hardcoded as requested
+    // This overrides database configuration to ensure consistency with frontend
+    serviceFee = (basePrice * 10) / 100;
+    /*
     if (platform_fee_type === 'percentage') {
         serviceFee = (basePrice * (Number(platform_fee_value) || 10)) / 100;
     } else {
         serviceFee = Number(platform_fee_value) || 0;
     }
+    */
 
     // Ensure service fee is at least 0
     serviceFee = Math.max(0, serviceFee);
@@ -467,9 +470,14 @@ Deno.serve(async (req) => {
       return error
     }
 
+    // Return specific status codes based on error type if possible, or 400/500
+    const status = error.message?.includes('Unauthorized') ? 401 
+                 : error.message?.includes('Access denied') ? 403
+                 : 400;
+
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400
+      status: status
     });
   }
 })

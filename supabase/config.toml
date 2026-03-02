@@ -9,3 +9,65 @@ entrypoint = "./functions/debug-auth/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/debug-auth/*.html" ]
+
+# --- CRITICAL FUNCTIONS (MANUAL AUTH VALIDATION) ---
+# Disable built-in verify_jwt to prevent "Invalid JWT" errors from the Gateway.
+# These functions MUST use requireAuth() internally.
+
+[functions.asaas-create-ticket-payment-v3]
+verify_jwt = false
+
+[functions.admin-financial-dashboard]
+verify_jwt = false
+
+[functions.save-buyer-profile-v2]
+verify_jwt = false
+
+[functions.issue-free-ticket-v2]
+verify_jwt = false
+
+[functions.init-ticket-checkout-v2]
+verify_jwt = false
+
+[functions.complete-profile]
+verify_jwt = false
+
+[functions.get-payment-settings]
+verify_jwt = false
+
+[functions.asaas-webhook]
+verify_jwt = false
+
+[functions.asaas-webhook-handler]
+verify_jwt = false
+
+[functions.asaas-connect-organizer-v2]
+verify_jwt = false
+
+[functions.asaas-create-payment-split]
+verify_jwt = false
+
+[functions.asaas-create-or-connect-organizer]
+verify_jwt = false
+
+[functions.asaas-create-ticket-payment-v2]
+verify_jwt = false
+
+[functions.create-asaas-payment]
+verify_jwt = false
+
+[functions.test-smtp-connection]
+verify_jwt = false
+
+[functions.save-system-settings]
+verify_jwt = false
+
+[functions.validate-asaas-credentials]
+verify_jwt = false
+
+[functions.asaas-refresh-organizer-kyc-status]
+verify_jwt = false
+
+[functions.delete-user-account]
+verify_jwt = false
+

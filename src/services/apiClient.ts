@@ -66,20 +66,36 @@ export async function invokeEdgeFunction<T = any>(
     }
 
     // 3. Invocar função
-    const { data, error } = await supabase.functions.invoke(functionName, {
-      body: options.body,
+    const invokeOptions: any = {
       method: options.method || 'POST',
       headers,
-    });
+    };
+    
+    // Only add body if it's not a GET request (GET with body is invalid in fetch)
+    if (options.body && invokeOptions.method !== 'GET') {
+      invokeOptions.body = options.body;
+    }
+
+    const { data, error } = await supabase.functions.invoke(functionName, invokeOptions);
 
     if (error) {
       console.error(`[apiClient] Raw error from ${functionName}:`, error);
 
       // FASE 6: Tratamento de erro 401 (Sessão Expirada/Inválida)
       // O SDK pode retornar erro como objeto ou string dependendo da versão/falha
-      const errorMsg = (error.message || JSON.stringify(error)).toLowerCase();
+      const errorStr = (error.message || '').toLowerCase();
+      const errorCode = error.code || error.status;
+      const errorJson = JSON.stringify(error).toLowerCase();
       
-      if (errorMsg.includes('invalid jwt') || errorMsg.includes('401') || errorMsg.includes('jwt expired')) {
+      const isAuthError = 
+        errorStr.includes('invalid jwt') || 
+        errorStr.includes('jwt expired') ||
+        errorStr.includes('unauthorized') || // Catch-all for "Unauthorized" message
+        errorCode === 401 ||                 // Check status code directly
+        errorJson.includes('"code":401') ||  // Check JSON structure if stringified
+        errorJson.includes('"status":401');
+
+      if (isAuthError) {
          console.error(`[apiClient] Erro 401/JWT Inválido na função ${functionName}. Forçando logout.`);
          
          // Limpar sessão local
@@ -87,7 +103,11 @@ export async function invokeEdgeFunction<T = any>(
          
          // Redirecionar para login preservando o contexto (se possível)
          if (typeof window !== 'undefined') {
-             window.location.href = `/login?reason=session_expired&next=${encodeURIComponent(window.location.pathname)}`;
+             // Append context to URL if not already present
+             const currentPath = window.location.pathname;
+             if (!currentPath.includes('/login')) {
+                window.location.href = `/login?reason=session_expired&next=${encodeURIComponent(currentPath)}`;
+             }
          }
       }
       throw error;

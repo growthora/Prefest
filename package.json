@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "preview:dev": "npm run build:dev && npm run preview",
+    "deploy:functions": "npx supabase functions deploy",
     "test:edge-functions": "cd supabase/edge_function && deno task test"
   },
   "dependencies": {
