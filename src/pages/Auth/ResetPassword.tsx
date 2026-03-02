@@ -8,16 +8,15 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { authService } from '@/services/auth.service';
 import { ROUTE_PATHS } from '@/lib/index';
 import { Lock, Mail, KeyRound } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
-
+import { useAuth } from '@/hooks/useAuth';
 import { translateAuthError } from '@/utils/authErrors';
 
 export const ResetPassword = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { isRecoveryMode, signOut } = useAuth();
   
   // State
-  const [mode, setMode] = useState<'session' | 'manual'>('manual');
   const [email, setEmail] = useState('');
   const [token, setToken] = useState('');
   const [password, setPassword] = useState('');
@@ -26,7 +25,6 @@ export const ResetPassword = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-
   // Check for token in URL params (Manual flow pre-fill)
   const urlToken = searchParams.get('token');
 
@@ -34,34 +32,6 @@ export const ResetPassword = () => {
     if (urlToken) {
       setToken(urlToken);
     }
-
-    const checkSession = async () => {
-      // Give Supabase a moment to process hash if present
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session) {
-        setMode('session');
-      } else {
-        setMode('manual');
-      }
-    };
-
-    checkSession();
-
-    // Listen for auth state changes (e.g. after hash processing)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setMode('session');
-      } else if (session) {
-        setMode('session');
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
   }, [urlToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -82,34 +52,45 @@ export const ResetPassword = () => {
       return;
     }
 
-    if (mode === 'manual' && !email) {
+    if (!isRecoveryMode && !email) {
       setError('O email é obrigatório');
       setIsLoading(false);
       return;
     }
 
-    if (mode === 'manual' && !token) {
+    if (!isRecoveryMode && !token) {
       setError('O código de verificação é obrigatório');
       setIsLoading(false);
       return;
     }
 
     try {
-      if (mode === 'manual') {
-        // Step 1: Verify OTP
-        // This will log the user in if successful
+      if (!isRecoveryMode) {
+        // Step 1: Verify OTP (Manual Flow)
+        // This will log the user in if successful and set the session
         await authService.verifyOtp(email, token);
       }
 
-      // Step 2: Update Password (works because we are now logged in, either via session or verifyOtp)
-      await authService.updatePassword(password);
+      // Step 2: Update Password 
+      // Works because we are now logged in (either via session/link or verifyOtp)
+      try {
+        await authService.updatePassword(password);
+      } catch (updateError: any) {
+        // If update fails and we were in manual mode (just logged in via OTP), 
+        // we must sign out to prevent access without password reset
+        if (!isRecoveryMode) {
+           await signOut();
+        }
+        throw updateError;
+      }
 
       // Step 3: Success handling
       setSuccess(true);
       
-      // Optional: Sign out and redirect to login after a delay
+      // Step 4: Sign out and redirect to login
+      // User must re-login with new password as per security requirements
       setTimeout(async () => {
-        await authService.signOut();
+        await signOut();
         navigate(ROUTE_PATHS.LOGIN);
       }, 3000);
 
@@ -138,7 +119,10 @@ export const ResetPassword = () => {
             </CardDescription>
             <Button 
               className="w-full bg-green-600 hover:bg-green-700 mt-4"
-              onClick={() => navigate(ROUTE_PATHS.LOGIN)}
+              onClick={async () => {
+                await signOut();
+                navigate(ROUTE_PATHS.LOGIN);
+              }}
             >
               Ir para Login agora
             </Button>
@@ -159,7 +143,7 @@ export const ResetPassword = () => {
           </div>
           <CardTitle className="text-2xl text-center">Definir Nova Senha</CardTitle>
           <CardDescription className="text-center">
-            {mode === 'session' 
+            {isRecoveryMode 
               ? 'Digite sua nova senha abaixo.' 
               : 'Insira o código recebido por email e sua nova senha.'}
           </CardDescription>
@@ -172,7 +156,7 @@ export const ResetPassword = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === 'manual' && (
+            {!isRecoveryMode && (
               <>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
@@ -202,7 +186,7 @@ export const ResetPassword = () => {
                         value={token}
                         onChange={(e) => setToken(e.target.value)}
                         placeholder="123456"
-                        className="pl-9 font-mono tracking-widest"
+                        className="pl-9"
                         required
                         disabled={isLoading}
                       />
@@ -214,34 +198,40 @@ export const ResetPassword = () => {
 
             <div className="space-y-2">
               <Label htmlFor="password">Nova Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mínimo 8 caracteres"
-                required
-                disabled={isLoading}
-                minLength={8}
-              />
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Mínimo 8 caracteres"
+                  className="pl-9"
+                  required
+                  disabled={isLoading}
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirmar Nova Senha</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Repita a nova senha"
-                required
-                disabled={isLoading}
-                minLength={8}
-              />
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Repita a senha"
+                  className="pl-9"
+                  required
+                  disabled={isLoading}
+                />
+              </div>
             </div>
 
             <Button type="submit" className="w-full bg-pink-600 hover:bg-pink-700" disabled={isLoading}>
-              {isLoading ? 'Atualizando...' : 'Atualizar Senha'}
+              {isLoading ? 'Redefinindo...' : 'Criar Nova Senha'}
             </Button>
           </form>
         </CardContent>

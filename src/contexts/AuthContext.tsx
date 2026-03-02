@@ -11,6 +11,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   isEmailConfirmed: boolean;
+  isRecoveryMode: boolean; // Novo estado para controlar fluxo de recuperação
   isLoading: boolean; // Mantido para compatibilidade, mas authStatus é preferível para carregamento inicial
   error: string | null;
   signIn: (email: string, password: string) => Promise<void>;
@@ -26,13 +27,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [authStatus, setAuthStatus] = useState<AuthStatus>('checking');
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true); // Mantido para operações de login/update
   const [error, setError] = useState<string | null>(null);
 
-  console.log('🔐 AuthProvider renderizando', { user: user?.email, profile: profile?.email, authStatus, isLoading });
+  console.log('🔐 AuthProvider renderizando', { user: user?.email, profile: profile?.email, authStatus, isLoading, isRecoveryMode });
 
   useEffect(() => {
     console.log('🔄 AuthProvider useEffect iniciando');
+    
+    // Check for recovery mode in session storage (persistence across reloads)
+    const storedRecoveryMode = sessionStorage.getItem('auth_recovery_mode');
+    if (storedRecoveryMode === 'true') {
+      setIsRecoveryMode(true);
+    }
     
     // Carregar sessão inicial
     const initAuth = async () => {
@@ -100,9 +108,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initAuth();
 
     // Listener para mudanças de autenticação
-    const { data: { subscription } } = authService.onAuthStateChange(async (user) => {
-      console.log('🔄 Mudança de estado de auth detectada:', user?.email || 'logout');
+    const { data: { subscription } } = authService.onAuthStateChange(async (user, event) => {
+      console.log('🔄 Mudança de estado de auth detectada:', user?.email || 'logout', 'Event:', event);
       
+      if (event === 'PASSWORD_RECOVERY') {
+        console.log('🔒 Modo de recuperação de senha ativado');
+        setIsRecoveryMode(true);
+        sessionStorage.setItem('auth_recovery_mode', 'true');
+      } else if (event === 'SIGNED_OUT') {
+        setIsRecoveryMode(false);
+        sessionStorage.removeItem('auth_recovery_mode');
+      }
+
       if (user) {
         setUser(user);
         setAuthStatus('authenticated'); // Assume autenticado assim que tem user
@@ -269,9 +286,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!user,
         isAdmin: profile?.roles?.some(r => r.toUpperCase() === 'ADMIN') ?? false,
         isEmailConfirmed: !!user?.email_confirmed_at,
-        isLoading,
-        error,
-        signIn,
+      isRecoveryMode,
+      isLoading,
+      error,
+      signIn,
         signUp,
         signOut,
         updateProfile,

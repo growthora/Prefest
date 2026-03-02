@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { DashboardLoader } from '@/components/dashboard/DashboardLoader';
+import { ROUTE_PATHS } from '@/lib/index';
 
 interface ProtectedRouteProps {
   allowedRoles?: string[];
@@ -9,11 +10,16 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ allowedRoles, requireOrganizerApproved }: ProtectedRouteProps) {
-  const { user, profile, isLoading } = useAuth();
+  const { user, profile, isLoading, isRecoveryMode } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
     return <DashboardLoader />;
+  }
+
+  // If in recovery mode, block access to all protected routes and redirect to reset password
+  if (isRecoveryMode) {
+    return <Navigate to={ROUTE_PATHS.UPDATE_PASSWORD} replace />;
   }
 
   if (!user) {

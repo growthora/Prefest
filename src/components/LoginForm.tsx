@@ -16,10 +16,19 @@ import { authService } from '@/services/auth.service';
 import { translateAuthError } from '@/utils/authErrors';
 
 export const LoginForm = () => {
-  const { signIn, signUp, isLoading, error } = useAuth();
+  const { signIn, signUp, isLoading, error, user, isRecoveryMode } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [localError, setLocalError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isRecoveryMode) {
+      navigate(ROUTE_PATHS.UPDATE_PASSWORD, { replace: true });
+    } else if (user) {
+      navigate(ROUTE_PATHS.MY_EVENTS, { replace: true });
+    }
+  }, [user, isRecoveryMode, navigate]);
+
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showResend, setShowResend] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
