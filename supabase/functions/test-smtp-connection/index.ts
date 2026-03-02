@@ -1,38 +1,20 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import nodemailer from "https://esm.sh/nodemailer@6.9.13";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { requireAuth } from '../_shared/requireAuth.ts';
+import { requireRole } from '../_shared/requireRole.ts';
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = getCorsHeaders(req);
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-    );
-
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) throw new Error('Unauthorized');
+    const { user, supabase: supabaseClient } = await requireAuth(req);
 
     // Admin check
-    const { data: profile } = await supabaseClient
-      .from('profiles')
-      .select('role, roles')
-      .eq('id', user.id)
-      .single();
-
-    const isAdmin = Array.isArray(profile?.roles) && profile.roles.some((r: string) => r.toUpperCase() === 'ADMIN');
-
-    if (!isAdmin) {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
+    await requireRole(supabaseClient, user.id, ['ADMIN']);
 
     const { host, port, user: smtpUser, pass, secure, from_email, test_email } = await req.json();
 

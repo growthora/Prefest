@@ -1,6 +1,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { requireAuth } from "../_shared/requireAuth.ts";
 
 Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
@@ -9,23 +10,11 @@ Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Missing Authorization header');
-    }
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
-    if (authError || !user) {
-      throw new Error('Invalid user token');
-    }
+    // Verify User Authentication
+    const { user } = await requireAuth(req);
 
     const { event_id, ticket_type_id, quantity } = await req.json();
 
@@ -109,7 +98,14 @@ Deno.serve(async (req) => {
       
     if (participantError) {
        console.error('Participant creation error:', participantError);
-       // Note: Should rollback ticket creation here ideally
+       // Rollback ticket creation
+       await adminClient.from('tickets').delete().eq('id', ticket.id);
+       // Decrement ticket sold count (rollback)
+       await adminClient.rpc('increment_ticket_sold', { 
+           p_ticket_type_id: ticket_type_id, 
+           p_quantity: -quantity 
+       });
+       throw new Error('Failed to create participant record. Please try again.');
     }
 
     return new Response(JSON.stringify({ 
@@ -119,7 +115,10 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
+  } catch (error: any) {
+    if (error instanceof Response) {
+      return error;
+    }
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

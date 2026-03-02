@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
+import { invokeEdgeFunction } from '@/services/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -40,7 +41,7 @@ export default function DeletarConta() {
       setIsDeleting(true);
       setError(null);
 
-      const { data, error: functionError } = await supabase.functions.invoke('delete-user-account', {
+      const { data, error: functionError } = await invokeEdgeFunction('delete-user-account', {
         body: { confirmationText }
       });
 

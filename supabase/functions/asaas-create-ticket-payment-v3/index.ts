@@ -1,47 +1,17 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3"
-import { getCorsHeaders } from "../_shared/cors.ts"
+import { getCorsHeaders, handleCors } from "../_shared/cors.ts"
+import { requireAuth } from "../_shared/requireAuth.ts"
 
 Deno.serve(async (req) => {
   // 1. Handle CORS (Strictly first)
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: getCorsHeaders(req) })
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   const corsHeaders = getCorsHeaders(req)
 
   try {
-    // 2. Validate Authorization Header
-    const authHeader = req.headers.get('Authorization')
-    console.log("V3 Debug: Received Auth Header:", authHeader ? "PRESENT" : "MISSING");
-
-    if (!authHeader) {
-      console.error("V3 Debug: Missing Authorization header");
-      return new Response(
-        JSON.stringify({ error: 'Missing Authorization header' }), 
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // 3. Initialize Supabase Client for User Validation (using ANON KEY)
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    )
-
-    // 4. Verify User (This checks if the JWT is valid and not expired)
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
-    
-    if (userError || !user) {
-      console.error('V3 Debug: Auth Validation Failed:', JSON.stringify(userError))
-      return new Response(
-        JSON.stringify({ error: 'Invalid or expired session', details: userError }),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
+    // 2. Validate Authorization Header & Verify User using requireAuth
+    const { user } = await requireAuth(req);
 
     // 5. Initialize Admin Client for Privileged Operations (Service Role)
     const adminClient = createClient(
@@ -458,6 +428,11 @@ Deno.serve(async (req) => {
 
   } catch (error: any) {
     console.error('Function Error:', error);
+    
+    if (error instanceof Response) {
+      return error
+    }
+
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 400

@@ -23,6 +23,7 @@ import {
 import { formatCurrency } from '@/utils/format';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { invokeEdgeFunction } from '@/services/apiClient';
 
 interface FinancialOverview {
   total_sales: number;
@@ -81,22 +82,9 @@ export default function AdminFinancial() {
       if (dateStart) queryParams.append('dateStart', dateStart);
       if (dateEnd) queryParams.append('dateEnd', dateEnd);
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-
-      if (!token) {
-        throw new Error('Sessão expirada ou inválida. Faça login novamente.');
-      }
-
-      const headers = {
-        Authorization: `Bearer ${token}`
-      };
-
       if (activeTab === 'overview') {
         queryParams.append('type', 'overview');
-        const { data, error } = await supabase.functions.invoke(`admin-financial-dashboard?${queryParams.toString()}`, {
-          headers
-        });
+        const { data, error } = await invokeEdgeFunction(`admin-financial-dashboard?${queryParams.toString()}`);
         if (error) throw error;
         
         // Map backend response to frontend interface
@@ -115,9 +103,7 @@ export default function AdminFinancial() {
         queryParams.append('pageSize', '20');
         if (statusFilter !== 'all') queryParams.append('status', statusFilter);
 
-        const { data, error } = await supabase.functions.invoke(`admin-financial-dashboard?${queryParams.toString()}`, {
-          headers
-        });
+        const { data, error } = await invokeEdgeFunction(`admin-financial-dashboard?${queryParams.toString()}`);
         if (error) throw error;
         
         // Map backend response to frontend interface
@@ -161,7 +147,7 @@ export default function AdminFinancial() {
     if (!paymentId) return;
     try {
         toast.loading('Conciliando pagamento...', { id: 'reconcile' });
-        const { data, error } = await supabase.functions.invoke(`admin-financial-dashboard?type=reconcile&id=${paymentId}`);
+        const { data, error } = await invokeEdgeFunction(`admin-financial-dashboard?type=reconcile&id=${paymentId}`);
         if (error) throw error;
         
         toast.dismiss('reconcile');

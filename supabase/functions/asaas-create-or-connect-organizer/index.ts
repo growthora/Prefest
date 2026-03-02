@@ -1,45 +1,25 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts'
+import { requireAuth } from '../_shared/requireAuth.ts'
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = getCorsHeaders(req);
 
   try {
     // 1. Authenticate User
-    const authHeader = req.headers.get('Authorization');
-    console.log(`[asaas-create-or-connect-organizer] Auth Header Present: ${!!authHeader}`);
-
-    if (!authHeader) {
-        return new Response(JSON.stringify({ error: 'Missing Authorization header' }), { status: 401, headers: corsHeaders })
-    }
-
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    )
+    const { user } = await requireAuth(req);
+    
+    console.log(`[asaas-create-or-connect-organizer] User Authenticated: ${user.id}`);
 
     const adminClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
-    
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
-    
-    if (authError || !user) {
-        console.error('[asaas-create-or-connect-organizer] Auth Error:', authError);
-        return new Response(JSON.stringify({ error: 'Unauthorized', details: authError }), { status: 401, headers: corsHeaders })
-    }
-    
-    console.log(`[asaas-create-or-connect-organizer] User Authenticated: ${user.id}`);
 
     const { name, email, cpfCnpj, mobilePhone, address, addressNumber, complement, province, postalCode } = await req.json()
 

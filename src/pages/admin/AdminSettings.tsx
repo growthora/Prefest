@@ -11,6 +11,7 @@ import { Settings, Shield, Bell, Globe, Mail, Save, Upload, Palette, CreditCard,
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { invokeEdgeFunction } from '@/services/apiClient';
 
 // Types
 interface SystemSettings {
@@ -208,7 +209,7 @@ export default function AdminSettings() {
   const handleTestSmtp = async () => {
     try {
       toast.loading('Testando conexão SMTP...');
-      const { data, error } = await supabase.functions.invoke('test-smtp-connection', {
+      const { data, error } = await invokeEdgeFunction('test-smtp-connection', {
         body: { 
             host: smtp.host, 
             port: smtp.port, 
@@ -268,7 +269,7 @@ export default function AdminSettings() {
       
       try {
         toast.loading('Validando credenciais Asaas...');
-        const { data, error } = await supabase.functions.invoke('validate-asaas-credentials', {
+        const { data, error } = await invokeEdgeFunction('validate-asaas-credentials', {
             body: { 
                 apiKey: apiKey, // Can be empty if we rely on stored
                 environment: env,

@@ -1,85 +1,25 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
+import { requireAuth } from '../_shared/requireAuth.ts';
+import { requireRole } from '../_shared/requireRole.ts';
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = getCorsHeaders(req);
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    
-    // Debug info to return in case of error
-    const debugInfo = {
-        hasAuthHeader: !!authHeader,
-        authHeaderPrefix: authHeader ? authHeader.substring(0, 15) + '...' : 'none',
-        supabaseUrl: !!Deno.env.get('SUPABASE_URL'),
-        supabaseAnonKey: !!Deno.env.get('SUPABASE_ANON_KEY'),
-    };
-
-    if (!authHeader) {
-      console.error('Missing Authorization header');
-      return new Response(JSON.stringify({ 
-          ok: false,
-          error: 'Missing Authorization header',
-          debug: debugInfo
-      }), {
-        status: 200, // Return 200 so frontend can parse JSON
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-
-    // Create client with user's token to verify auth
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
-    
-    if (userError || !user) {
-        console.error('Auth Error:', userError);
-        return new Response(JSON.stringify({ 
-            ok: false,
-            error: `Unauthorized: ${userError?.message || 'Invalid Token'}`,
-            debug: { ...debugInfo, authError: userError }
-        }), {
-            status: 200, // Return 200 so frontend can parse JSON
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-    }
-
-    // Use Service Role for Admin Check and RPC execution to ensure reliability
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
-
-    const { data: profile } = await adminClient
-      .from('profiles')
-      .select('role, roles')
-      .eq('id', user.id)
-      .single();
+    const { user, supabase: supabaseClient } = await requireAuth(req);
 
     // Check if user is admin (roles array only)
-    const isAdmin = Array.isArray(profile?.roles) && profile.roles.some((r: string) => r.toUpperCase() === 'ADMIN');
+    await requireRole(supabaseClient, user.id, ['ADMIN']);
 
-    if (!isAdmin) {
-      console.error('Forbidden: User is not admin', user.id);
-      return new Response(JSON.stringify({ 
-          ok: false,
-          error: 'Forbidden: Admins only',
-          debug: { userId: user.id, roles: profile?.roles }
-      }), { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      });
-    }
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+
+    // Use Service Role for sensitive operations
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
     let body;
     try {
@@ -89,7 +29,7 @@ Deno.serve(async (req) => {
             ok: false, 
             error: 'Invalid JSON body' 
         }), {
-            status: 200, 
+            status: 400, 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
     }

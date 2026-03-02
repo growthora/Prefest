@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { User } from '@supabase/supabase-js';
+import { invokeEdgeFunction } from '@/services/apiClient';
 
 export interface SignUpData {
   email: string;
@@ -169,7 +170,7 @@ class AuthService {
   // Completar cadastro (via Edge Function para garantir segurança e validação no servidor)
   async completeProfile(data: { cpf: string; phone: string; birth_date: string }) {
     // A função invoke envia automaticamente o token de autenticação no header Authorization
-    const { data: result, error } = await supabase.functions.invoke('complete-profile', {
+    const { data: result, error } = await invokeEdgeFunction('complete-profile', {
       body: data
     });
 

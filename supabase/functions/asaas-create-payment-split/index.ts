@@ -3,6 +3,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { guardSalesEnabled } from '@shared/guard_sales_enabled.ts'
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts'
+import { requireAuth } from '../_shared/requireAuth.ts'
 
 serve(async (req) => {
   const corsResponse = handleCors(req);
@@ -11,11 +12,7 @@ serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-    )
+    const { user } = await requireAuth(req);
 
     const adminClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',

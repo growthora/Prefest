@@ -1,9 +1,9 @@
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3"
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts'
+import { requireAuth } from "../_shared/requireAuth.ts"
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
@@ -11,23 +11,10 @@ serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
-    // 1. Verify User Authentication
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      throw new Error('Missing Authorization header')
-    }
-
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    })
-
-    const { data: { user }, error: authError } = await userClient.auth.getUser()
-    if (authError || !user) {
-      throw new Error('Invalid user token')
-    }
+    // 1. Verify User Authentication using requireAuth
+    const { user } = await requireAuth(req);
 
     const { confirmationText } = await req.json()
 
@@ -197,6 +184,11 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error('Delete account error:', error)
+    
+    if (error instanceof Response) {
+      return error
+    }
+
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

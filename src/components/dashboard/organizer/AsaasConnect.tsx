@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
+import { invokeEdgeFunction } from '@/services/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -86,7 +87,7 @@ export function AsaasConnect() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('asaas-start-relink-existing', {
+      const { data, error } = await invokeEdgeFunction('asaas-start-relink-existing', {
         body: { asaas_account_id: linkData.asaas_account_id }
       });
 
@@ -115,7 +116,7 @@ export function AsaasConnect() {
   const handleConfirmRelink = async () => {
     setSubmitting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('asaas-confirm-relink', {
+      const { data, error } = await invokeEdgeFunction('asaas-confirm-relink', {
         body: { 
             token: linkData.token,
             asaas_account_id: linkData.asaas_account_id
@@ -140,14 +141,7 @@ export function AsaasConnect() {
     setSubmitting(true);
 
     try {
-      // Get session directly to ensure valid token
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session) {
-        throw new Error('Sessão expirada ou inválida. Por favor, faça login novamente.');
-      }
-
-      const { data, error } = await supabase.functions.invoke('asaas-connect-organizer-v2', {
+      const { data, error } = await invokeEdgeFunction('asaas-connect-organizer-v2', {
         body: formData
       });
 
@@ -182,7 +176,7 @@ export function AsaasConnect() {
     if (!account) return;
     setSubmitting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('asaas-refresh-organizer-kyc-status', {
+      const { data, error } = await invokeEdgeFunction('asaas-refresh-organizer-kyc-status', {
         method: 'POST',
       });
 

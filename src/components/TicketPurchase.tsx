@@ -13,6 +13,7 @@ import { springPresets } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { couponService } from '@/services/coupon.service';
 import { toast } from 'sonner';
+import { invokeEdgeFunction } from '@/services/apiClient';
 import { TicketSelector } from './TicketSelector';
 import { MatchGuidelinesModal } from './MatchGuidelinesModal';
 import { CreditCardForm, CreditCardData } from './payment/CreditCardForm';
@@ -223,28 +224,12 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
       
       setIsProcessing(true);
       try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError || !session) {
-            toast.error('Você precisa estar logado.');
-            return;
-        }
-
-        // Refresh session to ensure valid token
-        const { data: { session: freshSession }, error: refreshError } = await supabase.auth.refreshSession();
-        if (refreshError) {
-             toast.error('Sessão expirada. Faça login novamente.');
-             return;
-        }
-        const currentSession = freshSession || session;
-
-        const { data, error } = await supabase.functions.invoke('init-ticket-checkout-v2', {
+        const { data, error } = await invokeEdgeFunction('init-ticket-checkout-v2', {
             body: { 
                 event_id: event.id,
                 ticket_type_id: selectedTicketTypeId,
                 quantity: 1 
-            },
-            headers: { Authorization: `Bearer ${currentSession.access_token}` }
+            }
         });
 
         if (error) throw error;
@@ -340,28 +325,12 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     try {
       setIsProcessing(true);
 
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session) {
-        toast.error('Você precisa estar logado para comprar ingressos.');
-        return;
-      }
-
-      // Refresh session to ensure valid token
-      const { data: { session: freshSession }, error: refreshError } = await supabase.auth.refreshSession();
-      if (refreshError) {
-         toast.error('Sessão expirada. Faça login novamente.');
-         return;
-      }
-      const currentSession = freshSession || session;
-
       if (total === 0) {
         // FREE FLOW
         // 1. Save Profile (if data exists in state)
         if (fullName && cpf && email && phone) {
-            const { error: profileError } = await supabase.functions.invoke('save-buyer-profile-v2', {
-                body: { full_name: fullName, cpf, phone, email },
-                headers: { Authorization: `Bearer ${currentSession.access_token}` }
+            const { error: profileError } = await invokeEdgeFunction('save-buyer-profile-v2', {
+                body: { full_name: fullName, cpf, phone, email }
             });
             if (profileError) {
                 console.error('Profile save error:', profileError);
@@ -372,13 +341,12 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         }
 
         // 2. Issue Ticket
-        const { error: ticketError } = await supabase.functions.invoke('issue-free-ticket-v2', {
+        const { error: ticketError } = await invokeEdgeFunction('issue-free-ticket-v2', {
             body: { 
                 event_id: event.id,
                 ticket_type_id: selectedTicketTypeId,
                 quantity: 1 
-            },
-            headers: { Authorization: `Bearer ${currentSession.access_token}` }
+            }
         });
 
         if (ticketError) throw ticketError;
@@ -395,9 +363,8 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
 
         // 1. Save Profile (Mandatory for Paid too)
         if (fullName && cpf && email && phone) {
-            const { error: profileError } = await supabase.functions.invoke('save-buyer-profile-v2', {
-                body: { full_name: fullName, cpf, phone, email },
-                headers: { Authorization: `Bearer ${currentSession.access_token}` }
+            const { error: profileError } = await invokeEdgeFunction('save-buyer-profile-v2', {
+                body: { full_name: fullName, cpf, phone, email }
             });
             if (profileError) {
                 console.warn('Profile save warning (paid):', profileError);
@@ -410,10 +377,9 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
             coupon_code: appliedCoupon ? appliedCoupon.code : undefined
         };
 
-        const { data, error } = await supabase.functions.invoke('asaas-create-ticket-payment-v3', {
+        const { data, error } = await invokeEdgeFunction('asaas-create-ticket-payment-v3', {
             body: payload,
             headers: { 
-                Authorization: `Bearer ${currentSession.access_token}`,
                 'Idempotency-Key': idempotencyKey
             }
         });

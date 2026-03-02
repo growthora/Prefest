@@ -30,6 +30,7 @@ const PublicProfile = lazy(() => import("./pages/PublicProfile"));
 const Chat = lazy(() => import("./pages/Chat"));
 const ChatMobile = lazy(() => import("./pages/mobile/ChatMobile"));
 const TicketScanner = lazy(() => import("./pages/TicketScanner"));
+const DebugAuth = lazy(() => import("./pages/DebugAuth"));
 // const AdminRoute = lazy(() => import("@/components/AdminRoute")); // Replaced by ProtectedRoute
 const AdminLayout = lazy(() => import("@/components/dashboard/AdminLayout"));
 const AdminOverview = lazy(() => import("@/pages/admin/AdminOverview"));
@@ -154,6 +155,7 @@ const AppRoutes = () => {
       <Route path={ROUTE_PATHS.EVENT_DETAILS} element={<EventDetails />} />
       <Route path={ROUTE_PATHS.PUBLIC_PROFILE} element={<PublicProfile />} />
       <Route path="/perfil/completar-cadastro" element={<CompleteProfile />} />
+      <Route path="/debug-auth" element={<DebugAuth />} />
       
       {/* Protected Routes */}
       <Route element={<ProtectedRoute />}>

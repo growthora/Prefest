@@ -1,16 +1,13 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, asaas-access-token',
-}
+import { getCorsHeaders, handleCors } from '../_shared/cors.ts'
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = getCorsHeaders(req);
 
   let adminClient;
   let eventLogId = null;
@@ -64,6 +61,24 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: 'Invalid payload' }), { status: 400, headers: corsHeaders })
     }
 
+    // Helper: Redact Sensitive Data
+    const redactPayload = (payload: any): any => {
+        if (!payload) return payload;
+        const sensitiveKeys = ['cpf', 'cpfCnpj', 'email', 'mobilePhone', 'phone', 'creditCard'];
+        const redacted = { ...payload };
+
+        for (const key in redacted) {
+            if (sensitiveKeys.includes(key)) {
+                redacted[key] = '***REDACTED***';
+            } else if (typeof redacted[key] === 'object' && redacted[key] !== null) {
+                redacted[key] = redactPayload(redacted[key]);
+            }
+        }
+        return redacted;
+    };
+
+    const cleanPayload = redactPayload(body);
+
     // 2.1 Log Integration Event (MANDATORY)
     try {
         const { data: eventLog, error: eventLogError } = await adminClient
@@ -72,10 +87,11 @@ serve(async (req) => {
                 provider: 'asaas',
                 external_event_id: body.id || `evt_${Date.now()}_${Math.random().toString(36).substring(7)}`,
                 event_type: event,
-                payload: body,
+                payload: cleanPayload,
                 received_at: new Date().toISOString(),
                 status: 'processing'
             })
+
             .select('id')
             .single();
             

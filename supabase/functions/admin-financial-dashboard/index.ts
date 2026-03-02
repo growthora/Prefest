@@ -1,118 +1,26 @@
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3"
-import { getCorsHeaders } from "../_shared/cors.ts"
+import { getCorsHeaders, handleCors } from "../_shared/cors.ts"
+import { requireAuth } from "../_shared/requireAuth.ts"
+import { requireRole } from "../_shared/requireRole.ts"
 
 Deno.serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req);
-  console.log(`[admin-financial-dashboard] Request received: ${req.method} ${req.url}`);
-  console.log(`[admin-financial-dashboard] Origin: ${req.headers.get('Origin')}`);
-
   // Handle CORS
-  if (req.method === 'OPTIONS') {
-    console.log('[admin-financial-dashboard] Handling OPTIONS request');
-    return new Response('ok', { headers: corsHeaders })
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
+
+  const corsHeaders = getCorsHeaders(req);
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    console.log(`[admin-financial-dashboard] Auth Header present: ${!!authHeader}`);
+    console.log(`[admin-financial-dashboard] Request received: ${req.method} ${req.url}`);
 
-    if (!authHeader) {
-      console.error('[admin-financial-dashboard] Missing Authorization header');
-      return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 401,
-      })
-    }
-
-    // Initialize Supabase Client with Service Role Key to validate user manually
-    // This avoids issues with global auth context in Edge Runtime
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { 
-        auth: {
-            persistSession: false,
-            autoRefreshToken: false,
-            detectSessionInUrl: false
-        }
-      }
-    )
-
-    // Initialize User Context Client (for RPC calls that rely on auth.uid())
-    const supabaseUser = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    )
-
-    // Verify User Token Manually
-    const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+    // 1. Authenticate & Authorize
+    const { user, supabase: supabaseUser } = await requireAuth(req);
     
-    
-    if (userError) {
-      console.error('[admin-financial-dashboard] Auth Error:', userError);
-    }
-    if (!user) {
-      console.error('[admin-financial-dashboard] No user found in session');
-    }
+    // 2. Check Role (Admin Only)
+    await requireRole(supabaseUser, user.id, ['ADMIN']);
 
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized', details: userError?.message }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 401,
-      })
-    }
-
-    console.log(`[admin-financial-dashboard] User authenticated: ${user.id} (${user.email})`);
-
-    // Explicit Admin Check via Direct DB Query (More robust than RPC with Service Role)
-    const { data: profile, error: profileError } = await supabaseAdmin
-        .from('profiles')
-        .select('id, roles, email')
-        .eq('id', user.id)
-        .single();
-
-    if (profileError) {
-        console.error('[admin-financial-dashboard] Profile fetch error:', profileError);
-    }
-    
-    if (profile) {
-        console.log(`[admin-financial-dashboard] Profile found: Roles=${JSON.stringify(profile.roles)}, Email=${profile.email}`);
-        console.log(`[admin-financial-dashboard] Roles type: ${typeof profile.roles}, Is Array: ${Array.isArray(profile.roles)}`);
-    } else {
-        console.error('[admin-financial-dashboard] No profile found for user ID:', user.id);
-    }
-
-    // Robust check for roles (handles array of strings or potential string parsing issues)
-    let roles = profile?.roles || [];
-    if (typeof roles === 'string') {
-        // Fallback for weird edge cases where postgres array returns as string
-        try {
-            roles = JSON.parse(roles);
-        } catch {
-            roles = (roles as string).replace(/[{}]/g, '').split(',');
-        }
-    }
-
-    const hasAdminRole = Array.isArray(roles) && roles.some((r: any) => String(r).trim().toUpperCase() === 'ADMIN');
-
-    if (profileError || !profile || !hasAdminRole) {
-         console.warn(`[admin-financial-dashboard] Access denied. User: ${user.email} (${user.id}), Roles found: ${JSON.stringify(roles)}`);
-         return new Response(JSON.stringify({ 
-            error: 'Forbidden: Admin access required',
-            debug: {
-                user_id: user.id,
-                user_email: user.email,
-                profile_roles: roles,
-                profile_found: !!profile,
-                roles_type: typeof profile?.roles
-            }
-         }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 403,
-         })
-    }
+    console.log(`[admin-financial-dashboard] User authenticated & authorized: ${user.id}`);
 
     // Parse URL params
     const url = new URL(req.url)
@@ -166,7 +74,7 @@ Deno.serve(async (req) => {
         const paymentId = url.searchParams.get('id');
         if (!paymentId) throw new Error('Payment ID required for reconciliation');
 
-        // Initialize Service Role Client for sensitive ops
+        // Initialize Service Role Client for sensitive ops (Asaas Config Access)
         const serviceClient = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -188,7 +96,7 @@ Deno.serve(async (req) => {
 
         const { secret_key, env } = config;
         const apiKey = secret_key;
-        const baseUrl = env === 'production' ? 'https://api.asaas.com/v3' : 'https://sandbox.asaas.com/api/v3';
+        const baseUrl = env === 'production' ? 'https://www.asaas.com/api/v3' : 'https://sandbox.asaas.com/api/v3';
 
         // 3. Call Asaas
         const asaasRes = await fetch(`${baseUrl}/payments/${payment.external_payment_id}`, {
@@ -199,47 +107,50 @@ Deno.serve(async (req) => {
             const errText = await asaasRes.text();
             throw new Error(`Asaas API Error: ${errText}`);
         }
-        const asaasPayment = await asaasRes.json();
-
-        // 4. Update DB
-        const newStatus = asaasPayment.status.toLowerCase(); 
         
-        // Map Asaas status to our simplified status
-        let dbStatus = newStatus;
-        if (['received', 'confirmed', 'received_in_cash'].includes(newStatus)) dbStatus = 'paid';
-        if (['refunded', 'refund_requested', 'chargeback_requested', 'chargeback_dispute'].includes(newStatus)) dbStatus = 'refunded';
+        const asaasData = await asaasRes.json();
         
-        // Update payments table
-        const { error: updateError } = await serviceClient
-            .from('payments')
-            .update({ 
-                status: dbStatus,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', paymentId);
-
-        if (updateError) throw updateError;
-
-        result = { 
-            success: true, 
-            old_status: payment.status, 
-            new_status: dbStatus, 
-            asaas_status: newStatus 
-        };
+        // 4. Update local payment status if different
+        if (asaasData.status && asaasData.status !== payment.status) {
+            const { error: updateError } = await serviceClient
+                .from('payments')
+                .update({ 
+                    status: asaasData.status,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', paymentId);
+            
+            if (updateError) throw updateError;
+            result = { reconciled: true, oldStatus: payment.status, newStatus: asaasData.status };
+        } else {
+            result = { reconciled: true, status: payment.status, message: 'Status already up to date' };
+        }
     } else {
-      throw new Error('Invalid type parameter. Use "overview", "payments", or "reconcile".')
+      throw new Error('Invalid type parameter')
     }
 
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
-    })
+    return new Response(
+      JSON.stringify(result),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200 
+      }
+    )
 
-  } catch (error) {
-    console.error('Error:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 400,
-    })
+  } catch (error: any) {
+    console.error(`[admin-financial-dashboard] Error:`, error);
+    
+    // Return specific status codes based on error type if possible, or 400/500
+    const status = error.message?.includes('Unauthorized') ? 401 
+                 : error.message?.includes('Access denied') ? 403
+                 : 400;
+
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: status
+      }
+    )
   }
 })
