@@ -109,10 +109,25 @@ const ChatMobileRoute = () => {
 };
 
 const AppRoutes = () => {
-  const { authStatus } = useAuth();
+  const { authStatus, isRecoveryMode } = useAuth();
+  const location = useLocation();
 
   if (authStatus === 'checking') {
     return <GlobalLoader />;
+  }
+
+  // Global Recovery Mode Guard
+  // If in recovery mode, user MUST stay on /reset-password or /auth/error
+  // Any other route access is blocked and redirected
+  if (isRecoveryMode) {
+    const allowedPaths = [ROUTE_PATHS.UPDATE_PASSWORD, ROUTE_PATHS.AUTH_ERROR];
+    // Check if current path starts with allowed paths (to handle query params or sub-routes if any)
+    // Actually exact match or base path match is safer.
+    const isAllowed = allowedPaths.some(path => location.pathname === path);
+    
+    if (!isAllowed) {
+      return <Navigate to={ROUTE_PATHS.UPDATE_PASSWORD} replace />;
+    }
   }
 
   return (

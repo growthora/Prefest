@@ -38,8 +38,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Check for recovery mode in session storage (persistence across reloads)
     const storedRecoveryMode = sessionStorage.getItem('auth_recovery_mode');
-    if (storedRecoveryMode === 'true') {
+    
+    // Also check URL hash for recovery type
+    const isRecoveryHash = window.location.hash.includes('type=recovery');
+    
+    if (storedRecoveryMode === 'true' || isRecoveryHash) {
       setIsRecoveryMode(true);
+      if (isRecoveryHash) {
+        sessionStorage.setItem('auth_recovery_mode', 'true');
+      }
     }
     
     // Carregar sessão inicial

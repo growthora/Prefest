@@ -14,7 +14,7 @@ import { translateAuthError } from '@/utils/authErrors';
 export const ResetPassword = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { isRecoveryMode, signOut } = useAuth();
+  const { isRecoveryMode, signOut, user } = useAuth();
   
   // State
   const [email, setEmail] = useState('');
@@ -52,21 +52,22 @@ export const ResetPassword = () => {
       return;
     }
 
-    if (!isRecoveryMode && !email) {
+    if (!user && !email) {
       setError('O email é obrigatório');
       setIsLoading(false);
       return;
     }
 
-    if (!isRecoveryMode && !token) {
+    if (!user && !token) {
       setError('O código de verificação é obrigatório');
       setIsLoading(false);
       return;
     }
 
     try {
-      if (!isRecoveryMode) {
-        // Step 1: Verify OTP (Manual Flow)
+      // If not logged in, we need to verify OTP first (Manual Flow)
+      if (!user) {
+        // Step 1: Verify OTP
         // This will log the user in if successful and set the session
         await authService.verifyOtp(email, token);
       }
@@ -143,7 +144,7 @@ export const ResetPassword = () => {
           </div>
           <CardTitle className="text-2xl text-center">Definir Nova Senha</CardTitle>
           <CardDescription className="text-center">
-            {isRecoveryMode 
+            {user 
               ? 'Digite sua nova senha abaixo.' 
               : 'Insira o código recebido por email e sua nova senha.'}
           </CardDescription>
@@ -156,7 +157,7 @@ export const ResetPassword = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {!isRecoveryMode && (
+            {!user && (
               <>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
