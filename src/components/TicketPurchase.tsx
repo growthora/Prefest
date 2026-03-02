@@ -830,7 +830,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
           Voltar
         </Button>
         <Button 
-          onClick={step === 'payment' ? handlePurchase : handleNextStep}
+          onClick={(step === 'payment' || step === 'free_confirmation') ? handlePurchase : handleNextStep}
           className={cn(
             "h-14 rounded-2xl font-bold text-lg transition-all",
             isParticipating 

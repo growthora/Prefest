@@ -36,12 +36,8 @@ Deno.serve(async (req) => {
       throw new Error('Profile not found');
     }
 
-    if (!profile.cpf || !profile.phone || !profile.birth_date) {
-      return new Response(JSON.stringify({ error: 'Dados incompletos. Por favor, complete seu cadastro.' }), {
-        status: 422,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // Removed strict profile validation to allow data collection in next step
+    // if (!profile.cpf || !profile.phone || !profile.birth_date) { ... }
 
     // 2. Fetch Event and Ticket Type
     const { data: event, error: eventError } = await adminClient
@@ -102,10 +98,10 @@ Deno.serve(async (req) => {
       });
 
     } else {
-      // FREE FLOW: Profile is already validated above
+      // FREE FLOW: Profile validation deferred to frontend step 2
       return new Response(JSON.stringify({ 
         type: "free", 
-        nextStep: "confirm",
+        nextStep: "personal_data", // Force data verification step
         amount: 0
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
