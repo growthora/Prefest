@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Settings, Shield, Bell, Globe, Mail, Save, Upload, Palette, CreditCard, Loader2 } from 'lucide-react';
+import { Bell, Globe, Mail, Save, CreditCard, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -60,7 +60,7 @@ interface Integration {
 export default function AdminSettings() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('general');
+  const [activeTab, setActiveTab] = useState('notifications');
 
   // State for settings
   const [system, setSystem] = useState<SystemSettings>({
@@ -181,29 +181,7 @@ export default function AdminSettings() {
     }
   };
 
-  // Upload Handler
-  const handleUpload = async (file: File, type: 'logo' | 'favicon') => {
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${type}-${Date.now()}.${fileExt}`;
-      const filePath = `${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('branding')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('branding')
-        .getPublicUrl(filePath);
-
-      setSystem(prev => ({ ...prev, [type === 'logo' ? 'logo_url' : 'favicon_url']: publicUrl }));
-      toast.success(`${type === 'logo' ? 'Logo' : 'Favicon'} enviado com sucesso!`);
-    } catch (error: any) {
-      toast.error(`Erro no upload: ${error.message}`);
-    }
-  };
 
   // Test SMTP
   const handleTestSmtp = async () => {
@@ -328,20 +306,8 @@ export default function AdminSettings() {
         </Button>
       </div>
 
-      <Tabs defaultValue="general" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 h-auto p-1 bg-muted/50 rounded-xl">
-          <TabsTrigger value="general" className="flex flex-col gap-2 py-3">
-            <Settings className="w-5 h-5" />
-            <span className="text-xs font-medium">Geral</span>
-          </TabsTrigger>
-          <TabsTrigger value="appearance" className="flex flex-col gap-2 py-3">
-            <Palette className="w-5 h-5" />
-            <span className="text-xs font-medium">Aparência</span>
-          </TabsTrigger>
-          <TabsTrigger value="security" className="flex flex-col gap-2 py-3">
-            <Shield className="w-5 h-5" />
-            <span className="text-xs font-medium">Segurança</span>
-          </TabsTrigger>
+      <Tabs defaultValue="notifications" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-2 h-auto p-1 bg-muted/50 rounded-xl">
           <TabsTrigger value="notifications" className="flex flex-col gap-2 py-3">
             <Bell className="w-5 h-5" />
             <span className="text-xs font-medium">Notificações</span>
@@ -354,158 +320,11 @@ export default function AdminSettings() {
 
         <motion.div variants={itemVariants} key={activeTab}>
           
-          <TabsContent value="general" className="space-y-6 mt-0">
-             <Card>
-              <CardHeader>
-                <CardTitle>Informações do Sistema</CardTitle>
-                <CardDescription>Configurações gerais da plataforma.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                 <div className="space-y-2">
-                    <Label>URL do Favicon (Upload na aba Aparência)</Label>
-                    <Input disabled value={system.favicon_url || 'Não configurado'} />
-                 </div>
-                 <div className="space-y-2">
-                    <Label>URL do Logo (Upload na aba Aparência)</Label>
-                    <Input disabled value={system.logo_url || 'Não configurado'} />
-                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
-          <TabsContent value="appearance" className="space-y-6 mt-0">
-            <Card>
-              <CardHeader>
-                <CardTitle>Personalização Visual</CardTitle>
-                <CardDescription>Altere a aparência e identidade visual do painel.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Tema Padrão</Label>
-                    <Select value={system.theme_mode} onValueChange={(v: any) => setSystem({...system, theme_mode: v})}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="light">Claro</SelectItem>
-                        <SelectItem value="dark">Escuro</SelectItem>
-                        <SelectItem value="system">Sistema</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Cor Primária</Label>
-                    <div className="flex items-center gap-2">
-                      <Input 
-                        type="color" 
-                        value={system.primary_color} 
-                        onChange={(e) => setSystem({...system, primary_color: e.target.value})}
-                        className="w-12 h-12 p-1 rounded-md"
-                      />
-                      <Input 
-                        value={system.primary_color} 
-                        onChange={(e) => setSystem({...system, primary_color: e.target.value})}
-                        className="flex-1"
-                      />
-                    </div>
-                  </div>
-                </div>
-                <Separator />
-                <div className="space-y-4">
-                  <Label>Logotipo e Favicon</Label>
-                  <div className="flex flex-col sm:flex-row gap-6">
-                    <div className="flex-1 space-y-2">
-                      <Label className="text-xs text-muted-foreground">Logo Principal</Label>
-                      <div className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center gap-2 hover:bg-accent/50 transition-colors cursor-pointer h-[150px] relative">
-                         <input 
-                           type="file" 
-                           accept="image/*" 
-                           className="absolute inset-0 opacity-0 cursor-pointer"
-                           onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0], 'logo')}
-                         />
-                        {system.logo_url ? (
-                            <img src={system.logo_url} alt="Logo" className="h-full object-contain" />
-                        ) : (
-                            <>
-                                <Upload className="h-6 w-6 text-muted-foreground" />
-                                <span className="text-sm text-muted-foreground">Clique para enviar</span>
-                            </>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex-1 space-y-2">
-                      <Label className="text-xs text-muted-foreground">Favicon</Label>
-                      <div className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center gap-2 hover:bg-accent/50 transition-colors cursor-pointer h-[150px] relative">
-                        <input 
-                           type="file" 
-                           accept="image/*" 
-                           className="absolute inset-0 opacity-0 cursor-pointer"
-                           onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0], 'favicon')}
-                         />
-                        {system.favicon_url ? (
-                            <img src={system.favicon_url} alt="Favicon" className="h-10 w-10 object-contain" />
-                        ) : (
-                            <>
-                                <Upload className="h-6 w-6 text-muted-foreground" />
-                                <span className="text-sm text-muted-foreground">Clique para enviar</span>
-                            </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
-          <TabsContent value="security" className="space-y-6 mt-0">
-            <Card>
-              <CardHeader>
-                <CardTitle>Segurança e Acesso</CardTitle>
-                <CardDescription>Configurações de segurança para administradores e usuários.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between space-x-2 border p-4 rounded-lg">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Autenticação de Dois Fatores (2FA)</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Exigir 2FA para todos os administradores
-                    </p>
-                  </div>
-                  <Switch 
-                    checked={system.require_2fa_admin}
-                    onCheckedChange={(c) => setSystem({...system, require_2fa_admin: c})}
-                  />
-                </div>
-                <div className="flex items-center justify-between space-x-2 border p-4 rounded-lg">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">Monitoramento de Login</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Alertar sobre logins suspeitos
-                    </p>
-                  </div>
-                  <Switch 
-                    checked={system.login_monitoring}
-                    onCheckedChange={(c) => setSystem({...system, login_monitoring: c})}
-                  />
-                </div>
-                <div className="space-y-2 pt-4">
-                  <Label>Política de Senha</Label>
-                  <Select value={system.password_policy} onValueChange={(v: any) => setSystem({...system, password_policy: v})}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="weak">Fraca (Min 6 caracteres)</SelectItem>
-                      <SelectItem value="medium">Média (Min 8 caracteres)</SelectItem>
-                      <SelectItem value="strong">Forte (Min 12 caracteres + símbolos)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+
+
+
 
           <TabsContent value="notifications" className="space-y-6 mt-0">
             <Card>
