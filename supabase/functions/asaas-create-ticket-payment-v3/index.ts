@@ -160,6 +160,32 @@ Deno.serve(async (req) => {
         appliedCouponId = coupon.id;
         
         console.log(`V3: Coupon Applied: ${coupon.code} - Discount: ${discountAmount} - Final: ${finalPrice}`);
+
+        // NEW: Increment Coupon Usage immediately (Requirement: Count usage even if payment is not finalized)
+        // Check if this coupon was not already applied to this ticket to avoid double counting on retries
+        if (ticket.coupon_id !== coupon.id) {
+            const { error: usageError } = await adminClient
+                .from('coupon_usage')
+                .insert({
+                    coupon_id: coupon.id,
+                    user_id: user.id,
+                    event_id: ticket.event_id, 
+                    discount_applied: discountAmount
+                });
+
+            if (usageError) {
+                 console.error('Failed to log coupon usage:', usageError);
+            } else {
+                 // Increment count on coupons table
+                 const { error: incrementError } = await adminClient
+                    .from('coupons')
+                    .update({ current_uses: (coupon.current_uses || 0) + 1 })
+                    .eq('id', coupon.id);
+                    
+                 if (incrementError) console.error('Failed to increment coupon count:', incrementError);
+            }
+        }
+
     } else {
         // Reset if no coupon provided (ensure clean state)
         finalPrice = basePrice + serviceFee;

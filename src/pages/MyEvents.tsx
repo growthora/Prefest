@@ -6,7 +6,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Calendar, MapPin, Ticket, Heart, Clock, History } from 'lucide-react';
+import { Calendar, MapPin, Ticket, Heart, Clock, History, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { GlobalLoader } from '@/components/GlobalLoader';
@@ -66,7 +66,7 @@ const EventCard = ({ ticket, isPast = false, navigate }: { ticket: TicketWithEve
               </div>
           </CardContent>
           
-          <CardFooter className="p-4 pt-0 grid grid-cols-2 gap-3">
+          <CardFooter className="p-4 pt-0 grid grid-cols-2 md:grid-cols-1 gap-3">
               <Button 
                 variant="outline" 
                 className="w-full hover:bg-secondary/50" 
@@ -76,7 +76,7 @@ const EventCard = ({ ticket, isPast = false, navigate }: { ticket: TicketWithEve
                   Ver Ingresso
               </Button>
               <Button 
-                className="w-full bg-primary hover:bg-primary/90" 
+                className="w-full bg-primary hover:bg-primary/90 md:hidden" 
                 onClick={() => navigate(`/eventos/${event.id}/matchs`)}
               >
                   <Heart className="mr-2 h-4 w-4 fill-current" />
@@ -133,7 +133,12 @@ export default function MyEvents() {
 
   return (
     <div className="container max-w-md mx-auto p-4 pb-24 min-h-screen">
-      <h1 className="text-2xl font-bold mb-6 px-1">Meus Eventos</h1>
+      <div className="flex items-center gap-2 mb-6">
+        <Button variant="ghost" size="icon" className="-ml-2 h-10 w-10 rounded-full" onClick={() => navigate('/')}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-2xl font-bold">Meus Eventos</h1>
+      </div>
       
       {uniqueTickets.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">

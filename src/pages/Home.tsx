@@ -108,7 +108,9 @@ const Home = () => {
           <div>
             <div className="flex justify-between items-end mb-8 border-b border-gray-100 pb-4">
               <h2 className="text-2xl md:text-3xl font-bold text-gray-800">Explore nossas coleções</h2>
-              <Button variant="link" className="text-primary font-bold hover:no-underline hover:opacity-80">Ver tudo</Button>
+              <Link to="/categorias">
+                <Button variant="link" className="text-primary font-bold hover:no-underline hover:opacity-80">Ver tudo</Button>
+              </Link>
             </div>
             
             <Carousel
@@ -269,7 +271,7 @@ const Home = () => {
                 className="w-full"
               >
                 <CarouselContent className="-ml-4 pb-4">
-                  {events.slice(4, 12).map((event) => (
+                  {events.map((event) => (
                     <CarouselItem key={event.id} className="pl-4 basis-[280px] md:basis-[320px] lg:basis-[350px]">
                        {/* Reusing the same card structure for consistency */}
                        <div className="h-full transform transition-transform hover:-translate-y-1 duration-300">
