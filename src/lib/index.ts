@@ -111,6 +111,33 @@ export interface Event {
   isLiked?: boolean;
 }
 
+export interface Match {
+  id: string;
+  eventId: string;
+  userIds: string[];
+  status: 'active' | 'inactive';
+  createdAt: string;
+  expiresAt: string;
+  partner: {
+    id: string;
+    name: string;
+    photo: string;
+  };
+}
+
+export interface Message {
+  id: string;
+  matchId: string;
+  senderId: string;
+  content: string;
+  timestamp: string;
+  read: boolean;
+}
+
+export const APP_CONFIG = {
+  primaryColor: '#FF007F', // Social Spark Pink
+};
+
 // Configuração global de provedor de email para autenticação
 // SUPABASE: Usa o serviço nativo do Supabase Auth (RECOMENDADO/OBRIGATÓRIO)
 // CUSTOM: Usa SMTP do banco via Edge Functions (PROIBIDO para Auth)
