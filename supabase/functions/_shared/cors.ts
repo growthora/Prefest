@@ -10,6 +10,8 @@ const ALLOWED_ORIGINS = [
   'http://localhost:8080',
   'http://127.0.0.1:3000',
   'http://127.0.0.1:8080',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
 ];
 
 // Regex for Vercel preview deployments and production
@@ -17,6 +19,8 @@ const ALLOWED_ORIGIN_PATTERNS = [
   /^https:\/\/.*-prefrest-frontend\.vercel\.app$/, // Preview deployments
   /^https:\/\/prefrest-frontend\.vercel\.app$/,     // Production
   /^https:\/\/.*\.supabase\.co$/,                   // Supabase (if needed)
+  /^http:\/\/localhost:\d+$/,                       // Any localhost port
+  /^http:\/\/127\.0\.0\.1:\d+$/,                    // Any 127.0.0.1 port
 ];
 
 export const getCorsHeaders = (req: Request) => {
