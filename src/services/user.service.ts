@@ -10,7 +10,7 @@ export interface CreateUserData {
   email: string;
   password: string;
   full_name: string;
-  role?: 'user' | 'admin' | 'equipe';
+  roles?: string[];
 }
 
 export interface UpdateUserData {
@@ -18,7 +18,7 @@ export interface UpdateUserData {
   bio?: string;
   city?: string;
   avatar_url?: string;
-  role?: 'user' | 'admin' | 'equipe';
+  roles?: string[];
   single_mode?: boolean;
   match_enabled?: boolean;
   show_initials_only?: boolean;
@@ -168,11 +168,11 @@ class UserService {
     // Aguardar criação do perfil via trigger
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Atualizar role se necessário
-    if (userData.role && userData.role !== 'user' && authData.user) {
+    // Atualizar roles se necessário
+    if (userData.roles && userData.roles.length > 0 && authData.user) {
       const { data: profile, error: updateError } = await supabase
         .from('profiles')
-        .update({ role: userData.role })
+        .update({ roles: userData.roles })
         .eq('id', authData.user.id)
         .select()
         .single();

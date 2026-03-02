@@ -22,6 +22,9 @@ import { supabase } from '@/lib/supabase';
 import { Honeypot } from './security/Honeypot';
 import { useSensitiveDataProtection } from '@/hooks/useSensitiveDataProtection';
 
+import { Skeleton } from '@/components/ui/skeleton';
+import { useNavigate } from 'react-router-dom';
+
 interface SingleModeToggleProps {
   enabled: boolean;
   onToggle: (val: boolean) => void;
@@ -112,10 +115,11 @@ interface TicketPurchaseProps {
 type CheckoutStep = 'select_ticket_type' | 'personal_data' | 'payment' | 'free_confirmation';
 
 export function TicketPurchase({ event, onPurchase, isParticipating = false }: TicketPurchaseProps) {
-  const { profile, user } = useAuth();
+  const { profile, user, isLoading: isAuthLoading } = useAuth();
+  const navigate = useNavigate();
   const [step, setStep] = useState<CheckoutStep>('select_ticket_type');
   const [ticketId, setTicketId] = useState<string | null>(null);
-  const [singleMode, setSingleMode] = useState(profile?.single_mode || false);
+  const [singleMode, setSingleMode] = useState(false);
   const [showMatchGuidelines, setShowMatchGuidelines] = useState(false);
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -124,11 +128,31 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   const [selectedTicketTypeId, setSelectedTicketTypeId] = useState<string>();
   const [selectedTicketType, setSelectedTicketType] = useState<TicketTypeDB>();
-  const [fullName, setFullName] = useState(profile?.full_name || '');
-  const [cpf, setCpf] = useState('');
-  const [email, setEmail] = useState(profile?.email || '');
-  const [phone, setPhone] = useState('');
-  const [age, setAge] = useState('');
+  
+  // Calculate age from profile birth_date
+  const calculateAge = (birthDate?: string | null) => {
+    if (!birthDate) return '';
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age.toString();
+  };
+
+  const fullName = profile?.full_name || '';
+  const cpf = profile?.cpf || '';
+  const email = profile?.email || '';
+  const phone = profile?.phone || '';
+  const age = calculateAge(profile?.birth_date);
+
+  React.useEffect(() => {
+    if (profile?.single_mode !== undefined) {
+      setSingleMode(profile.single_mode);
+    }
+  }, [profile?.single_mode]);
 
   React.useEffect(() => {
     if (age && parseInt(age) < 18) {
@@ -153,7 +177,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     setSingleMode(true);
     toast.success("Modo Match ativado!");
   };
-  const [gender, setGender] = useState('');
+
   const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'BOLETO'>('PIX');
   const [hasAvailableTicketTypes, setHasAvailableTicketTypes] = useState<boolean | null>(null);
   
@@ -179,17 +203,15 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   };
 
   const hasValidPersonalData = () => {
-    if (!fullName.trim() || !cpf.trim() || !email.trim() || !phone.trim() || !age.trim()) {
-      toast.error('Preencha todos os dados obrigatórios para continuar');
+    // Check if profile data is present (since fields are read-only)
+    if (!profile?.full_name || !profile?.cpf || !profile?.phone || !profile?.birth_date) {
       return false;
     }
-
-    if (cpf.replace(/\D/g, '').length !== 11) {
-      toast.error('CPF inválido');
-      return false;
-    }
-
     return true;
+  };
+
+  const handleRedirectToProfile = () => {
+    navigate('/perfil/completar-cadastro');
   };
 
   const handleNextStep = async () => {
@@ -244,6 +266,12 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         if (errorMessage && (errorMessage.includes('Invalid JWT') || errorMessage.includes('401'))) {
             errorMessage = 'Sessão inválida. Tente fazer login novamente.';
         }
+        // If profile is incomplete, the backend might return specific error
+        if (errorMessage.includes('Dados incompletos') || errorMessage.includes('Profile incomplete')) {
+            toast.error('Seu cadastro está incompleto. Redirecionando...');
+            setTimeout(() => navigate('/perfil/completar-cadastro'), 1500);
+            return;
+        }
         toast.error(errorMessage);
       } finally {
         setIsProcessing(false);
@@ -253,6 +281,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
 
     if (step === 'personal_data') {
       if (!hasValidPersonalData()) {
+        toast.error('Seu cadastro está incompleto. Por favor, complete seu perfil.');
         return;
       }
       
@@ -539,68 +568,91 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
 
         {step === 'personal_data' && (
           <div className="space-y-4">
-            <div className="space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-widest">Dados pessoais</span>
-              <p className="text-xs text-muted-foreground">
-                Preencha seus dados para emitir o ingresso e o comprovante de pagamento.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-widest">Nome completo *</Label>
-                <Input
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Nome e sobrenome"
-                />
+            {isAuthLoading ? (
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-48" />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="space-y-2">
+                      <Skeleton className="h-3 w-24" />
+                      <Skeleton className="h-10 w-full" />
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-widest">CPF *</Label>
-                <Input
-                  value={cpf}
-                  onChange={(e) => setCpf(e.target.value)}
-                  placeholder="Somente números"
-                  inputMode="numeric"
-                  maxLength={14}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-widest">E-mail *</Label>
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="seuemail@exemplo.com"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-widest">Telefone *</Label>
-                <Input
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="(11) 99999-9999"
-                  inputMode="tel"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-widest">Idade *</Label>
-                <Input
-                  value={age}
-                  onChange={(e) => setAge(e.target.value.replace(/\D/g, ''))}
-                  placeholder="Idade"
-                  inputMode="numeric"
-                  maxLength={3}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-widest">Gênero (opcional)</Label>
-                <Input
-                  value={gender}
-                  onChange={(e) => setGender(e.target.value)}
-                  placeholder="Como você se identifica"
-                />
-              </div>
-            </div>
+            ) : (
+              <>
+                {!hasValidPersonalData() && (
+                    <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 mb-4">
+                        <h4 className="text-sm font-bold text-destructive flex items-center gap-2">
+                            <Info className="w-4 h-4" /> Cadastro Incompleto
+                        </h4>
+                        <p className="text-xs text-muted-foreground mt-1 mb-3">
+                            Para continuar a compra, você precisa completar seus dados pessoais (CPF, Telefone, Data de Nascimento).
+                        </p>
+                        <Button 
+                            variant="destructive" 
+                            size="sm" 
+                            onClick={handleRedirectToProfile}
+                            className="w-full sm:w-auto"
+                        >
+                            Completar Cadastro
+                        </Button>
+                    </div>
+                )}
+                <div className="space-y-2">
+                <span className="text-xs font-semibold uppercase tracking-widest">Dados pessoais</span>
+                <p className="text-xs text-muted-foreground">
+                    Confira seus dados para emissão do ingresso.
+                </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold uppercase tracking-widest">Nome completo</Label>
+                    <Input
+                    value={fullName}
+                    readOnly
+                    className="bg-muted/50 cursor-not-allowed"
+                    />
+                </div>
+                <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold uppercase tracking-widest">CPF</Label>
+                    <Input
+                    value={cpf}
+                    readOnly
+                    className="bg-muted/50 cursor-not-allowed"
+                    />
+                </div>
+                <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold uppercase tracking-widest">E-mail</Label>
+                    <Input
+                    value={email}
+                    readOnly
+                    className="bg-muted/50 cursor-not-allowed"
+                    />
+                </div>
+                <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold uppercase tracking-widest">Telefone</Label>
+                    <Input
+                    value={phone}
+                    readOnly
+                    className="bg-muted/50 cursor-not-allowed"
+                    />
+                </div>
+                <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold uppercase tracking-widest">Idade</Label>
+                    <Input
+                    value={age}
+                    readOnly
+                    className="bg-muted/50 cursor-not-allowed"
+                    />
+                </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 

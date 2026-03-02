@@ -48,7 +48,8 @@ export function CreateEventModal({ trigger }: CreateEventModalProps) {
     navigate(ROUTE_PATHS.ORGANIZER_PAYMENTS);
   };
 
-  const isOrganizer = profile?.roles?.includes('ORGANIZER') || profile?.role === 'admin';
+  const isOrganizer = profile?.roles?.some(r => ['ORGANIZER', 'ADMIN'].includes(r.toUpperCase())) ?? false;
+  const isAdmin = profile?.roles?.some(r => r.toUpperCase() === 'ADMIN') ?? false;
   const organizerStatus = profile?.organizer_status || 'NONE';
 
   const renderContent = () => {
@@ -74,7 +75,7 @@ export function CreateEventModal({ trigger }: CreateEventModalProps) {
     }
 
     // Se é admin ou organizador aprovado
-    if (profile?.role === 'admin' || (isOrganizer && organizerStatus === 'APPROVED')) {
+    if (isAdmin || (isOrganizer && organizerStatus === 'APPROVED')) {
       // Verificar status do Asaas
       if (asaasStatus !== 'approved' && !statusLoading) {
         return (

@@ -44,17 +44,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('📦 Sessão obtida:', session?.user?.email || 'nenhuma');
         
         if (session?.user) {
-          setUser(session.user);
-          // Buscar perfil em paralelo se possível, ou sequencial
+          // Validar o token com getUser() para garantir que não está expirado/inválido
           try {
-            const userProfile = await authService.getProfile(session.user.id);
-            console.log('👤 Perfil obtido:', userProfile?.email);
-            setProfile(userProfile);
-          } catch (profileError) {
-            console.error('❌ Erro ao buscar perfil:', profileError);
-            // Mesmo sem perfil, o usuário está autenticado no Supabase
+            const user = await authService.getCurrentUser();
+            if (!user) throw new Error('Token inválido ou expirado');
+            
+            setUser(user);
+            
+            // Buscar perfil em paralelo se possível, ou sequencial
+            try {
+              const userProfile = await authService.getProfile(user.id);
+              console.log('👤 Perfil obtido:', userProfile?.email);
+              setProfile(userProfile);
+            } catch (profileError: any) {
+              console.error('❌ Erro ao buscar perfil:', profileError);
+              
+              // Se o erro for de autenticação (401/403), o token é inválido para o banco
+              if (profileError?.code === 'PGRST301' || profileError?.message?.includes('JWT') || profileError?.status === 401) {
+                 console.warn('⚠️ Token inválido detectado ao buscar perfil. Forçando logout.');
+                 await authService.signOut();
+                 setUser(null);
+                 setProfile(null);
+                 setAuthStatus('unauthenticated');
+                 return;
+              }
+              // Outros erros (ex: perfil não existe) não invalidam a sessão
+            }
+            setAuthStatus('authenticated');
+          } catch (validationError) {
+            console.warn('⚠️ Sessão inválida detectada:', validationError);
+            await authService.signOut();
+            setUser(null);
+            setProfile(null);
+            setAuthStatus('unauthenticated');
           }
-          setAuthStatus('authenticated');
         } else {
           setAuthStatus('unauthenticated');
         }
@@ -225,7 +248,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profile,
         authStatus,
         isAuthenticated: !!user,
-        isAdmin: profile?.role === 'admin',
+        isAdmin: profile?.roles?.some(r => r.toUpperCase() === 'ADMIN') ?? false,
         isEmailConfirmed: !!user?.email_confirmed_at,
         isLoading,
         error,

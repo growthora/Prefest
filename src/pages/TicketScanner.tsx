@@ -68,11 +68,7 @@ export default function TicketScanner() {
     if (!profile) return;
     
     const hasPermission = 
-      profile.roles?.includes('ORGANIZER') || 
-      profile.roles?.includes('ADMIN') || 
-      profile.roles?.includes('STAFF') ||
-      profile.role === 'admin' ||
-      profile.role === 'equipe';
+      profile.roles?.some(r => ['ORGANIZER', 'ADMIN', 'STAFF', 'FINANCEIRO'].includes(r.toUpperCase())) ?? false;
 
     if (!hasPermission) {
       toast.error('Acesso negado. Apenas organizadores e equipe podem acessar o scanner.');

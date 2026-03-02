@@ -37,7 +37,25 @@ Deno.serve(async (req) => {
     // Use admin client for data access
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 1. Fetch Event and Ticket Type
+    // 1. Fetch User Profile and Validate Data
+    const { data: profile, error: profileError } = await adminClient
+      .from('profiles')
+      .select('cpf, phone, birth_date')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      throw new Error('Profile not found');
+    }
+
+    if (!profile.cpf || !profile.phone || !profile.birth_date) {
+      return new Response(JSON.stringify({ error: 'Dados incompletos. Por favor, complete seu cadastro.' }), {
+        status: 422,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // 2. Fetch Event and Ticket Type
     const { data: event, error: eventError } = await adminClient
       .from('events')
       .select('*')
@@ -54,12 +72,12 @@ Deno.serve(async (req) => {
 
     if (ticketError || !ticketType) throw new Error('Ticket type not found');
 
-    // 2. Validate Quantity
+    // 3. Validate Quantity
     if (ticketType.quantity_available - ticketType.quantity_sold < quantity) {
       throw new Error('Ingressos esgotados para este tipo');
     }
 
-    // 3. Calculate Price
+    // 4. Calculate Price
     const unitPrice = Number(ticketType.price);
     const totalPrice = Number((unitPrice * quantity).toFixed(2));
     const isFree = totalPrice === 0;
@@ -96,18 +114,10 @@ Deno.serve(async (req) => {
       });
 
     } else {
-      // FREE FLOW: Check profile existence
-      const { data: profile } = await adminClient
-        .from('buyer_profiles')
-        .select('user_id')
-        .eq('user_id', user.id)
-        .single();
-
-      const hasProfile = !!profile;
-
+      // FREE FLOW: Profile is already validated above
       return new Response(JSON.stringify({ 
         type: "free", 
-        nextStep: hasProfile ? "confirm" : "collect_personal_data",
+        nextStep: "confirm",
         amount: 0
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

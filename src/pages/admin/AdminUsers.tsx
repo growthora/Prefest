@@ -24,14 +24,14 @@ export default function AdminUsers() {
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
   
-  const [newUser, setNewUser] = useState<CreateUserData>({
+  const [newUser, setNewUser] = useState<CreateUserData & { role: 'user' | 'admin' | 'equipe' }>({
     email: '',
     password: '',
     full_name: '',
     role: 'user',
   });
 
-  const [userUpdate, setUserUpdate] = useState<UpdateUserData>({});
+  const [userUpdate, setUserUpdate] = useState<UpdateUserData & { role?: 'user' | 'admin' | 'equipe' }>({});
 
   useEffect(() => {
     loadUsers();
@@ -49,12 +49,31 @@ export default function AdminUsers() {
     }
   };
 
+  const getRolesFromRole = (role: 'user' | 'admin' | 'equipe'): string[] => {
+    switch (role) {
+      case 'admin': return ['BUYER', 'ADMIN'];
+      case 'equipe': return ['BUYER', 'FINANCEIRO'];
+      default: return ['BUYER'];
+    }
+  };
+
+  const getRoleFromRoles = (roles: string[] | undefined): 'user' | 'admin' | 'equipe' => {
+    if (!roles) return 'user';
+    const upperRoles = roles.map(r => r.toUpperCase());
+    if (upperRoles.includes('ADMIN')) return 'admin';
+    if (upperRoles.includes('FINANCEIRO')) return 'equipe';
+    return 'user';
+  };
+
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
       setIsLoading(true);
-      await userService.createUser(newUser);
+      await userService.createUser({
+        ...newUser,
+        roles: getRolesFromRole(newUser.role)
+      });
       toast.success('Usuário criado com sucesso!');
       setIsCreateUserDialogOpen(false);
       setNewUser({
@@ -77,8 +96,20 @@ export default function AdminUsers() {
 
     try {
       setIsLoading(true);
-      await userService.updateUser(editingUser.id, userUpdate);
-      toast.success('Usuário atualizado com sucesso!');
+      
+      const updateData: UpdateUserData = {
+        full_name: userUpdate.full_name,
+        bio: userUpdate.bio,
+        avatar_url: userUpdate.avatar_url,
+        single_mode: userUpdate.single_mode,
+      };
+
+      if (userUpdate.role) {
+        updateData.roles = getRolesFromRole(userUpdate.role);
+      }
+
+      await userService.updateUser(editingUser.id, updateData);
+      toast.success('Usuário atualizado! Se estiver logado, peça para relogar para aplicar as permissões.');
       setIsEditUserDialogOpen(false);
       setEditingUser(null);
       setUserUpdate({});
@@ -116,7 +147,7 @@ export default function AdminUsers() {
       full_name: user.full_name || '',
       bio: user.bio || '',
       avatar_url: user.avatar_url || '',
-      role: user.role,
+      role: getRoleFromRoles(user.roles),
       single_mode: user.single_mode,
       show_initials_only: user.show_initials_only,
     });
@@ -300,9 +331,14 @@ export default function AdminUsers() {
               <Card className="h-full overflow-hidden hover:shadow-xl transition-all duration-300 border-l-4 border-l-primary/20 hover:border-l-primary">
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-start">
-                    <Badge variant={user.role === 'admin' ? 'default' : user.role === 'equipe' ? 'secondary' : 'outline'} className="mb-2">
-                      {user.role === 'admin' ? 'Administrador' : user.role === 'equipe' ? 'Equipe' : 'Usuário'}
-                    </Badge>
+                    {(() => {
+                      const role = getRoleFromRoles(user.roles);
+                      return (
+                        <Badge variant={role === 'admin' ? 'default' : role === 'equipe' ? 'secondary' : 'outline'} className="mb-2">
+                          {role === 'admin' ? 'Administrador' : role === 'equipe' ? 'Equipe' : 'Usuário'}
+                        </Badge>
+                      );
+                    })()}
                     <div className="flex gap-1">
                       <Button
                         variant="ghost"

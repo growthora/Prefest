@@ -1,14 +1,13 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3"
+import { getCorsHeaders } from "../_shared/cors.ts"
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import { getCorsHeaders, handleCors } from '../_shared/cors.ts'
-
-serve(async (req) => {
+Deno.serve(async (req) => {
   // 1. Handle CORS (Strictly first)
-  const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: getCorsHeaders(req) })
+  }
 
-  const corsHeaders = getCorsHeaders(req);
+  const corsHeaders = getCorsHeaders(req)
 
   try {
     // 2. Validate Authorization Header
@@ -58,9 +57,11 @@ serve(async (req) => {
     });
 
     if (rateLimitError) {
-        console.error('Rate Limit Check Error:', rateLimitError);
-        // Fail closed for security
-        throw new Error('System busy, please try again later.');
+      console.error('Rate Limit Check Error:', rateLimitError);
+      // Fail closed for security but allow if function missing (dev)
+      if (rateLimitError.code !== 'PGRST202') { // Function not found
+         throw new Error('System busy, please try again later.');
+      }
     }
 
     if (isAllowed === false) {
@@ -181,11 +182,11 @@ serve(async (req) => {
     ticket.total_price = finalPrice;
 
     // 8. Fetch Creator Profile (for name/cpf fallback)
-    const { data: creatorProfile, error: creatorError } = await adminClient
-      .from('profiles')
-      .select('full_name, cpf')
-      .eq('id', ticket.events.creator_id)
-      .single();
+    // const { data: creatorProfile } = await adminClient
+    //   .from('profiles')
+    //   .select('full_name, cpf')
+    //   .eq('id', ticket.events.creator_id)
+    //   .single();
 
     // 8.1 Fetch Buyer Profile (Primary source for CPF)
     const { data: buyerProfile } = await adminClient
@@ -195,8 +196,7 @@ serve(async (req) => {
       .single();
 
     console.log(`V3: Buyer Profile: ${user.id} - CPF: ${buyerProfile?.cpf ? '***' : 'MISSING'} - Asaas ID: ${buyerProfile?.asaas_customer_id}`);
-    console.log(`V3: Creator Profile: ${ticket.events.creator_id}`);
-
+    
     // 9. Get Asaas Config
     const { data: config, error: configError } = await adminClient
       .rpc('get_decrypted_asaas_config')
@@ -207,7 +207,7 @@ serve(async (req) => {
     }
 
     const { api_key: apiKey, env, wallet_id: platformWalletId, split_enabled, platform_fee_type, platform_fee_value } = config;
-    const baseUrl = env === 'production' ? 'https://api.asaas.com/v3' : 'https://sandbox.asaas.com/api/v3';
+    const baseUrl = env === 'production' ? 'https://www.asaas.com/api/v3' : 'https://sandbox.asaas.com/api/v3';
     const headers = { 'access_token': apiKey, 'Content-Type': 'application/json' };
 
     // 10. Validate Organizer Account
@@ -262,7 +262,6 @@ serve(async (req) => {
     }
 
     // Check strict separation: Customer Email != Organizer Email
-    // (Optional warning, but allowed if organizer buys their own ticket for testing)
     if (buyerEmail === organizerAccount.asaas_account_email) {
         console.warn(`V3 Warning: Buyer Email matches Organizer Email (${buyerEmail}). This is only valid for self-testing.`);
     }
@@ -275,7 +274,6 @@ serve(async (req) => {
         notificationDisabled: false, // Ensure buyer receives Asaas emails
     };
 
-    // console.log(`V3 Customer Info Prepared: ${JSON.stringify(customerInfo)}`); // REDACTED FOR PRIVACY
     console.log(`V3: Preparing Asaas Customer for User ${user.id} (Email and CPF validated)`);
 
     // 13. Create/Find Customer in Asaas
@@ -316,8 +314,6 @@ serve(async (req) => {
             
         if (updateProfileError) {
             console.error('V3 Error: Failed to update profile with Asaas Customer ID', updateProfileError);
-        } else {
-            console.log(`V3: Updated profile ${user.id} with Asaas Customer ID ${customerId}`);
         }
     }
 
@@ -334,12 +330,10 @@ serve(async (req) => {
     // Handle Split
     let splitConfigForDb = null;
 
-    // FIX: Do NOT add platformWalletId to split array if we are the creator (Master Account).
-    // The remaining value (Total - Split) stays with the Master Account automatically.
     if (split_enabled && organizerAccount.asaas_account_id) {
-        // Prevent splitting to the Master Account itself (which would cause "Não é permitido split para sua própria carteira")
+        // Prevent splitting to the Master Account itself
         if (organizerAccount.asaas_account_id === platformWalletId) {
-            console.log(`V3 Split Skipped: Organizer Wallet (${organizerAccount.asaas_account_id}) is the same as Platform Wallet. Value stays fully in Master Account.`);
+            console.log(`V3 Split Skipped: Organizer Wallet (${organizerAccount.asaas_account_id}) is the same as Platform Wallet.`);
         } else {
             const split = [];
             
@@ -348,7 +342,7 @@ serve(async (req) => {
                 const splitItem = { 
                     walletId: organizerAccount.asaas_account_id, 
                     fixedValue: organizerValue,
-                    percentualValue: undefined // Ensure we use fixedValue
+                    percentualValue: undefined
                 };
                 split.push(splitItem);
                 
@@ -359,7 +353,7 @@ serve(async (req) => {
             if (split.length > 0) {
                 // @ts-ignore: dynamic property
                 paymentBody.split = split;
-                console.log(`V3 Split Configured: Total ${totalPrice} -> Organizer ${organizerValue} (Wallet: ${organizerAccount.asaas_account_id}) | Platform Keeps: ${(totalPrice - organizerValue).toFixed(2)}`);
+                console.log(`V3 Split Configured: Total ${totalPrice} -> Organizer ${organizerValue}`);
             }
         }
     }
@@ -419,8 +413,6 @@ serve(async (req) => {
         if (splitError) {
              console.error('CRITICAL V3 ERROR: Failed to insert payment_splits', splitError);
              throw new Error('Falha crítica ao registrar divisão de pagamento. Contacte o suporte.');
-        } else {
-             console.log('V3: Payment Split recorded successfully.');
         }
     }
 
@@ -454,7 +446,8 @@ serve(async (req) => {
         await adminClient.from('idempotency_keys').insert({
             key: idempotencyKey,
             response_body: responseBody,
-            response_status: 200
+            response_status: 200,
+            expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24h
         });
     }
 
@@ -463,7 +456,7 @@ serve(async (req) => {
         status: 200
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Function Error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
       .eq('id', user.id)
       .single();
 
-    const isAdmin = profile?.role === 'admin' || (Array.isArray(profile?.roles) && profile.roles.includes('admin'));
+    const isAdmin = Array.isArray(profile?.roles) && profile.roles.some((r: string) => r.toUpperCase() === 'ADMIN');
 
     if (!isAdmin) {
       return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });

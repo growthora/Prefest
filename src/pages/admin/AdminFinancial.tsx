@@ -81,21 +81,67 @@ export default function AdminFinancial() {
       if (dateStart) queryParams.append('dateStart', dateStart);
       if (dateEnd) queryParams.append('dateEnd', dateEnd);
 
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+
+      if (!token) {
+        throw new Error('Sessão expirada ou inválida. Faça login novamente.');
+      }
+
+      const headers = {
+        Authorization: `Bearer ${token}`
+      };
+
       if (activeTab === 'overview') {
         queryParams.append('type', 'overview');
-        const { data, error } = await supabase.functions.invoke(`admin-financial-dashboard?${queryParams.toString()}`);
+        const { data, error } = await supabase.functions.invoke(`admin-financial-dashboard?${queryParams.toString()}`, {
+          headers
+        });
         if (error) throw error;
-        setOverview(data);
+        
+        // Map backend response to frontend interface
+        setOverview({
+          total_sales: data.total_revenue || 0,
+          platform_fees: 0, // Not yet implemented in RPC
+          organizer_splits: 0, // Not yet implemented in RPC
+          pending_balance: 0, // Not yet implemented in RPC
+          total_refunded: 0, // Not yet implemented in RPC
+          daily_sales: data.daily_revenue || [], 
+          top_organizers: [] // Not yet implemented in RPC
+        });
       } else if (activeTab === 'transactions') {
         queryParams.append('type', 'payments');
         queryParams.append('page', page.toString());
         queryParams.append('pageSize', '20');
         if (statusFilter !== 'all') queryParams.append('status', statusFilter);
 
-        const { data, error } = await supabase.functions.invoke(`admin-financial-dashboard?${queryParams.toString()}`);
+        const { data, error } = await supabase.functions.invoke(`admin-financial-dashboard?${queryParams.toString()}`, {
+          headers
+        });
         if (error) throw error;
-        setPayments(data.data);
-        setTotalPages(Math.ceil(data.total / 20));
+        
+        // Map backend response to frontend interface
+        const paymentData = Array.isArray(data) ? data : (data.data || []);
+        const totalCount = (Array.isArray(data) ? 0 : data.total) || 0; // Fallback 0 if unknown
+
+        const mappedPayments = paymentData.map((p: any) => ({
+          id: p.id,
+          external_payment_id: p.external_id,
+          value: p.amount,
+          status: p.status,
+          created_at: p.created_at,
+          payment_method: p.method,
+          buyer_name: p.customer_name,
+          buyer_email: p.customer_email,
+          organizer_name: 'N/A', // Not returned by RPC yet
+          event_title: 'N/A'     // Not returned by RPC yet
+        }));
+
+        setPayments(mappedPayments);
+        // If total is unknown, we can't calculate pages accurately. 
+        // If we received full page (20), assume there might be more.
+        const estimatedTotal = totalCount > 0 ? totalCount : (mappedPayments.length === 20 ? (page + 1) * 20 : page * 20);
+        setTotalPages(Math.ceil(estimatedTotal / 20));
       }
 
     } catch (error: any) {

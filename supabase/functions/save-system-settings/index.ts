@@ -66,15 +66,15 @@ Deno.serve(async (req) => {
       .eq('id', user.id)
       .single();
 
-    // Check if user is admin (role column OR roles array)
-    const isAdmin = profile?.role === 'admin' || (Array.isArray(profile?.roles) && profile.roles.includes('admin'));
+    // Check if user is admin (roles array only)
+    const isAdmin = Array.isArray(profile?.roles) && profile.roles.some((r: string) => r.toUpperCase() === 'ADMIN');
 
     if (!isAdmin) {
       console.error('Forbidden: User is not admin', user.id);
       return new Response(JSON.stringify({ 
           ok: false,
           error: 'Forbidden: Admins only',
-          debug: { userId: user.id, role: profile?.role }
+          debug: { userId: user.id, roles: profile?.roles }
       }), { 
         status: 200, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

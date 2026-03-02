@@ -56,6 +56,7 @@ const Participants = lazy(() => import("@/pages/dashboard/Participants"));
 const Payments = lazy(() => import("@/pages/dashboard/Payments"));
 const Settings = lazy(() => import("@/pages/dashboard/Settings"));
 const Scanner = lazy(() => import("@/pages/dashboard/organizer/Scanner"));
+const CompleteProfile = lazy(() => import("@/pages/CompleteProfile"));
 const NotFound = lazy(() => import("./pages/not-found/Index"));
 import { NotificationManager } from "@/components/NotificationManager";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -152,6 +153,7 @@ const AppRoutes = () => {
       <Route path={ROUTE_PATHS.EVENTS} element={<EventList />} />
       <Route path={ROUTE_PATHS.EVENT_DETAILS} element={<EventDetails />} />
       <Route path={ROUTE_PATHS.PUBLIC_PROFILE} element={<PublicProfile />} />
+      <Route path="/perfil/completar-cadastro" element={<CompleteProfile />} />
       
       {/* Protected Routes */}
       <Route element={<ProtectedRoute />}>

@@ -16,6 +16,8 @@ export interface Database {
           full_name: string | null
           avatar_url: string | null
           bio: string | null
+          roles: string[]
+          role?: string | null // Deprecated
           created_at: string
           updated_at: string
         }

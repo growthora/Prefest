@@ -21,12 +21,14 @@ export interface Profile {
   full_name: string | null;
   cpf: string | null;
   birth_date: string | null;
+  phone: string | null;
   city: string | null;
   avatar_url: string | null;
   bio: string | null;
   roles: string[];
   organizer_status: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED';
-  role?: string; // Mantendo para compatibilidade temporária
+  /** @deprecated Use roles[] instead. This field is legacy. */
+  role?: string;
   single_mode: boolean;
   show_initials_only: boolean;
   match_intention: 'paquera' | 'amizade';
@@ -162,6 +164,17 @@ class AuthService {
 
     if (error) throw error;
     return data;
+  }
+
+  // Completar cadastro (via Edge Function para garantir segurança e validação no servidor)
+  async completeProfile(data: { cpf: string; phone: string; birth_date: string }) {
+    // A função invoke envia automaticamente o token de autenticação no header Authorization
+    const { data: result, error } = await supabase.functions.invoke('complete-profile', {
+      body: data
+    });
+
+    if (error) throw error;
+    return result;
   }
 
   // Enviar email de redefinição de senha
