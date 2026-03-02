@@ -156,11 +156,25 @@ export const EventList = () => {
                     </div>
                   )}
                   
-                  {event.price > 0 && (
+                  {event.display_price_label ? (
                     <div className="flex items-center gap-2">
                       <span className="font-semibold">💰</span>
-                      <span>A partir de R$ {event.price.toFixed(2)}</span>
+                      <span>{event.display_price_label}</span>
                     </div>
+                  ) : (
+                    event.is_free_event ? (
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">💰</span>
+                        <span>Grátis</span>
+                      </div>
+                    ) : (
+                      event.price > 0 && (
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold">💰</span>
+                          <span>A partir de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(event.price)}</span>
+                        </div>
+                      )
+                    )
                   )}
                   
                   {(typeof event.confirmed_users_count === 'number' ||

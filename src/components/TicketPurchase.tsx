@@ -130,6 +130,42 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   const [selectedTicketTypeId, setSelectedTicketTypeId] = useState<string>();
   const [selectedTicketType, setSelectedTicketType] = useState<TicketTypeDB>();
+  const [autoResume, setAutoResume] = useState(false);
+
+  // Initialize from URL params if present (Auto-Resume flow)
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const typeId = params.get('ticketTypeId');
+    const resume = params.get('autoResume') === 'true';
+
+    if (typeId) {
+      setSelectedTicketTypeId(typeId);
+    }
+    if (resume) {
+      setAutoResume(true);
+      toast.info('Retomando sua compra...');
+    }
+  }, []);
+
+  // Handle auto-resume execution once ticket data is ready
+  React.useEffect(() => {
+    if (autoResume && selectedTicketTypeId && selectedTicketType && step === 'select_ticket_type') {
+      // Small delay to ensure UI is stable
+      const timer = setTimeout(() => {
+        setAutoResume(false);
+        
+        // Clean URL params
+        const url = new URL(window.location.href);
+        url.searchParams.delete('autoResume');
+        url.searchParams.delete('ticketTypeId');
+        window.history.replaceState({}, '', url.toString());
+        
+        handleNextStep();
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [autoResume, selectedTicketTypeId, selectedTicketType, step]);
   
   // Calculate age from profile birth_date
   const calculateAge = (birthDate?: string | null) => {
@@ -182,6 +218,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
 
   const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'BOLETO'>('PIX');
   const [hasAvailableTicketTypes, setHasAvailableTicketTypes] = useState<boolean | null>(null);
+  const [ticketTypes, setTicketTypes] = useState<TicketTypeDB[]>([]);
   
   // Credit Card State
   const [cardData, setCardData] = useState<CreditCardData | null>(null);
@@ -199,6 +236,24 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     }
   }, [ticketId]);
 
+  const handleTicketsLoaded = (types: TicketTypeDB[]) => {
+    setHasAvailableTicketTypes(types.length > 0);
+    setTicketTypes(types);
+  };
+
+  // Sync selectedTicketType with selectedTicketTypeId when types are loaded
+  // This fixes race conditions where types are loaded before state is initialized
+  React.useEffect(() => {
+    if (selectedTicketTypeId && ticketTypes.length > 0) {
+      if (!selectedTicketType || selectedTicketType.id !== selectedTicketTypeId) {
+        const ticket = ticketTypes.find(t => t.id === selectedTicketTypeId);
+        if (ticket) {
+          setSelectedTicketType(ticket);
+        }
+      }
+    }
+  }, [selectedTicketTypeId, ticketTypes, selectedTicketType]);
+
   const handleTicketSelect = (ticketTypeId: string, ticketType: TicketTypeDB) => {
     setSelectedTicketTypeId(ticketTypeId);
     setSelectedTicketType(ticketType);
@@ -213,6 +268,15 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   };
 
   const handleRedirectToProfile = () => {
+    // Save current location with state for post-registration redirect
+    const params = new URLSearchParams(window.location.search);
+    if (selectedTicketTypeId) {
+        params.set('ticketTypeId', selectedTicketTypeId);
+    }
+    params.set('autoResume', 'true');
+    
+    const currentPath = window.location.pathname + '?' + params.toString();
+    sessionStorage.setItem('postRegisterRedirect', currentPath);
     navigate('/perfil/completar-cadastro');
   };
 
@@ -220,6 +284,21 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     if (step === 'select_ticket_type') {
       if (!selectedTicketTypeId) {
         toast.error('Selecione um tipo de ingresso');
+        return;
+      }
+      
+      // Check authentication before proceeding
+      if (!user) {
+        toast.error('Você precisa estar logado para continuar');
+        
+        const params = new URLSearchParams(window.location.search);
+        params.set('ticketTypeId', selectedTicketTypeId);
+        params.set('autoResume', 'true');
+        
+        const currentPath = window.location.pathname + '?' + params.toString();
+        sessionStorage.setItem('postLoginRedirect', currentPath);
+        
+        setTimeout(() => navigate('/login'), 1000);
         return;
       }
       
@@ -237,14 +316,17 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
 
         if (data.type === 'paid') {
             setTicketId(data.ticket_id);
-            setStep('personal_data'); // Force personal data step for PAID tickets too
-        } else {
-            if (data.nextStep === 'confirm') {
-                setStep('free_confirmation');
-            } else {
-                setStep('personal_data');
-            }
         }
+
+        const nextStep = (data.type === 'paid' || data.nextStep !== 'confirm') ? 'personal_data' : 'free_confirmation';
+
+        if (nextStep === 'personal_data' && !hasValidPersonalData()) {
+             toast.error('Seu cadastro está incompleto. Redirecionando...');
+             handleRedirectToProfile();
+             return;
+        }
+
+        setStep(nextStep);
 
       } catch (error: any) {
         console.error('Checkout init error:', error);
@@ -255,6 +337,17 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         // If profile is incomplete, the backend might return specific error
         if (errorMessage.includes('Dados incompletos') || errorMessage.includes('Profile incomplete')) {
             toast.error('Seu cadastro está incompleto. Redirecionando...');
+            
+            // Save current location for post-registration redirect with context
+            const params = new URLSearchParams(window.location.search);
+            if (selectedTicketTypeId) {
+                params.set('ticketTypeId', selectedTicketTypeId);
+            }
+            params.set('autoResume', 'true');
+            
+            const currentPath = window.location.pathname + '?' + params.toString();
+            sessionStorage.setItem('postRegisterRedirect', currentPath);
+            
             setTimeout(() => navigate('/perfil/completar-cadastro'), 1500);
             return;
         }
@@ -536,7 +629,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
                 eventId={event.id}
                 onSelect={handleTicketSelect}
                 selectedTicketTypeId={selectedTicketTypeId}
-                onLoaded={(types) => setHasAvailableTicketTypes(types.length > 0)}
+                onLoaded={handleTicketsLoaded}
                 isEventRealized={isEventRealized}
               />
               {hasAvailableTicketTypes === false && (

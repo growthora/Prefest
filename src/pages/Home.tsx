@@ -50,6 +50,9 @@ const Home = () => {
           city: event.city,
           event_type: event.event_type,
           price: event.price,
+          display_price_label: event.display_price_label,
+          display_price_value: event.display_price_value,
+          is_free_event: event.is_free_event,
           image: imageUrl,
           description: event.description || '',
           category: event.category || 'Geral',
@@ -204,8 +207,21 @@ const Home = () => {
                                 <MapPin size={14} />
                                 <span className="truncate">{event.location}</span>
                               </div>
-                              <div className="font-bold text-lg text-primary">
-                                {event.price === 0 ? 'Grátis' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(event.price)}
+                              <div className="flex flex-col">
+                                {event.display_price_label ? (
+                                  <span className="font-bold text-sm text-primary">{event.display_price_label}</span>
+                                ) : (
+                                  event.is_free_event ? (
+                                    <span className="font-bold text-lg text-primary">Grátis</span>
+                                  ) : (
+                                    <>
+                                      <span className="text-xs text-gray-500 font-medium">A partir de</span>
+                                      <span className="font-bold text-lg text-primary">
+                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(event.display_price_value ?? event.price)}
+                                      </span>
+                                    </>
+                                  )
+                                )}
                               </div>
                             </div>
                           </Link>
@@ -290,8 +306,21 @@ const Home = () => {
                                 <MapPin size={14} />
                                 <span className="truncate">{event.location}</span>
                               </div>
-                              <div className="font-bold text-lg text-primary">
-                                {event.price === 0 ? 'Grátis' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(event.price)}
+                              <div className="flex flex-col">
+                                {event.display_price_label ? (
+                                  <span className="font-bold text-sm text-primary">{event.display_price_label}</span>
+                                ) : (
+                                  event.is_free_event ? (
+                                    <span className="font-bold text-lg text-primary">Grátis</span>
+                                  ) : (
+                                    <>
+                                      <span className="text-xs text-gray-500 font-medium">A partir de</span>
+                                      <span className="font-bold text-lg text-primary">
+                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(event.display_price_value ?? event.price)}
+                                      </span>
+                                    </>
+                                  )
+                                )}
                               </div>
                             </div>
                           </Link>

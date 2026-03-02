@@ -193,12 +193,28 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
 
         <div className="pt-4 flex items-center justify-between border-t border-border/40">
           <div className="flex flex-col">
-            <span className="text-[10px] uppercase tracking-tighter text-muted-foreground font-semibold">
-              A partir de
-            </span>
-            <span className="text-lg font-mono font-bold text-foreground">
-              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(event.price)}
-            </span>
+            {event.display_price_label ? (
+              <span className="text-sm font-semibold text-foreground">
+                {event.display_price_label}
+              </span>
+            ) : (
+              event.is_free_event ? (
+                <span className="text-lg font-mono font-bold text-foreground">
+                  Grátis
+                </span>
+              ) : (
+                <>
+                  <span className="text-[10px] uppercase tracking-tighter text-muted-foreground font-semibold">
+                    A partir de
+                  </span>
+                  <span className="text-lg font-mono font-bold text-foreground">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                      event.display_price_value !== undefined ? event.display_price_value : event.price
+                    )}
+                  </span>
+                </>
+              )
+            )}
           </div>
           
           <Button

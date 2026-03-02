@@ -1,5 +1,6 @@
 
 import { supabase } from '@/lib/supabase';
+import { AUTH_EMAIL_PROVIDER } from '@/lib';
 
 interface InvokeOptions {
   body?: any;
@@ -17,6 +18,29 @@ export async function invokeEdgeFunction<T = any>(
   functionName: string,
   options: InvokeOptions = {}
 ): Promise<{ data: T | null; error: any }> {
+  
+  // [SECURITY] Bloqueio de funções de email de auth via SMTP do banco
+  if (AUTH_EMAIL_PROVIDER === 'SUPABASE') {
+    const PROHIBITED_AUTH_FUNCTIONS = [
+      'send-password-reset',
+      'send-verification-email',
+      'send-magic-link',
+      'send-invite'
+    ];
+    
+    if (PROHIBITED_AUTH_FUNCTIONS.includes(functionName)) {
+      const errorMsg = `[SECURITY] A função '${functionName}' foi bloqueada pois usa SMTP do banco. O projeto está configurado para usar Supabase Auth Nativo (AUTH_EMAIL_PROVIDER='SUPABASE').`;
+      
+      if (import.meta.env.DEV) {
+        console.error(errorMsg);
+        throw new Error(errorMsg);
+      } else {
+        console.warn(errorMsg);
+        return { data: null, error: new Error('Função de email desativada por política de segurança') };
+      }
+    }
+  }
+
   const { requiresAuth = true } = options;
 
   try {

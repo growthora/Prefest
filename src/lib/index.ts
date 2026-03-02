@@ -98,49 +98,20 @@ export interface Event {
   address: string;
   city?: string | null;
   state?: string | null;
-  event_type?: 'festive' | 'formal';
-  price: number;
   image: string;
-   images?: string[];
-  description: string;
   category: string;
-  attendeesCount: number;
-  tags: string[];
-  status?: string;
-}
-
-export interface Message {
-  id: string;
-  senderId: string;
-  content: string;
-  timestamp: string;
-}
-
-export interface Match {
-  id: string;
-  eventId: string;
-  userIds: [string, string];
-  status: 'pending' | 'active' | 'expired';
-  createdAt: string;
-  expiresAt: string;
-  lastMessage?: Message;
-  partner?: {
+  price?: string;
+  organizer: {
     id: string;
     name: string;
-    photo: string;
+    avatar: string;
   };
+  description: string;
+  attendeesCount: number;
+  isLiked?: boolean;
 }
 
-export interface AppConfig {
-  appName: string;
-  primaryColor: string;
-  theme: 'dark';
-  currentYear: number;
-}
-
-export const APP_CONFIG: AppConfig = {
-  appName: 'Spark Events',
-  primaryColor: '#FF007F',
-  theme: 'dark',
-  currentYear: 2026,
-};
+// Configuração global de provedor de email para autenticação
+// SUPABASE: Usa o serviço nativo do Supabase Auth (RECOMENDADO/OBRIGATÓRIO)
+// CUSTOM: Usa SMTP do banco via Edge Functions (PROIBIDO para Auth)
+export const AUTH_EMAIL_PROVIDER: 'SUPABASE' | 'CUSTOM' = 'SUPABASE';

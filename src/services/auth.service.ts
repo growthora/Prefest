@@ -180,11 +180,10 @@ class AuthService {
 
   // Enviar email de redefinição de senha
   async resetPasswordForEmail(email: string) {
-    // Use Edge Function to send email via custom SMTP to ensure delivery
-    // Bypasses Supabase default email limits and uses user's SMTP settings
-    const { data, error } = await invokeEdgeFunction('send-password-reset', {
-      body: { email },
-      requiresAuth: false // Public endpoint
+    // [MODIFIED] Use native Supabase Auth method instead of custom SMTP Edge Function
+    // This ensures all auth emails are handled by Supabase Auth service as requested
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/atualizar-senha`,
     });
 
     if (error) throw error;

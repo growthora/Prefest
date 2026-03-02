@@ -1,6 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { eventService, type Event } from '@/services/event.service';
+
+type DashboardEvent = Event & {
+  revenue?: number;
+  ticketsSold?: number;
+  totalTicketsConfigured?: number;
+};
+
 import { DashboardEmptyState } from '@/components/dashboard/DashboardEmptyState';
 import { DashboardLoader } from '@/components/dashboard/DashboardLoader';
 import { Button } from '@/components/ui/button';
@@ -48,7 +55,7 @@ export function OrganizerEvents() {
   const { user } = useAuth();
   const { asaasStatus, loading: statusLoading } = useOrganizerStatus();
   const [loading, setLoading] = useState(true);
-  const [events, setEvents] = useState<Event[]>([]);
+  const [events, setEvents] = useState<DashboardEvent[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [togglingEventId, setTogglingEventId] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -285,7 +292,7 @@ export function OrganizerEvents() {
                     )}
                 </TableCell>
                 <TableCell>
-                  {event.current_participants} / {event.max_participants || '∞'}
+                  {event.current_participants} / {event.totalTicketsConfigured ?? event.max_participants ?? '∞'}
                 </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
@@ -370,7 +377,7 @@ export function OrganizerEvents() {
                        <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground/80">Participantes</span>
                        <span className="flex items-center justify-end gap-1.5 font-medium text-foreground">
                           <Users className="h-3.5 w-3.5 text-primary" />
-                          {event.current_participants} / {event.max_participants || '∞'}
+                          {event.current_participants} / {event.totalTicketsConfigured ?? event.max_participants ?? '∞'}
                        </span>
                     </div>
                  </div>

@@ -42,6 +42,10 @@ export interface Event {
   is_paid_event?: boolean;
   sales_enabled?: boolean;
   asaas_required?: boolean;
+  // Display fields calculated from ticket types
+  display_price_label?: string;
+  display_price_value?: number;
+  is_free_event?: boolean;
 }
 
 export interface TicketTypeDB {
@@ -53,11 +57,63 @@ export interface TicketTypeDB {
   quantity_available: number;
   quantity_sold: number;
   is_active: boolean;
+  is_test?: boolean;
+  is_internal?: boolean;
+  is_hidden?: boolean;
   sale_start_date: string | null;
   sale_end_date: string | null;
   created_at: string;
   updated_at: string;
 }
+
+// Helper to calculate display price
+export const calculateEventDisplayPrice = (tickets: TicketTypeDB[]) => {
+  // 1. Filter visible tickets (valid for display)
+  // Ignorar: is_test, is_internal, is_hidden, !is_active
+  const visibleTickets = tickets.filter(t => 
+    t.is_active && 
+    !t.is_test && 
+    !t.is_internal && 
+    !t.is_hidden
+  );
+
+  // 2. Filter paid tickets (price > 0)
+  const paidTickets = visibleTickets.filter(t => Number(t.price) > 0);
+
+  let display_price_label = '';
+  let display_price_value = 0;
+  let is_free_event = false;
+
+  if (paidTickets.length > 0) {
+    // 3. Exist paid tickets -> Show "From R$ XX"
+    const minPrice = Math.min(...paidTickets.map(t => Number(t.price)));
+    
+    // Format currency
+    const formattedPrice = new Intl.NumberFormat('pt-BR', { 
+      style: 'currency', 
+      currency: 'BRL' 
+    }).format(minPrice);
+
+    display_price_label = `Ingressos a partir de ${formattedPrice}`;
+    display_price_value = minPrice;
+    is_free_event = false;
+  } else {
+    // 4. No paid tickets
+    // Check if ALL visible tickets are free
+    if (visibleTickets.length > 0 && visibleTickets.every(t => Number(t.price) === 0)) {
+      display_price_label = 'Grátis';
+      display_price_value = 0;
+      is_free_event = true;
+    } else {
+      // Fallback: No visible tickets or unknown state
+      // Use "Consultar" or empty, or fallback to event.price if needed (but user said avoid it)
+      // Leaving empty allows frontend to handle or show nothing
+      display_price_label = '';
+    }
+  }
+
+  return { display_price_label, display_price_value, is_free_event };
+};
 
 export interface EventParticipant {
   id: string;
@@ -251,13 +307,25 @@ export class EventService {
       try {
         const { data, error } = await supabase
           .from('events')
-          .select('*')
+          .select('*, ticket_types(*)')
           .order('event_date', { ascending: true });
 
         if (error) throw error;
         
         console.log('✅ [EventService] Eventos encontrados:', data?.length || 0);
-        return data || [];
+        
+        // Mapear eventos para incluir campos calculados de preço
+        const eventsWithPrice = (data || []).map((event: any) => {
+          const tickets = event.ticket_types as TicketTypeDB[] || [];
+          const priceInfo = calculateEventDisplayPrice(tickets);
+          
+          return {
+            ...event,
+            ...priceInfo
+          };
+        });
+
+        return eventsWithPrice;
       } catch (err) {
         console.warn(`⚠️ [EventService] Tentativa ${i + 1} de ${retries} falhou:`, err);
         if (i === retries - 1) {
@@ -277,14 +345,21 @@ export class EventService {
     
     const { data, error } = await supabase
       .from('events')
-      .select('*')
+      .select('*, ticket_types(*)')
       .gte('event_date', now)
       .order('event_date', { ascending: true });
 
     if (error) throw error;
     
+    // Mapear eventos com preço calculado
+    const eventsWithPrice = (data || []).map((event: any) => {
+      const tickets = event.ticket_types as TicketTypeDB[] || [];
+      const priceInfo = calculateEventDisplayPrice(tickets);
+      return { ...event, ...priceInfo };
+    });
+    
     // Filtrar eventos não lotados
-    return (data || []).filter(event => 
+    return eventsWithPrice.filter(event => 
       !event.max_participants || event.current_participants < event.max_participants
     );
   }
@@ -293,28 +368,34 @@ export class EventService {
   async getEventBySlug(slug: string): Promise<Event> {
     const { data, error } = await supabase
       .from('events')
-      .select('*')
+      .select('*, ticket_types(*)')
       .eq('slug', slug)
       .single();
 
     if (error) throw error;
-    return data;
+    
+    const tickets = (data as any).ticket_types as TicketTypeDB[] || [];
+    const priceInfo = calculateEventDisplayPrice(tickets);
+    return { ...data, ...priceInfo };
   }
 
   // Buscar evento por ID
   async getEventById(id: string): Promise<Event> {
     const { data, error } = await supabase
       .from('events')
-      .select('*')
+      .select('*, ticket_types(*)')
       .eq('id', id)
       .single();
 
     if (error) throw error;
-    return data;
+    
+    const tickets = (data as any).ticket_types as TicketTypeDB[] || [];
+    const priceInfo = calculateEventDisplayPrice(tickets);
+    return { ...data, ...priceInfo };
   }
 
   // Buscar eventos criados por um organizador específico (com estatísticas básicas)
-  async getEventsByCreator(creatorId: string): Promise<(Event & { revenue?: number; ticketsSold?: number })[]> {
+  async getEventsByCreator(creatorId: string): Promise<(Event & { revenue?: number; ticketsSold?: number; totalTicketsConfigured?: number })[]> {
     const { data: events, error } = await supabase
       .from('events')
       .select('*')
@@ -325,9 +406,10 @@ export class EventService {
 
     if (!events || events.length === 0) return [];
 
-    // Buscar receita para cada evento
-    // Otimização: buscar todas as vendas desses eventos de uma vez
+    // Buscar receita e capacidade total configurada
     const eventIds = events.map(e => e.id);
+    
+    // 1. Receita (Sales)
     const { data: participants, error: partError } = await supabase
       .from('event_participants')
       .select('event_id, total_paid')
@@ -336,29 +418,45 @@ export class EventService {
 
     if (partError) {
       console.error('Erro ao buscar estatísticas de receita:', partError);
-      // Retorna eventos sem receita em caso de erro secundário
-      return events;
     }
 
-    // Mapear receita e contagem por evento
+    // 2. Capacidade Total (Ticket Types)
+    const { data: ticketTypes, error: ticketError } = await supabase
+      .from('ticket_types')
+      .select('event_id, quantity_available, quantity_sold')
+      .in('event_id', eventIds);
+
+    if (ticketError) {
+      console.error('Erro ao buscar tipos de ingressos:', ticketError);
+    }
+
+    // Mapear dados
     const revenueMap = new Map<string, number>();
     const ticketsMap = new Map<string, number>();
+    const capacityMap = new Map<string, number>();
     
     participants?.forEach(p => {
       // Receita
       const currentRev = revenueMap.get(p.event_id) || 0;
       revenueMap.set(p.event_id, currentRev + (Number(p.total_paid) || 0));
       
-      // Contagem
-      const currentCount = ticketsMap.get(p.event_id) || 0;
-      ticketsMap.set(p.event_id, currentCount + 1);
+      // Contagem de participantes/vendas
+      const currentTickets = ticketsMap.get(p.event_id) || 0;
+      ticketsMap.set(p.event_id, currentTickets + 1);
     });
 
-    // Combinar dados
+    ticketTypes?.forEach(t => {
+      const currentCap = capacityMap.get(t.event_id) || 0;
+      // Total configured = Sum of quantity_available (quantity_available is the total, not remaining)
+      const totalForType = t.quantity_available || 0;
+      capacityMap.set(t.event_id, currentCap + totalForType);
+    });
+
     return events.map(event => ({
       ...event,
       revenue: revenueMap.get(event.id) || 0,
-      ticketsSold: ticketsMap.get(event.id) || 0
+      ticketsSold: ticketsMap.get(event.id) || 0,
+      totalTicketsConfigured: capacityMap.get(event.id) || 0
     }));
   }
 

@@ -91,10 +91,22 @@ export default function CompleteProfile() {
       
       // Pequeno delay para garantir propagação
       setTimeout(() => {
-        // Redirecionar para dashboard ou home
-        navigate('/dashboard');
-        // Recarregar para atualizar contexto de usuário
-        window.location.reload();
+        const redirectPath = sessionStorage.getItem('postRegisterRedirect');
+        
+        // Validação de segurança: deve começar com / e não conter // ou protocolo
+        const isValidRedirect = redirectPath && 
+          redirectPath.startsWith('/') && 
+          !redirectPath.includes('//') &&
+          !redirectPath.toLowerCase().startsWith('http');
+
+        if (isValidRedirect) {
+          sessionStorage.removeItem('postRegisterRedirect');
+          // Forçar reload na rota correta para atualizar contexto e redirecionar
+          window.location.href = redirectPath;
+        } else {
+          // Fallback seguro se não houver redirect válido
+          window.location.href = '/eventos';
+        }
       }, 1000);
 
     } catch (error: any) {

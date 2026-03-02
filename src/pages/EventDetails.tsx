@@ -577,6 +577,9 @@ export default function EventDetails() {
   const handlePurchase = async (singleMode: boolean, ticketTypeId?: string, totalPaid?: number) => {
     if (!user || !event) {
       toast.error('Você precisa estar logado para comprar ingressos');
+      // Save current location for post-login redirect
+      const currentPath = window.location.pathname + window.location.search;
+      sessionStorage.setItem('postLoginRedirect', currentPath);
       navigate('/login');
       return;
     }

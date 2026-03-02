@@ -48,10 +48,15 @@ export const LoginForm = () => {
       await signIn(formData.email, formData.password);
       
       // Determine redirect path
-      const returnTo = location.state?.returnTo || location.state?.from?.pathname;
+      const sessionRedirect = sessionStorage.getItem('postLoginRedirect');
+      const returnTo = sessionRedirect || location.state?.returnTo || location.state?.from?.pathname;
       const targetPath = (returnTo && returnTo !== '/login') 
         ? returnTo 
         : '/'; // Default to Home
+      
+      if (sessionRedirect) {
+          sessionStorage.removeItem('postLoginRedirect');
+      }
 
       navigate(targetPath);
     } catch (err) {
