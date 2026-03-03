@@ -3,8 +3,8 @@ import App from './App.tsx'
 import './index.css'
 import { sanitizeHtml } from '@/lib/sanitize';
 
-console.log('🎬 main.tsx carregado');
-console.log('🌐 window.location:', window.location.href);
+// console.log('🎬 main.tsx carregado');
+// console.log('🌐 window.location:', window.location.href);
 
 try {
   const rootElement = document.getElementById("root");
@@ -13,15 +13,15 @@ try {
     throw new Error('Elemento root não encontrado no HTML!');
   }
   
-  console.log('📦 Criando root React...');
+  // console.log('📦 Criando root React...');
   const root = createRoot(rootElement);
   
-  console.log('🚀 Renderizando App...');
+  // console.log('🚀 Renderizando App...');
   root.render(<App />);
   
-  console.log('✅ App renderizado com sucesso!');
+  // console.log('✅ App renderizado com sucesso!');
 } catch (error) {
-  console.error('💥 ERRO CRÍTICO ao inicializar:', error);
+  // console.error('💥 ERRO CRÍTICO ao inicializar:', error);
   const safeError = sanitizeHtml(String(error));
   document.body.innerHTML = `
     <div style="padding: 20px; font-family: sans-serif;">

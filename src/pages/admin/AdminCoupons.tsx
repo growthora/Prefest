@@ -58,7 +58,7 @@ export default function AdminCoupons() {
       const data = await couponService.getAllCoupons();
       setCoupons(data);
     } catch (error) {
-      console.error('Erro ao carregar cupons:', error);
+      // console.error('Erro ao carregar cupons:', error);
       toast.error('Erro ao carregar cupons');
     } finally {
       setIsLoading(false);

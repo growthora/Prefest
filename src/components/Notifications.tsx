@@ -46,7 +46,7 @@ export function Notifications() {
       if (typeof likeService.getUnreadLikes === 'function') {
         likes = await likeService.getUnreadLikes(user.id);
       } else {
-        console.warn('⚠️ [Notifications] likeService.getUnreadLikes is not a function. Skipping likes fetch.');
+        // console.warn('⚠️ [Notifications] likeService.getUnreadLikes is not a function. Skipping likes fetch.');
       }
 
       const likeNotifications: UINotification[] = likes.map(like => ({
@@ -95,9 +95,9 @@ export function Notifications() {
 
       setNotifications(allNotifications);
       setUnreadCount(allNotifications.length);
-    } catch (error) {
-      console.error('Failed to load notifications', error);
-    }
+  } catch (error) {
+    // console.error('Failed to load notifications', error);
+  }
   };
 
   useEffect(() => {
@@ -126,7 +126,7 @@ export function Notifications() {
       setNotifications(prev => prev.filter(n => n.id !== notification.id));
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (error) {
-      console.error('Error marking as read', error);
+      // console.error('Error marking as read', error);
     }
   };
 
@@ -164,9 +164,9 @@ export function Notifications() {
                  navigate(ROUTE_PATHS.EVENT_DETAILS.replace(':slug', notification.data.eventId));
             }
         } catch (e) {
-            console.error('Failed to navigate to event', e);
+                // console.error('Failed to navigate to event', e);
+            }
         }
-    }
     
     setIsOpen(false);
   };

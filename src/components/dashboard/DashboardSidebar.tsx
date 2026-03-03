@@ -75,7 +75,7 @@ export function DashboardSidebar({
       await signOut();
       navigate(ROUTE_PATHS.LOGIN);
     } catch (error) {
-      console.error('Error signing out:', error);
+      // console.error('Error signing out:', error);
     }
   };
 

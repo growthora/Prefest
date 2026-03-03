@@ -150,7 +150,7 @@ const Collection = () => {
       
       setEvents(convertedEvents);
     } catch (err) {
-      console.error('❌ Erro ao carregar coleção:', err);
+      // console.error('❌ Erro ao carregar coleção:', err);
       setEvents([]);
     } finally {
       setIsLoading(false);

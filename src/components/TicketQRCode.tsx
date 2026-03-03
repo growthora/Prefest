@@ -69,7 +69,7 @@ export default function TicketQRCode({
           setQrCodeUrl(url);
         }
       } catch (err) {
-        console.error('Error generating QR code:', err);
+        // console.error('Error generating QR code:', err);
       }
     };
 

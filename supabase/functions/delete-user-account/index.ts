@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
       .eq('status', 'pending')
 
     if (paymentError) {
-      console.error('Payment check error:', paymentError)
+      // console.error('Payment check error:', paymentError)
       throw new Error('Erro ao verificar pagamentos pendentes.')
     }
 
@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
       .in('status', ['requested', 'processing'])
 
     if (payoutError && payoutError.code !== '42P01') { // Ignore if table doesn't exist
-      console.error('Payout check error:', payoutError)
+      // console.error('Payout check error:', payoutError)
       throw new Error('Erro ao verificar saques pendentes.')
     }
 
@@ -121,16 +121,12 @@ Deno.serve(async (req) => {
         if (deleteRes.ok) {
           asaasAction = 'deleted'
         } else {
-          console.error('Asaas delete failed:', await deleteRes.text())
+          // console.error('Asaas delete failed:', await deleteRes.text())
           // Fallback: Try to disable/block (Simulated by logging 'disabled' if we could, 
           // but since we can't easily force disable via API without success, we mark as 'failed' 
           // or 'disabled' if we implement a custom disable logic. 
           // For now, we log 'failed' to be honest about the API result.)
-          // However, prompt says: "usar desativação + bloqueio".
-          // If delete fails, it's usually because of history. 
-          // We can't strictly "disable" it easily via API v3 Standard.
-          // We will proceed with local deletion, effectively cutting access.
-          asaasAction = 'failed' 
+          asaasAction = 'failed'
         }
       }
     }
@@ -183,7 +179,7 @@ Deno.serve(async (req) => {
     })
 
   } catch (error: any) {
-    console.error('Delete account error:', error)
+    // console.error('Delete account error:', error)
     
     if (error instanceof Response) {
       return error

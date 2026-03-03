@@ -10,7 +10,6 @@ export interface LikeResult {
 class LikeService {
   // Dar like em um usuário via RPC
   async likeUser(toUserId: string, eventId: string): Promise<LikeResult> {
-    console.log('👍 [LikeService] Dando like:', { toUserId, eventId });
     
     const { data, error } = await supabase.rpc('like_user', {
       p_event_id: eventId,
@@ -20,15 +19,12 @@ class LikeService {
     if (error) {
       // Handle duplicate like gracefully if it's a unique constraint violation
       if (error.code === '23505') {
-        console.log('⚠️ [LikeService] Usuário já curtido (catch via code 23505)');
         return { status: 'already_liked' };
       }
       
-      console.error('❌ [LikeService] Erro ao dar like:', error);
       throw error;
     }
 
-    console.log('✅ [LikeService] Resultado:', data);
     return data as LikeResult;
   }
 
@@ -74,7 +70,6 @@ class LikeService {
   }
 
   async getUnreadLikes(userId: string): Promise<any[]> {
-    console.log('🔔 [LikeService] Buscando likes não lidos para:', userId);
     
     try {
       // Busca os últimos 20 likes recebidos pelo usuário
@@ -107,14 +102,12 @@ class LikeService {
       const readIds = this.getReadLikeIds();
       return mapped.filter(like => !readIds.includes(like.id));
     } catch (error) {
-      console.error('❌ [LikeService] Erro ao buscar likes não lidos:', error);
       return [];
     }
   }
 
   // Buscar usuários para dar match (fila)
   async getPotentialMatches(eventId: string, currentUserId: string): Promise<any[]> {
-    console.log('🔍 [LikeService] Buscando candidatos para match:', { eventId, currentUserId });
     
     try {
       // 1. Buscar IDs já avaliados (likes)
@@ -158,31 +151,25 @@ class LikeService {
         .filter((user: any) => {
           if (!user) return false;
           
-          // Logs detalhados para debug
           const isEvaluated = evaluatedIds.includes(user.id);
           const isMatchEnabled = user.match_enabled;
           const isProfileViewAllowed = user.allow_profile_view;
 
           if (isEvaluated) {
-             console.log(`🚫 [LikeService] Usuário ${user.full_name} filtrado: Já avaliado`);
              return false;
           }
           if (!isMatchEnabled) {
-             console.log(`🚫 [LikeService] Usuário ${user.full_name} filtrado: Match desabilitado`);
              return false;
           }
           if (!isProfileViewAllowed) {
-             console.log(`🚫 [LikeService] Usuário ${user.full_name} filtrado: Visualização privada`);
              return false;
           }
 
           return true;
         });
 
-      console.log(`✅ [LikeService] ${candidates.length} candidatos encontrados`);
       return candidates;
     } catch (error) {
-      console.error('❌ [LikeService] Erro ao buscar candidatos:', error);
       throw error;
     }
   }

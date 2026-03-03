@@ -32,10 +32,10 @@ export async function invokeEdgeFunction<T = any>(
       const errorMsg = `[SECURITY] A função '${functionName}' foi bloqueada. Contexto: ${EMAIL_CONTEXT.AUTH}. O projeto está configurado para usar Supabase Auth Nativo (AUTH_EMAIL_PROVIDER='SUPABASE').`;
       
       if (import.meta.env.DEV) {
-        console.error(errorMsg);
+        // console.error(errorMsg);
         throw new Error(errorMsg);
       } else {
-        console.warn(errorMsg);
+        // console.warn(errorMsg);
         return { data: null, error: new Error('Função de email desativada por política de segurança') };
       }
     }
@@ -51,7 +51,7 @@ export async function invokeEdgeFunction<T = any>(
       token = session?.access_token;
 
       if (sessionError || !token) {
-        console.warn(`[apiClient] Tentativa de chamada à função '${functionName}' sem sessão ativa.`);
+        // console.warn(`[apiClient] Tentativa de chamada à função '${functionName}' sem sessão ativa.`);
         throw new Error('Usuário não autenticado');
       }
     }
@@ -79,7 +79,7 @@ export async function invokeEdgeFunction<T = any>(
     const { data, error } = await supabase.functions.invoke(functionName, invokeOptions);
 
     if (error) {
-      console.error(`[apiClient] Raw error from ${functionName}:`, error);
+      // console.error(`[apiClient] Raw error from ${functionName}:`, error);
 
       // FASE 6: Tratamento de erro 401 (Sessão Expirada/Inválida)
       // O SDK pode retornar erro como objeto ou string dependendo da versão/falha
@@ -96,7 +96,7 @@ export async function invokeEdgeFunction<T = any>(
         errorJson.includes('"status":401');
 
       if (isAuthError) {
-         console.error(`[apiClient] Erro 401/JWT Inválido na função ${functionName}. Forçando logout.`);
+         // console.error(`[apiClient] Erro 401/JWT Inválido na função ${functionName}. Forçando logout.`);
          
          // Limpar sessão local
          await supabase.auth.signOut();
@@ -115,7 +115,7 @@ export async function invokeEdgeFunction<T = any>(
 
     return { data, error: null };
   } catch (err: any) {
-    console.error(`[apiClient] Erro na função '${functionName}':`, err);
+    // console.error(`[apiClient] Erro na função '${functionName}':`, err);
     return { data: null, error: err };
   }
 }

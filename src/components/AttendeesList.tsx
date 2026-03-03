@@ -63,7 +63,10 @@ export function AttendeesList({ attendees, onSelectAttendee, loading }: Attendee
             <div className="p-4 flex flex-col items-center text-center space-y-3">
               <div className="relative">
                 <Avatar className="w-20 h-20 border-2 border-background shadow-sm group-hover:scale-105 transition-transform">
-                  <AvatarImage src={attendee.avatar_url || undefined} alt={attendee.name} />
+                  <AvatarImage 
+                    src={(attendee.avatar_url && attendee.avatar_url.trim() !== '' && attendee.avatar_url !== 'undefined' && attendee.avatar_url !== 'null') ? attendee.avatar_url : undefined} 
+                    alt={attendee.name} 
+                  />
                   <AvatarFallback className="text-lg bg-primary/10 text-primary">
                     {attendee.name.substring(0, 2).toUpperCase()}
                   </AvatarFallback>

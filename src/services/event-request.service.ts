@@ -25,7 +25,7 @@ export interface CreateEventRequestData {
 
 class EventRequestService {
   async createRequest(data: CreateEventRequestData): Promise<EventRequest> {
-    console.log('📤 Enviando solicitação:', data);
+    // console.log('📤 Enviando solicitação:', data);
     
     const { data: request, error } = await supabase
       .from('event_requests')
@@ -34,17 +34,17 @@ class EventRequestService {
       .single();
 
     if (error) {
-      console.error('❌ Erro ao criar solicitação:', error);
-      console.error('Detalhes do erro:', {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code
-      });
+      // console.error('❌ Erro ao criar solicitação:', error);
+      // console.error('Detalhes do erro:', {
+      //   message: error.message,
+      //   details: error.details,
+      //   hint: error.hint,
+      //   code: error.code
+      // });
       throw new Error(`Falha ao enviar solicitação: ${error.message}`);
     }
 
-    console.log('✅ Solicitação criada:', request);
+    // console.log('✅ Solicitação criada:', request);
     return request;
   }
 
@@ -55,7 +55,7 @@ class EventRequestService {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Erro ao buscar solicitações:', error);
+      // console.error('Erro ao buscar solicitações:', error);
       throw new Error('Falha ao buscar solicitações');
     }
 
@@ -78,7 +78,7 @@ class EventRequestService {
       .eq('id', id);
 
     if (error) {
-      console.error('Erro ao atualizar status:', error);
+      // console.error('Erro ao atualizar status:', error);
       throw new Error('Falha ao atualizar status da solicitação');
     }
   }
@@ -90,7 +90,7 @@ class EventRequestService {
       .eq('id', id);
 
     if (error) {
-      console.error('Erro ao deletar solicitação:', error);
+      // console.error('Erro ao deletar solicitação:', error);
       throw new Error('Falha ao deletar solicitação');
     }
   }

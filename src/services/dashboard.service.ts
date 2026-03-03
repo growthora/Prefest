@@ -64,7 +64,7 @@ export const dashboardService = {
       .order('joined_at', { ascending: false });
 
     if (error) {
-      console.error('Erro ao buscar vendas:', error);
+      // console.error('Erro ao buscar vendas:', error);
       throw error;
     }
 
@@ -136,7 +136,7 @@ export const dashboardService = {
         totalWithdrawn
       };
     } catch (error) {
-      console.error('Erro ao buscar estatísticas do dashboard:', error);
+      // console.error('Erro ao buscar estatísticas do dashboard:', error);
       throw error;
     }
   },
@@ -203,9 +203,9 @@ export const dashboardService = {
         .reverse(); // Reverter para ficar cronológico (antigo -> novo)
 
       return result;
-    } catch (error) {
-      console.error('Erro ao gerar gráfico de vendas:', error);
-      return [];
-    }
-  }
+          } catch (error) {
+            // console.error('Erro ao gerar gráfico de vendas:', error);
+            return [];
+          }
+        }
 };

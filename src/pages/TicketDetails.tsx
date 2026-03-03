@@ -28,11 +28,8 @@ export default function TicketDetails() {
       
       if (found) {
         setTicket(found);
-      } else {
-        console.error('Ticket not found');
       }
     } catch (error) {
-      console.error('Error loading ticket:', error);
     } finally {
       setLoading(false);
     }

@@ -82,7 +82,7 @@ export function EventRequestModal({ trigger }: EventRequestModalProps) {
       });
       setIsOpen(false);
     } catch (error) {
-      console.error('Erro ao enviar solicitação:', error);
+      // console.error('Erro ao enviar solicitação:', error);
       toast({
         title: 'Erro ao enviar',
         description: 'Não foi possível enviar sua solicitação. Tente novamente.',

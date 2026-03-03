@@ -42,7 +42,7 @@ export function EmailConfirmationBanner() {
         toast.info('E-mail ainda não confirmado. Verifique sua caixa de entrada.');
       }
     } catch (error) {
-      console.error('Error checking status:', error);
+      // console.error('Error checking status:', error);
       toast.error('Erro ao verificar status.');
     } finally {
       setIsChecking(false);

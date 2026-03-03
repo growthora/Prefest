@@ -60,6 +60,8 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
   const { asaasStatus } = useOrganizerStatus();
   const navigate = useNavigate();
 
+  // // console.log('Edit event:', event);
+
   const form = useForm<EventFormValues>({
     resolver: zodResolver(eventSchema),
     defaultValues: {
@@ -145,8 +147,10 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
         sales_enabled: isPaid ? event.sales_enabled : false 
       });
 
+      // console.log('Evento atualizado:', updatedEvent);
+
       toast({
-        title: "Evento atualizado",
+        title: "Evento atualizado!"
         description: "As alterações foram salvas com sucesso.",
         variant: "default",
       });
@@ -154,8 +158,8 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('Failed to update event:', error);
-      toast({
+    // console.error('Failed to update event:', error);
+    toast({
         title: "Erro ao atualizar",
         description: "Não foi possível salvar as alterações. Tente novamente.",
         variant: "destructive",

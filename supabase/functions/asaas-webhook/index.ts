@@ -30,14 +30,14 @@ serve(async (req) => {
     const { data: config, error: configError } = await adminClient.rpc('get_decrypted_asaas_config')
     
     if (configError) {
-        console.error('Config Error:', configError)
+        // console.error('Config Error:', configError)
         return new Response(JSON.stringify({ error: 'Config error' }), { status: 500, headers: corsHeaders })
     }
 
     // If webhook token is configured, validate it
     if (config && config.webhook_token) {
         if (incomingToken !== config.webhook_token) {
-            console.error('Invalid Webhook Token')
+            // console.error('Invalid Webhook Token')
             return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders })
         }
     } else {
@@ -48,7 +48,7 @@ serve(async (req) => {
         // Let's assume if it's missing in DB, we can't validate, so we proceed with caution or block.
         // Given "Webhook como fonte única de verdade", security is key.
         if (config?.env === 'production') {
-             console.error('Webhook token not configured in production')
+             // console.error('Webhook token not configured in production')
              return new Response(JSON.stringify({ error: 'Webhook configuration missing' }), { status: 500, headers: corsHeaders })
         }
     }
@@ -96,15 +96,15 @@ serve(async (req) => {
             .single();
             
         if (eventLogError) {
-            console.error('CRITICAL: Failed to log integration event', eventLogError);
+            // console.error('CRITICAL: Failed to log integration event', eventLogError);
         } else {
             eventLogId = eventLog.id;
         }
     } catch (e) {
-        console.error('Error logging integration event:', e);
+        // console.error('Error logging integration event:', e);
     }
 
-    console.log(`Received event: ${event} for payment ${payment.id}`)
+    // console.log(`Received event: ${event} for payment ${payment.id}`)
 
     // 3. Map Status
     let newStatus = ''
@@ -166,10 +166,10 @@ serve(async (req) => {
             .single()
 
         if (paymentUpdateError) {
-            console.error('Error updating payment:', paymentUpdateError)
+            // console.error('Error updating payment:', paymentUpdateError)
             // If payment doesn't exist, we might want to log it.
         } else if (updatedPayment) {
-            console.log(`Payment ${updatedPayment.id} updated to ${newStatus}`)
+            // console.log(`Payment ${updatedPayment.id} updated to ${newStatus}`)
             
             // 5. Update Ticket Status
             if (ticketStatus) {
@@ -182,9 +182,9 @@ serve(async (req) => {
                     .eq('id', updatedPayment.ticket_id)
 
                 if (ticketError) {
-                    console.error('Error updating ticket:', ticketError)
+                    // console.error('Error updating ticket:', ticketError)
                 } else {
-                    console.log(`Ticket ${updatedPayment.ticket_id} updated to ${ticketStatus}`)
+                    // console.log(`Ticket ${updatedPayment.ticket_id} updated to ${ticketStatus}`)
 
                     // 5.1 Create Event Participant (for attendance) if PAID
                     if (ticketStatus === 'paid') {
@@ -216,9 +216,9 @@ serve(async (req) => {
                                     });
                                 
                                 if (participantError) {
-                                    console.error('Error creating participant:', participantError);
+                                    // console.error('Error creating participant:', participantError);
                                 } else {
-                                    console.log(`Participant created for ticket ${ticketData.id}`);
+                                    // console.log(`Participant created for ticket ${ticketData.id}`);
                                 }
                             }
                         }
@@ -242,21 +242,21 @@ serve(async (req) => {
                 .select('id', { count: 'exact' });
             
             if (splitError) {
-                 console.error('Error updating splits:', splitError);
+                 // console.error('Error updating splits:', splitError);
                  if (eventLogId) {
                      await adminClient.from('integration_events').update({ 
                          error_message: `Split update error: ${splitError.message}` 
                      }).eq('id', eventLogId);
                  }
             } else if (splitCount === 0) {
-                 console.warn(`CRITICAL WARNING: No payment_splits found for payment ${updatedPayment.id}. This means split was not recorded during checkout.`);
+                 // console.warn(`CRITICAL WARNING: No payment_splits found for payment ${updatedPayment.id}. This means split was not recorded during checkout.`);
                  if (eventLogId) {
                      await adminClient.from('integration_events').update({ 
                          error_message: `CRITICAL: No payment_splits found for payment ${updatedPayment.id}` 
                      }).eq('id', eventLogId);
                  }
             } else {
-                 console.log(`Splits for payment ${updatedPayment.id} updated to ${splitStatus}`);
+                 // console.log(`Splits for payment ${updatedPayment.id} updated to ${splitStatus}`);
             }
 
             // 7. Update Integration Event Status (Success)
@@ -270,35 +270,19 @@ serve(async (req) => {
                     .eq('id', eventLogId);
             }
         } else {
-             console.warn('Payment not found for external ID:', payment.id)
+             // console.warn('Payment not found for external ID:', payment.id)
         }
     }
 
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    return new Response(JSON.stringify({ received: true }), {
+      headers: { 'Content-Type': 'application/json' },
+    });
 
   } catch (error) {
-    console.error('Unexpected error:', error)
-    
-    if (adminClient && eventLogId) {
-        try {
-            await adminClient
-                .from('integration_events')
-                .update({ 
-                    status: 'failed', 
-                    error_message: error.message,
-                    processed_at: new Date().toISOString() 
-                })
-                .eq('id', eventLogId);
-        } catch (logError) {
-            console.error('Failed to log error to integration_events:', logError);
-        }
-    }
-
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 200, // Always return 200 to avoid webhook retries on logic errors, unless transient
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    })
+    // console.error('Webhook Error:', error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 })

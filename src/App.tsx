@@ -241,8 +241,6 @@ const AuthErrorInterceptor = () => {
         if (errorCode) searchParams.set('error_code', errorCode);
         if (errorDescription) searchParams.set('error_description', errorDescription);
 
-        console.log('Intercepted Auth Error:', { error, errorCode, errorDescription });
-        
         // Redirect to /auth/error with params
         navigate(`${ROUTE_PATHS.AUTH_ERROR}?${searchParams.toString()}`, { replace: true });
       }
@@ -253,8 +251,6 @@ const AuthErrorInterceptor = () => {
 };
 
 const App = () => {
-  console.log('🚀 App iniciando...');
-  
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>

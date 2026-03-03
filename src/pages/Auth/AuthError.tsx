@@ -19,8 +19,6 @@ export const AuthError = () => {
     const errorCode = searchParams.get('error_code');
     const errorDescription = searchParams.get('error_description');
 
-    console.log('Auth Error Page:', { errorCode, errorDescription });
-
     if (errorCode === 'otp_expired') {
       setErrorDetails({
         title: 'Link expirado ou inválido',

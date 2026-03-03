@@ -28,7 +28,7 @@ export function useOrganizerStatus() {
         .single();
 
       if (error && error.code !== 'PGRST116') {
-        console.error('Error checking organizer status:', error);
+        // console.error('Error checking organizer status:', error);
       }
 
       if (data) {
@@ -41,7 +41,7 @@ export function useOrganizerStatus() {
         setAccountId(null);
       }
     } catch (err) {
-      console.error(err);
+      // console.error(err);
     } finally {
       setLoading(false);
     }

@@ -12,15 +12,13 @@ export interface Notification {
 
 export const notificationService = {
   async listNotifications(): Promise<Notification[]> {
-    console.log('🔔 [NotificationService] Buscando notificações...');
     const { data, error } = await supabase.rpc('list_notifications');
 
     if (error) {
-      console.error('❌ [NotificationService] Erro ao buscar notificações:', error);
+      // console.error('❌ [NotificationService] Erro ao buscar notificações:', error);
       throw error;
     }
     
-    console.log(`✅ [NotificationService] ${data?.length || 0} notificações encontradas.`);
     return data || [];
   },
 

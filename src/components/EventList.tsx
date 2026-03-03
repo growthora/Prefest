@@ -115,7 +115,7 @@ export const EventList = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {events.map((event) => (
             <Card key={event.id} className="flex flex-col">
-              {event.image_url && (
+              {event.image_url && event.image_url !== 'undefined' && event.image_url !== 'null' && event.image_url.trim() !== '' && (
                 <div className="w-full h-48 overflow-hidden rounded-t-lg">
                   <img 
                     src={event.image_url} 

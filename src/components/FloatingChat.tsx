@@ -222,11 +222,11 @@ export function FloatingChat() {
               return;
           }
       }
-      setMatches(data);
-    } catch (error) {
-      console.error('Error loading matches', error);
-    }
-  };
+    setMatches(data);
+  } catch (error) {
+    // console.error('Error loading matches', error);
+  }
+};
 
   const loadMessages = async (chatId: string) => {
     setLoading(true);
@@ -234,7 +234,7 @@ export function FloatingChat() {
       const msgs = await chatService.getMessages(chatId);
       setMessages(msgs);
     } catch (error) {
-      console.error('Error loading messages', error);
+      // console.error('Error loading messages', error);
     } finally {
       setLoading(false);
     }
@@ -311,11 +311,11 @@ export function FloatingChat() {
           setMessages(prev => prev.map(msg => 
             msg.id === tempId ? (sentMsg as unknown as ChatMessage) : msg
           ));
-      }
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      toast.error('Erro ao enviar mensagem');
-      // Remove optimistic message and restore input
+  }
+} catch (error) {
+  // console.error('Failed to send message:', error);
+  toast.error('Erro ao enviar mensagem');
+  // Remove optimistic message and restore input
       setMessages(prev => prev.filter(msg => msg.id !== tempId));
       setInputValue(content);
     }
@@ -348,7 +348,7 @@ export function FloatingChat() {
          setActiveChat(match);
       }
     } catch (error) {
-      console.error('Error opening chat:', error);
+      // console.error('Error opening chat:', error);
       toast.error('Erro ao abrir conversa');
     }
   };

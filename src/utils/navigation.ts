@@ -34,13 +34,13 @@ export function goToPublicProfile(
 
   // Strict validation: Must be a string and not empty
   if (!slug || typeof slug !== 'string' || slug.trim() === '') {
-    console.error('❌ [goToPublicProfile] Invalid slug/ID:', userOrId);
+    // console.error('❌ [goToPublicProfile] Invalid slug/ID:', userOrId);
     return;
   }
 
   // Defensive check against "[object Object]" literally appearing in string
   if (slug.includes('[object Object]')) {
-    console.error('❌ [goToPublicProfile] Detected [object Object] in slug:', slug);
+    // console.error('❌ [goToPublicProfile] Detected [object Object] in slug:', slug);
     return;
   }
 

@@ -36,11 +36,11 @@ export default function EventMatches() {
       }
 
       const data = await matchService.getEventMatches(eventId);
-      setMatches(data);
-    } catch (error) {
-      console.error('Error loading matches:', error);
-    } finally {
-      setLoading(false);
+            setMatches(data);
+          } catch (error) {
+            // console.error('Error loading matches:', error);
+          } finally {
+            setLoading(false);
     }
   };
 

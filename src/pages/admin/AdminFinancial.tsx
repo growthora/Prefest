@@ -131,7 +131,7 @@ export default function AdminFinancial() {
       }
 
     } catch (error: any) {
-      console.error('Erro detalhado ao carregar dados financeiros:', error);
+      // console.error('Erro detalhado ao carregar dados financeiros:', error);
       const isConnectionError = error.message?.includes('Failed to send a request') || error.message?.includes('Failed to fetch');
       const msg = isConnectionError 
         ? 'Falha na conexão com o servidor (Edge Function offline ou bloqueada).' 

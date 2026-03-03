@@ -26,10 +26,10 @@ export const NotificationManager: React.FC = () => {
         try {
             const notifications = await notificationService.listNotifications();
             notifications.forEach(handleNotification);
-        } catch (error) {
-            console.error('Failed to load notifications:', error);
-        }
-    };
+    } catch (error) {
+      // console.error('Failed to load notifications:', error);
+    }
+  };
 
     loadUnreadNotifications();
 

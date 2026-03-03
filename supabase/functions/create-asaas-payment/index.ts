@@ -11,9 +11,9 @@ Deno.serve(async (req) => {
 
   try {
     // 1. Verify User Authentication
-    console.log('Function started');
+    // console.log('Function started');
     const { user } = await requireAuth(req);
-    console.log('User authenticated:', user.id);
+    // console.log('User authenticated:', user.id);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (configError || !config?.api_key) {
-      console.error('Config Error:', configError);
+      // console.error('Config Error:', configError);
       throw new Error('Asaas configuration not found or invalid');
     }
 
@@ -92,6 +92,11 @@ Deno.serve(async (req) => {
 
     if (!organizerAccount.is_active || organizerAccount.kyc_status !== 'approved') {
         throw new Error('ORGANIZER_NOT_READY_FOR_PAYMENTS: Conta Asaas do organizador pendente de aprovação');
+    }
+
+    // Check strict separation
+    if (customer_info.email === organizerAccount.asaas_account_email) {
+        // console.warn(`V2 Warning: Buyer Email matches Organizer Email (${customer_info.email}). Self-testing?`);
     }
 
     // 7. Calculate Values & Split
@@ -218,7 +223,7 @@ Deno.serve(async (req) => {
         .single();
 
     if (ticketDbError || !ticket) {
-        console.error('Ticket Creation Error:', ticketDbError);
+        // console.error('Ticket Creation Error:', ticketDbError);
         throw new Error('Failed to create ticket record');
     }
 
@@ -257,7 +262,7 @@ Deno.serve(async (req) => {
         .single();
 
     if (paymentDbError) {
-        console.error('Payment DB Error:', paymentDbError);
+        // console.error('Payment DB Error:', paymentDbError);
         // Should handle this better, but for now log it.
     }
 
@@ -320,7 +325,7 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Function Error:', error);
+    // console.error('Function Error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

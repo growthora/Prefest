@@ -23,6 +23,8 @@ interface EventDetailsModalProps {
 export function EventDetailsModal({ event, isOpen, onClose }: EventDetailsModalProps) {
   if (!event) return null;
 
+  // // console.log('Rendering event details:', event);
+
   const isActive = new Date(event.event_date) > new Date();
   
   const formatDate = (dateString: string) => {
@@ -56,7 +58,7 @@ export function EventDetailsModal({ event, isOpen, onClose }: EventDetailsModalP
         <ScrollArea className="flex-1 px-6 py-2">
           <div className="space-y-6 pb-6">
             {/* Image Banner */}
-            {event.image_url && (
+            {event.image_url && event.image_url.trim() !== '' && event.image_url !== 'null' && (
               <div className="relative w-full aspect-video rounded-md overflow-hidden bg-muted">
                 <img 
                   src={event.image_url} 

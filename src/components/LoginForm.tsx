@@ -161,7 +161,7 @@ export const LoginForm = () => {
           return;
         }
       } catch (checkErr) {
-        console.warn('Erro ao verificar disponibilidade de dados:', checkErr);
+        // console.warn('Erro ao verificar disponibilidade de dados:', checkErr);
       }
 
       await signUp(formData.email, formData.password, formData.fullName, formData.cpf, formattedBirthDate, isOrganizer);

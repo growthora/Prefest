@@ -37,7 +37,7 @@ export function ProtectedRoute({ allowedRoles, requireOrganizerApproved }: Prote
     );
 
     if (!hasRole) {
-      console.warn(`Access denied: User ${user.email} missing roles [${allowedRoles.join(', ')}]`);
+      // console.warn(`Access denied: User ${user.email} missing roles [${allowedRoles.join(', ')}]`);
       return <Navigate to="/" replace />;
     }
   }
@@ -50,7 +50,7 @@ export function ProtectedRoute({ allowedRoles, requireOrganizerApproved }: Prote
     const isAdmin = profile?.roles?.some(r => r.toUpperCase() === 'ADMIN');
 
     if (!isApproved && !isAdmin) {
-      console.warn(`Access denied: User ${user.email} is not an approved organizer`);
+      // console.warn(`Access denied: User ${user.email} is not an approved organizer`);
       return <Navigate to="/" replace />;
     }
   }

@@ -4,10 +4,10 @@ import { getCorsHeaders, handleCors } from "../_shared/cors.ts"
 Deno.serve(async (req) => {
   // FASE 1: PROVA DEFINITIVA - DIAGNÓSTICO (Logo na entrada)
   const authProbe = req.headers.get("Authorization") ?? ""
-  console.log("[ENTRY-PROBE] Auth present:", Boolean(authProbe))
-  console.log("[ENTRY-PROBE] Auth prefix:", authProbe.slice(0, 18)) 
-  console.log("[ENTRY-PROBE] Auth len:", authProbe.length)
-  console.log(`[ENTRY-PROBE] Method: ${req.method}`)
+  // console.log("[ENTRY-PROBE] Auth present:", Boolean(authProbe))
+  // console.log("[ENTRY-PROBE] Auth prefix:", authProbe.slice(0, 18)) 
+  // console.log("[ENTRY-PROBE] Auth len:", authProbe.length)
+  // console.log(`[ENTRY-PROBE] Method: ${req.method}`)
 
   // Handle CORS
   const corsResponse = handleCors(req)
@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
       .single()
 
     if (error) {
-      console.error('Error fetching payment settings:', error)
+      // console.error('Error fetching payment settings:', error)
       // Fallback defaults if config missing
       return new Response(JSON.stringify({ 
         platform_fee_type: 'percentage', 
@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
     })
 
   } catch (error: any) {
-    console.error('Unexpected error:', error)
+    // console.error('Unexpected error:', error)
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500, // Retornar 500 para erro interno, mas com JSON válido
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

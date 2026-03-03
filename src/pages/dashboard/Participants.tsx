@@ -37,8 +37,9 @@ export function Participants() {
         const data = await eventService.getEventsByCreator(user.id);
         setEvents(data);
       } catch (error) {
-        console.error('Failed to load events', error);
-      } finally {
+        // console.error('Failed to load events', error);
+      }
+    };finally {
         setLoading(false);
       }
     }
@@ -53,9 +54,9 @@ export function Participants() {
         const data = await eventService.getEventParticipants(selectedEventId, 100);
         setParticipants(data);
       } catch (error) {
-        console.error('Failed to load participants', error);
+        // console.error('Failed to load participants', error);
       } finally {
-        setLoadingParticipants(false);
+        setLoading(false);
       }
     }
     loadParticipants();
@@ -122,7 +123,7 @@ export function Participants() {
                     <TableRow key={participant.id}>
                       <TableCell>
                         <Avatar>
-                          <AvatarImage src={participant.avatar_url} />
+                          <AvatarImage src={(participant.avatar_url && participant.avatar_url.trim() !== '' && participant.avatar_url !== 'undefined') ? participant.avatar_url : undefined} />
                           <AvatarFallback>{participant.name.substring(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>
                       </TableCell>

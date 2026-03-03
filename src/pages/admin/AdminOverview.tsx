@@ -67,7 +67,7 @@ export default function AdminOverview() {
         activeCoupons: couponsData.filter(c => c.active).length
       });
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
+      // console.error('Erro ao carregar dados:', error);
     } finally {
       setIsLoading(false);
     }

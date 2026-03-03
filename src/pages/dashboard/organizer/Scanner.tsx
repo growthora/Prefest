@@ -55,7 +55,7 @@ export function Scanner() {
         setSelectedEventId(data[0].id);
       }
     } catch (error) {
-      console.error('Error loading events:', error);
+      // console.error('Error loading events:', error);
       toast.error('Erro ao carregar eventos');
     } finally {
       setLoading(false);
@@ -69,7 +69,7 @@ export function Scanner() {
     const code = extractQrCodeValue(detectedCodes);
     
     if (!code) {
-      console.log('No code detected or empty value');
+      // console.log('No code detected or empty value');
       return;
     }
 
@@ -82,7 +82,9 @@ export function Scanner() {
     try {
       await processTicketValidation(code);
     } catch (error) {
-      console.error('Validation error:', error);
+      // console.error('Validation error:', error);
+      
+      // Don't show error for duplicate scans of same ticket in short window
       setScanResult({
         success: false,
         message: 'Erro ao processar validação',
@@ -159,7 +161,7 @@ export function Scanner() {
         
         if (!selectedEventId || !user?.id) return;
 
-        console.log('Validating simple code:', normalizedCode, 'Original:', qrDataString);
+        // console.log('Validating simple code:', normalizedCode, 'Original:', qrDataString);
         const result = await eventService.validateTicketScan(normalizedCode, selectedEventId, user.id);
         setScanResult(result);
 
@@ -194,7 +196,7 @@ export function Scanner() {
     const normalizedCode = normalizeTicketCode(code);
 
     try {
-      console.log('Manual validation:', normalizedCode);
+      // console.log('Manual validation:', normalizedCode);
       // Use validateTicketScan for manual entry too
       const result = await eventService.validateTicketScan(normalizedCode, selectedEventId, user.id);
       setScanResult(result);
@@ -207,7 +209,7 @@ export function Scanner() {
         playErrorSound();
       }
     } catch (error: any) {
-      console.error('Manual validation error:', error);
+      // console.error('Manual validation error:', error);
       setScanResult({
         success: false,
         message: error.message || 'Erro na validação manual',
@@ -310,7 +312,8 @@ export function Scanner() {
                 {!pauseScanner ? (
                   <QrScanner
                     onScan={handleScan}
-                    onError={(error) => console.log(error?.message)}
+                    // onError={(error) => console.log(error?.message)}
+                  onError={(error) => { /* console.log(error?.message) */ }}
                     constraints={{ facingMode: 'environment' }}
                     containerStyle={{ height: '100%', width: '100%' }}
                   />

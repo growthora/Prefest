@@ -89,7 +89,7 @@ export default function TicketScanner() {
       const data = await eventService.getOrganizerEvents(user!.id);
       setEvents(data);
     } catch (error) {
-      console.error('Erro ao carregar eventos:', error);
+      // console.error('Erro ao carregar eventos:', error);
       toast.error('Erro ao carregar eventos do organizador');
     } finally {
       setLoadingEvents(false);
@@ -114,6 +114,7 @@ export default function TicketScanner() {
     const rawValue = extractQrCodeValue(detectedCodes);
     
     if (rawValue) {
+      // console.log('QR Code scanned:', rawValue);
       await processTicket(rawValue);
     }
   };
@@ -139,6 +140,8 @@ export default function TicketScanner() {
       } catch (e) {
         // Not JSON
       }
+
+      // console.log('Processing ticket:', { cleanCode, isJson, payload });
 
       if (isJson && payload) {
         if (!payload.t || !payload.e || !payload.k) {
@@ -177,7 +180,7 @@ export default function TicketScanner() {
           return;
         }
 
-        console.log('Validating simple code:', normalizedCode, 'Original:', rawValue);
+        // console.log('Validating simple code:', normalizedCode, 'Original:', rawValue);
 
         const result = await eventService.validateTicketScan(
           normalizedCode,
@@ -194,7 +197,7 @@ export default function TicketScanner() {
       }
 
     } catch (error: any) {
-      console.error('Validation error:', error);
+      // console.error('Validation error:', error);
       const errorResult = {
         success: false,
         message: error.message || 'Erro na validação',
@@ -218,7 +221,7 @@ export default function TicketScanner() {
     const normalizedCode = normalizeTicketCode(manualCode);
 
     try {
-      console.log('Manual validation:', normalizedCode);
+      // console.log('Manual validation:', normalizedCode);
       const result = await eventService.validateTicketScan(
         normalizedCode,
         selectedEvent.id, // Enforce validation against SELECTED event
@@ -230,7 +233,7 @@ export default function TicketScanner() {
       setManualCode('');
 
     } catch (error: any) {
-      console.error('Manual validation error:', error);
+      // console.error('Manual validation error:', error);
       const errorResult = {
         success: false,
         message: error.message || 'Erro na validação manual',
@@ -253,7 +256,7 @@ export default function TicketScanner() {
   };
 
   const handleError = (error: any) => {
-    console.error(error);
+    // console.error(error);
     if (error?.message?.includes('permission')) {
       setCameraError('Permissão da câmera negada. Verifique as configurações do navegador.');
     } else {

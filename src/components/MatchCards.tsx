@@ -80,12 +80,18 @@ export function MatchCard({ user, onLike, onSkip, onDetails, isTop = false }: Ma
         }}
       >
         {/* Background Image with Overlay */}
-        <div className="absolute inset-0">
-          <img 
-            src={user.photo} 
-            alt={displayName} 
-            className="w-full h-full object-cover saturate-[0.8] brightness-[0.7] transition-transform duration-700 hover:scale-110"
-          />
+        <div className="absolute inset-0 bg-zinc-800">
+          {user.photo && user.photo.trim() !== '' && user.photo !== 'undefined' && user.photo !== 'null' ? (
+            <img 
+              src={user.photo} 
+              alt={displayName} 
+              className="w-full h-full object-cover saturate-[0.8] brightness-[0.7] transition-transform duration-700 hover:scale-110"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+               <Users className="w-20 h-20 text-zinc-700" />
+            </div>
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
         </div>
 

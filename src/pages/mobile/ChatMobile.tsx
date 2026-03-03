@@ -64,7 +64,7 @@ function ChatListMobile() {
         const data = await matchService.getUserMatches();
         setMatches(data);
       } catch (error) {
-        console.error('Error loading matches:', error);
+        // console.error('Error loading matches:', error);
         toast.error('Erro ao carregar conversas');
       } finally {
         setLoading(false);

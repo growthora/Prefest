@@ -157,11 +157,17 @@ export const HeroCarousel = ({ events }: HeroCarouselProps) => {
                   }}
                 >
                   <Link to={`/eventos/${event.slug}`} className="block w-full h-full relative group overflow-hidden rounded-2xl">
-                    <img
-                      src={event.image}
-                      alt={event.title}
-                      className="w-full h-full object-cover rounded-2xl"
-                    />
+                    {(event.image && event.image !== 'undefined' && event.image !== 'null' && event.image.trim() !== '') ? (
+                      <img
+                        src={event.image}
+                        alt={event.title}
+                        className="w-full h-full object-cover rounded-2xl"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-secondary flex items-center justify-center rounded-2xl">
+                        <span className="text-secondary-foreground/20">Sem imagem</span>
+                      </div>
+                    )}
                     
                     {/* Gradient Overlay for Text */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl flex flex-col justify-end p-6">

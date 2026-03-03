@@ -120,8 +120,8 @@ export default function Profile() {
 
       setLikedEvents(formattedEvents);
     } catch (error) {
-      console.error("Error loading favorites", error);
-      toast.error("Erro ao carregar favoritos");
+      // // console.error("Error loading favorites", error);
+    toast.error("Erro ao carregar favoritos");
     } finally {
       setLoadingFavorites(false);
     }
@@ -176,7 +176,7 @@ export default function Profile() {
       toast.success('Perfil atualizado com sucesso!');
       setIsEditing(false);
     } catch (err: any) {
-      console.error('Erro ao atualizar perfil:', err);
+      // console.error('Erro ao atualizar perfil:', err);
       
       // Tratamento específico para erro de unicidade de username
       if (err?.code === '23505' || err?.message?.includes('profiles_username_key')) {
@@ -223,7 +223,7 @@ export default function Profile() {
       toast.success("Senha alterada com sucesso!");
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (err) {
-      console.error(err);
+      // console.error(err);
       toast.error(err instanceof Error ? err.message : "Erro ao alterar senha");
     } finally {
       setIsChangingPassword(false);
@@ -344,15 +344,15 @@ export default function Profile() {
                       onChange={(url) => setFormData(prev => ({ ...prev, avatar_url: url }))}
                       className="cursor-pointer"
                     >
-                      <Avatar className="h-32 w-32 border-4 border-background shadow-xl">
-                        <AvatarImage src={formData.avatar_url || undefined} className="object-cover" />
-                        <AvatarFallback className="text-4xl">
-                          {getInitials(formData.full_name)}
-                        </AvatarFallback>
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
-                           <Camera className="text-white w-8 h-8" />
-                        </div>
-                      </Avatar>
+                    <Avatar className="h-32 w-32 border-4 border-background shadow-xl">
+                      <AvatarImage src={formData.avatar_url?.trim() ? formData.avatar_url : undefined} className="object-cover" />
+                      <AvatarFallback className="text-4xl">
+                        {getInitials(formData.full_name)}
+                      </AvatarFallback>
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
+                        <Camera className="text-white w-8 h-8" />
+                      </div>
+                    </Avatar>
                     </ImageCropUploader>
                   ) : (
                     <Avatar className="h-32 w-32 border-4 border-background shadow-xl">

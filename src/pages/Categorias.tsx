@@ -66,7 +66,7 @@ const Categorias = () => {
       const data = await eventService.getCategoriesWithUpcomingEvents();
       setCategories(data);
     } catch (err) {
-      console.error('Erro ao carregar categorias', err);
+      // console.error('Erro ao carregar categorias', err);
       setLoadError(true);
       setCategories([]);
     } finally {

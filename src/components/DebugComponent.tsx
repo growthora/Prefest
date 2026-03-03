@@ -2,9 +2,9 @@ import { useEffect } from 'react';
 
 export const DebugComponent = () => {
   useEffect(() => {
-    console.log('🎯 DebugComponent montado!');
-    console.log('📍 Location:', window.location.href);
-    console.log('🔗 Hash:', window.location.hash);
+    // console.log('🎯 DebugComponent montado!');
+    // console.log('📍 Location:', window.location.href);
+    // console.log('🔗 Hash:', window.location.hash);
   }, []);
 
   return (

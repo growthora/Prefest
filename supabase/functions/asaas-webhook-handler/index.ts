@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     // 1. Security & Auth Check
     const asaasToken = req.headers.get('asaas-access-token');
     if (!asaasToken) {
-        console.warn('Missing asaas-access-token header');
+        // console.warn('Missing asaas-access-token header');
         return unauthorized();
     }
 
@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (configError || !config) {
-         console.error('Configuration error or missing:', configError);
+         // console.error('Configuration error or missing:', configError);
          // If we can't load config, we can't validate token. 
          // Safest is to reject (401/500) or return 200 to stop retries if it's permanent?
          // Security wise: 500 or 401. But user wants NO penalties.
@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
     }
     
     if (config.webhook_token !== asaasToken) {
-        console.warn('Invalid webhook token');
+        // console.warn('Invalid webhook token');
         return unauthorized();
     }
 
@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     try {
         eventData = await req.json();
     } catch (e) {
-        console.error('Failed to parse JSON body', e);
+        // console.error('Failed to parse JSON body', e);
         return ok('invalid_json_handled');
     }
 
@@ -76,19 +76,19 @@ Deno.serve(async (req) => {
     ];
 
     if (!event || IGNORED_EVENTS.includes(event)) {
-        console.log(`[INFO] Ignoring event: ${event}`);
+        // console.log(`[INFO] Ignoring event: ${event}`);
         return ok('ignored');
     }
 
     // 5. Validate Payment Data for Payment Events
     if (event.startsWith('PAYMENT_') || event.startsWith('SUBSCRIPTION_')) {
         if (!payment || !payment.id) {
-            console.error(`[WARN] Event ${event} received without payment data/id. Ignoring.`);
+            // console.error(`[WARN] Event ${event} received without payment data/id. Ignoring.`);
             return ok('missing_payment_data');
         }
     }
 
-    console.log(`Processing event: ${event} | ID: ${eventId} | Payment: ${payment?.id || 'N/A'}`);
+    // console.log(`Processing event: ${event} | ID: ${eventId} | Payment: ${payment?.id || 'N/A'}`);
 
     // Helper: Redact Sensitive Data
     const redactPayload = (payload: any): any => {
@@ -124,10 +124,10 @@ Deno.serve(async (req) => {
 
     if (insertError) {
         if (insertError.code === '23505') { // Unique violation
-            console.log(`[INFO] Event ${eventId} already processed. Skipping.`);
+            // console.log(`[INFO] Event ${eventId} already processed. Skipping.`);
             return ok('already_processed');
         }
-        console.error('Failed to log integration event:', insertError);
+        // console.error('Failed to log integration event:', insertError);
         // Continue processing even if log fails? 
         // Better to try processing, but log error.
     }
@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
                 .single();
 
             if (paymentError || !paymentRecord) {
-                console.warn(`Payment not found for external ID: ${payment.id}`);
+                // console.warn(`Payment not found for external ID: ${payment.id}`);
                 processResultStatus = 'failed';
                 processErrorMessage = `Payment not found: ${payment.id}`;
             } else {
@@ -192,7 +192,7 @@ Deno.serve(async (req) => {
     } catch (processError: any) {
         processResultStatus = 'failed';
         processErrorMessage = processError.message;
-        console.error('Processing Logic Error:', processError);
+        // console.error('Processing Logic Error:', processError);
     }
 
     // 8. Update Event Log
@@ -215,7 +215,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     // [CRITICAL] Global Catch-All
     // Log the error but return 200 to Asaas to prevent penalties/retries for unrecoverable errors
-    console.error('CRITICAL Webhook Error:', error);
+    // console.error('CRITICAL Webhook Error:', error);
     return new Response(JSON.stringify({ error: 'Internal Server Error (Handled)', details: error.message }), {
       status: 200, // Return 200 as requested by "Never crash/penalize" rule
       headers: { 'Content-Type': 'application/json' },

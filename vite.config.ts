@@ -133,7 +133,7 @@ function cdnPrefixImages(): Plugin {
 
     if (!rewrites) return null;
     const out = generate(ast, { retainLines: true, sourceMaps: false }, code).code;
-    if (DEBUG) console.log(`[cdn] ${id} → ${rewrites} rewrites`);
+    // if (DEBUG) console.log(`[cdn] ${id} → ${rewrites} rewrites`);
     return out;
   };
 
@@ -171,19 +171,19 @@ function cdnPrefixImages(): Plugin {
 
     configResolved(cfg) {
       publicDir = cfg.publicDir; // absolute
-      if (DEBUG) console.log('[cdn] publicDir =', publicDir);
+      // if (DEBUG) console.log('[cdn] publicDir =', publicDir);
     },
 
     async buildStart() {
       await collectPublicImagesFrom(publicDir);
-      if (DEBUG) console.log('[cdn] images found:', imageSet.size);
+      // if (DEBUG) console.log('[cdn] images found:', imageSet.size);
     },
 
     transformIndexHtml(html) {
       const cdn = process.env.CDN_IMG_PREFIX;
       if (!cdn) return html;
       const out = rewriteHtml(html, cdn);
-      if (DEBUG) console.log('[cdn] transformIndexHtml done');
+      // if (DEBUG) console.log('[cdn] transformIndexHtml done');
       return out;
     },
 

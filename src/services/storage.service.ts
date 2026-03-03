@@ -59,18 +59,18 @@ class StorageService {
     // Tentar comprimir se for imagem
     if (file.type.startsWith('image/')) {
       try {
-        console.log('🔄 [StorageService] Comprimindo imagem...', file.size);
+        // console.log('🔄 [StorageService] Comprimindo imagem...', file.size);
         fileToUpload = await this.compressImage(file);
-        console.log('✅ [StorageService] Imagem comprimida:', fileToUpload.size);
+        // console.log('✅ [StorageService] Imagem comprimida:', fileToUpload.size);
       } catch (err) {
-        console.warn('⚠️ [StorageService] Erro ao comprimir imagem, usando original:', err);
+        // console.warn('⚠️ [StorageService] Erro ao comprimir imagem, usando original:', err);
       }
     }
 
     const fileExt = fileToUpload.name.split('.').pop();
     const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-    console.log('📤 [StorageService] Fazendo upload de imagem:', fileName);
+    // console.log('📤 [StorageService] Fazendo upload de imagem:', fileName);
 
     const { data, error } = await supabase.storage
       .from(this.bucketName)
@@ -80,7 +80,7 @@ class StorageService {
       });
 
     if (error) {
-      console.error('❌ [StorageService] Erro no upload:', error);
+      // console.error('❌ [StorageService] Erro no upload:', error);
       throw error;
     }
 
@@ -89,7 +89,7 @@ class StorageService {
       .from(this.bucketName)
       .getPublicUrl(fileName);
 
-    console.log('✅ [StorageService] Upload concluído:', publicUrl);
+    // console.log('✅ [StorageService] Upload concluído:', publicUrl);
     return publicUrl;
   }
 
@@ -102,20 +102,20 @@ class StorageService {
 
       const filePath = urlParts[1];
       
-      console.log('🗑️ [StorageService] Deletando imagem:', filePath);
+      // console.log('🗑️ [StorageService] Deletando imagem:', filePath);
 
       const { error } = await supabase.storage
         .from(this.bucketName)
         .remove([filePath]);
 
       if (error) {
-        console.error('❌ [StorageService] Erro ao deletar:', error);
+        // console.error('❌ [StorageService] Erro ao deletar:', error);
         throw error;
       }
 
-      console.log('✅ [StorageService] Imagem deletada');
+      // console.log('✅ [StorageService] Imagem deletada');
     } catch (err) {
-      console.error('❌ [StorageService] Erro ao deletar imagem:', err);
+      // console.error('❌ [StorageService] Erro ao deletar imagem:', err);
       // Não lançar erro para não bloquear outras operações
     }
   }

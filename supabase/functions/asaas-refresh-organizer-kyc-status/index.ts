@@ -55,7 +55,7 @@ serve(async (req) => {
     const data = await response.json()
     
     if (!response.ok) {
-        console.error('Asaas API Error:', data);
+        // console.error('Asaas API Error:', data);
         return new Response(JSON.stringify({ error: 'Error fetching account from Asaas', details: data }), {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -100,7 +100,7 @@ serve(async (req) => {
         .single()
 
     if (updateError) {
-        console.error('DB Update Error:', updateError);
+        // console.error('DB Update Error:', updateError);
         return new Response(JSON.stringify({ error: 'Error updating account status in database', details: updateError }), {
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }

@@ -39,7 +39,7 @@ export function DeleteEventDialog({ event, isOpen, onClose, onSuccess }: DeleteE
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('Failed to delete event:', error);
+      // console.error('Failed to delete event:', error);
       toast({
         title: "Erro ao excluir",
         description: "Não foi possível excluir o evento. Tente novamente.",

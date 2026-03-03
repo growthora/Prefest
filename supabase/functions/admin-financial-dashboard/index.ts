@@ -7,9 +7,9 @@ import { requireRole } from "../_shared/requireRole.ts"
 Deno.serve(async (req) => {
   // FASE 1: PROVA DEFINITIVA - DIAGNÓSTICO (Logo na entrada)
   const authProbe = req.headers.get("Authorization") ?? ""
-  console.log("[ENTRY-PROBE] Auth present:", Boolean(authProbe))
-  console.log("[ENTRY-PROBE] Auth prefix:", authProbe.slice(0, 18)) 
-  console.log("[ENTRY-PROBE] Auth len:", authProbe.length)
+  // console.log("[ENTRY-PROBE] Auth present:", Boolean(authProbe))
+  // console.log("[ENTRY-PROBE] Auth prefix:", authProbe.slice(0, 18)) 
+  // console.log("[ENTRY-PROBE] Auth len:", authProbe.length)
 
   // Handle CORS
   const corsResponse = handleCors(req);
@@ -18,7 +18,7 @@ Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req);
 
   try {
-    console.log(`[admin-financial-dashboard] Request received: ${req.method} ${req.url}`);
+    // console.log(`[admin-financial-dashboard] Request received: ${req.method} ${req.url}`);
 
     // 1. Authenticate & Authorize
     const { user, supabase: supabaseUser } = await requireAuth(req);
@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
     // 2. Check Role (Admin Only)
     await requireRole(supabaseUser, user.id, ['ADMIN']);
 
-    console.log(`[admin-financial-dashboard] User authenticated & authorized: ${user.id}`);
+    // console.log(`[admin-financial-dashboard] User authenticated & authorized: ${user.id}`);
 
     // Parse URL params
     const url = new URL(req.url)
@@ -43,14 +43,14 @@ Deno.serve(async (req) => {
       const dateStart = dateStartParam ? new Date(dateStartParam).toISOString() : null
       const dateEnd = dateEndParam ? new Date(dateEndParam).toISOString() : null
       
-      console.log(`[admin-financial-dashboard] Fetching overview. dateStart=${dateStart}, dateEnd=${dateEnd}`);
+      // console.log(`[admin-financial-dashboard] Fetching overview. dateStart=${dateStart}, dateEnd=${dateEnd}`);
 
       const { data, error } = await supabaseUser.rpc('get_financial_overview', {
         date_start: dateStart,
         date_end: dateEnd
       })
       if (error) {
-        console.error('[admin-financial-dashboard] RPC Error (get_financial_overview):', error);
+        // console.error('[admin-financial-dashboard] RPC Error (get_financial_overview):', error);
         throw error;
       }
       result = data
@@ -144,8 +144,8 @@ Deno.serve(async (req) => {
     )
 
   } catch (error: any) {
-    console.error(`[admin-financial-dashboard] Error:`, error);
-    
+    // console.error(`[admin-financial-dashboard] Error:`, error);
+
     if (error instanceof Response) {
       return error;
     }

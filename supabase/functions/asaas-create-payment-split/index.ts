@@ -156,7 +156,7 @@ serve(async (req) => {
     }).select().single()
 
     if (paymentError) {
-        console.error('Error creating payment record:', paymentError)
+        // console.error('Error creating payment record:', paymentError)
     } else if (split.length > 0) {
         // Save Split
         await adminClient.from('payment_splits').insert({
@@ -175,7 +175,7 @@ serve(async (req) => {
     })
 
   } catch (error: any) {
-    console.error('Unexpected error:', error)
+    // console.error('Unexpected error:', error)
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

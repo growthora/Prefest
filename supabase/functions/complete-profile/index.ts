@@ -5,9 +5,9 @@ import { requireAuth } from "../_shared/requireAuth.ts"
 Deno.serve(async (req) => {
   // FASE 1: PROVA DEFINITIVA - DIAGNÓSTICO (Logo na entrada)
   const authProbe = req.headers.get("Authorization") ?? ""
-  console.log("[ENTRY-PROBE] Auth present:", Boolean(authProbe))
-  console.log("[ENTRY-PROBE] Auth prefix:", authProbe.slice(0, 18)) 
-  console.log("[ENTRY-PROBE] Auth len:", authProbe.length)
+  // console.log("[ENTRY-PROBE] Auth present:", Boolean(authProbe))
+  // console.log("[ENTRY-PROBE] Auth prefix:", authProbe.slice(0, 18)) 
+  // console.log("[ENTRY-PROBE] Auth len:", authProbe.length)
 
   // Handle CORS
   const corsResponse = handleCors(req)
@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
       .single()
 
     if (error) {
-      console.error('Error updating profile:', error)
+      // console.error('Error updating profile:', error)
       return new Response(JSON.stringify({ error: 'Failed to update profile', details: error }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
     })
 
   } catch (error: any) {
-    console.error('Unexpected error:', error)
+    // console.error('Unexpected error:', error)
     
     // Check if error is a Response object (from requireAuth)
     if (error instanceof Response) {

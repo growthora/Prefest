@@ -19,7 +19,7 @@ const EventCard = ({ ticket, isPast = false, navigate }: { ticket: TicketWithEve
   return (
       <Card className={`overflow-hidden border-border/50 shadow-sm transition-all hover:shadow-md ${isPast ? 'opacity-90' : ''}`}>
           <div className="h-32 bg-muted relative">
-              {event.image_url ? (
+              {event.image_url && event.image_url.trim() !== '' && event.image_url !== 'undefined' && event.image_url !== 'null' ? (
                   <img src={event.image_url} alt={event.title} className={`w-full h-full object-cover ${isPast ? 'grayscale' : ''}`} />
               ) : (
                   <div className="w-full h-full bg-secondary flex items-center justify-center">
@@ -110,7 +110,6 @@ export default function MyEvents() {
       });
       setTickets(sorted);
     } catch (error) {
-      console.error(error);
     } finally {
       setLoading(false);
     }

@@ -93,12 +93,12 @@ export const ResetPassword = () => {
       setTimeout(async () => {
         await signOut();
         navigate(ROUTE_PATHS.LOGIN);
-      }, 3000);
+            }, 3000);
 
-    } catch (err: any) {
-      console.error('Reset password error:', err);
-      const message = err.message || 'Erro ao redefinir senha. Tente novamente.';
-      setError(translateAuthError(message));
+          } catch (err: any) {
+            // console.error('Reset password error:', err);
+            const message = err.message || 'Erro ao redefinir senha. Tente novamente.';
+            setError(translateAuthError(message));
     } finally {
       setIsLoading(false);
     }

@@ -179,7 +179,6 @@ export class EventService {
 
   // Criar novo evento
   async createEvent(eventData: CreateEventData, creatorId: string): Promise<Event> {
-    console.log('🚀 [EventService] createEvent iniciado:', { eventData, creatorId });
     
     // Converter event_date para manter o horário local correto
     let eventDateToSave = eventData.event_date;
@@ -231,8 +230,6 @@ export class EventService {
       asaas_required: eventData.asaas_required ?? true,
     };
 
-    console.log('💾 [EventService] Inserindo evento no banco:', eventToInsert);
-
     const { data, error } = await supabase
       .from('events')
       .insert(eventToInsert)
@@ -240,17 +237,14 @@ export class EventService {
       .single();
 
     if (error) {
-      console.error('❌ [EventService] Erro ao inserir evento:', error);
       throw error;
     }
 
-    console.log('✅ [EventService] Evento criado com sucesso:', data);
     return data;
   }
 
   // Criar tipos de ingressos para um evento
   async createTicketTypes(eventId: string, ticketTypes: TicketType[]): Promise<TicketTypeDB[]> {
-    console.log('🎫 [EventService] createTicketTypes iniciado:', { eventId, count: ticketTypes.length });
     
     const ticketsToInsert = ticketTypes.map(ticket => ({
       event_id: eventId,
@@ -262,19 +256,15 @@ export class EventService {
       sale_end_date: ticket.sale_end_date || null,
     }));
 
-    console.log('💾 [EventService] Inserindo ingressos:', ticketsToInsert);
-
     const { data, error } = await supabase
       .from('ticket_types')
       .insert(ticketsToInsert)
       .select();
 
     if (error) {
-      console.error('❌ [EventService] Erro ao inserir ingressos:', error);
       throw error;
     }
     
-    console.log('✅ [EventService] Ingressos criados:', data);
     return data;
   }
 
@@ -301,7 +291,6 @@ export class EventService {
 
   // Listar todos os eventos
   async getAllEvents(retries = 3): Promise<Event[]> {
-    console.log('🔍 [EventService] Buscando eventos...');
     
     for (let i = 0; i < retries; i++) {
       try {
@@ -311,8 +300,6 @@ export class EventService {
           .order('event_date', { ascending: true });
 
         if (error) throw error;
-        
-        console.log('✅ [EventService] Eventos encontrados:', data?.length || 0);
         
         // Mapear eventos para incluir campos calculados de preço
         const eventsWithPrice = (data || []).map((event: any) => {
@@ -327,9 +314,7 @@ export class EventService {
 
         return eventsWithPrice;
       } catch (err) {
-        console.warn(`⚠️ [EventService] Tentativa ${i + 1} de ${retries} falhou:`, err);
         if (i === retries - 1) {
-          console.error('❌ [EventService] Erro ao buscar eventos após todas as tentativas:', err);
           throw err;
         }
         // Esperar antes de tentar novamente (backoff exponencial: 1s, 2s, 3s...)
@@ -417,7 +402,7 @@ export class EventService {
       .eq('status', 'valid');
 
     if (partError) {
-      console.error('Erro ao buscar estatísticas de receita:', partError);
+      // Erro silencioso
     }
 
     // 2. Capacidade Total (Ticket Types)
@@ -427,7 +412,7 @@ export class EventService {
       .in('event_id', eventIds);
 
     if (ticketError) {
-      console.error('Erro ao buscar tipos de ingressos:', ticketError);
+      // Erro silencioso
     }
 
     // Mapear dados
@@ -478,7 +463,6 @@ export class EventService {
       .limit(limit);
 
     if (error) {
-      console.error('Error fetching event participants:', error);
       return [];
     }
 
@@ -550,7 +534,6 @@ export class EventService {
       try {
         await storageService.deleteImage(event.image_url);
       } catch (deleteErr) {
-        console.warn('Erro ao deletar imagem do evento:', deleteErr);
         // Não falha a operação se a imagem não puder ser deletada
       }
     }
@@ -771,7 +754,7 @@ export class EventService {
 
   // Buscar participantes de um evento que estão com single_mode/match_enabled ativo
   async getEventSingles(eventId: string): Promise<any[]> {
-    console.log('🔍 [EventService] Buscando participantes com match ativo para evento:', eventId);
+    // console.log('🔍 [EventService] Buscando participantes com match ativo para evento:', eventId);
     
     const { data, error } = await supabase
       .from('event_participants')
@@ -796,7 +779,7 @@ export class EventService {
       .eq('event_id', eventId);
 
     if (error) {
-      console.error('❌ [EventService] Erro ao buscar participantes:', error);
+      // console.error('❌ [EventService] Erro ao buscar participantes:', error);
       throw error;
     }
 
@@ -829,24 +812,24 @@ export class EventService {
       })
       .filter(Boolean) || [];
 
-    console.log('✅ [EventService] Participantes processados:', singles.length);
+    // console.log('✅ [EventService] Participantes processados:', singles.length);
     return singles;
   }
 
   // Buscar candidatos de match de forma segura via RPC
   async getMatchCandidates(eventId: string): Promise<MatchCandidate[]> {
-    console.log('🔍 [EventService] Buscando candidatos de match via RPC para evento:', eventId);
+    // console.log('🔍 [EventService] Buscando candidatos de match via RPC para evento:', eventId);
     
     const { data, error } = await supabase.rpc('get_match_candidates', {
       event_uuid: eventId
     });
 
     if (error) {
-      console.error('❌ [EventService] Erro ao buscar candidatos:', error);
+      // console.error('❌ [EventService] Erro ao buscar candidatos:', error);
       throw error;
     }
 
-    console.log('✅ [EventService] Candidatos encontrados:', data?.length || 0);
+    // console.log('✅ [EventService] Candidatos encontrados:', data?.length || 0);
     return data || [];
   }
 
@@ -856,7 +839,7 @@ export class EventService {
     });
 
     if (error) {
-      console.error('Error fetching event attendees:', error);
+      // console.error('Error fetching event attendees:', error);
       throw error;
     }
 
@@ -1061,7 +1044,7 @@ export class EventService {
       .single();
 
     if (error && error.code !== 'PGRST116') { // PGRST116 = not found
-      console.error('Erro ao verificar like:', error);
+      // console.error('Erro ao verificar like:', error);
     }
 
     return !!data;

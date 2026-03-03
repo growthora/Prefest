@@ -37,7 +37,7 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
       }
     } catch (error) {
       // Silently fail for mock data or errors
-      console.warn("Could not check like status", error);
+      // console.warn("Could not check like status", error);
     }
   };
 
@@ -70,7 +70,7 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
     } catch (error) {
       setIsLiked(previousState); // Revert on error
       toast.error("Erro ao atualizar favorito");
-      console.error(error);
+      // console.error(error);
     } finally {
       setIsLoadingLike(false);
     }
@@ -86,7 +86,7 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
       await navigator.clipboard.writeText(shareUrl);
       toast.success("Link copiado! 📎");
     } catch (err) {
-      console.error("Failed to copy: ", err);
+      // console.error("Failed to copy: ", err);
       toast.error("Erro ao copiar link");
     }
   };
@@ -106,11 +106,17 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
       {/* Image Container with Overlay */}
       <div className="relative w-full overflow-hidden bg-gray-900">
         {/* Main Image Layer */}
-        <img
-          src={event.image}
-          alt={event.title}
-          className="relative h-auto w-full object-contain z-10 transition-transform duration-700 scale-100 group-hover:scale-105"
-        />
+        {(event.image && typeof event.image === 'string' && event.image.trim() !== '' && event.image !== 'undefined' && event.image !== 'null') ? (
+          <img
+            src={event.image}
+            alt={event.title}
+            className="relative h-auto w-full object-contain z-10 transition-transform duration-700 scale-100 group-hover:scale-105"
+          />
+        ) : (
+          <div className="w-full aspect-video bg-gray-800 flex items-center justify-center">
+            <Calendar className="w-12 h-12 text-gray-600" />
+          </div>
+        )}
         
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent opacity-90 z-20" />
         
@@ -281,11 +287,17 @@ export function HorizontalEventCard({ event, className }: { event: Event; classN
     >
       {/* Image - Thumbnail Retangular */}
       <div className="relative w-[120px] h-[90px] sm:w-[160px] sm:h-[100px] flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
-        <img 
-          src={event.image} 
-          alt={event.title} 
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-        />
+        {event.image && event.image.trim() !== '' && event.image !== 'undefined' && event.image !== 'null' ? (
+          <img 
+            src={event.image} 
+            alt={event.title} 
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gray-200">
+            <Calendar className="w-8 h-8 text-gray-400" />
+          </div>
+        )}
       </div>
 
       {/* Content */}

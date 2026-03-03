@@ -36,7 +36,7 @@ export function CategorySelect({ value, onChange, error }: CategorySelectProps) 
       const data = await eventService.getCategories();
       setCategories(data);
     } catch (err) {
-      console.error('Failed to load categories', err);
+      // console.error('Failed to load categories', err);
     } finally {
       setLoading(false);
     }

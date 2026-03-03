@@ -76,7 +76,7 @@ const EmAlta = () => {
 
       setEvents(convertedEvents);
     } catch (err) {
-      console.error('Erro ao carregar eventos em alta', err);
+      // Erro silencioso
       setLoadError(true);
       setEvents([]);
     } finally {

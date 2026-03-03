@@ -70,7 +70,7 @@ const Home = () => {
         img.src = src;
       });
     } catch (err) {
-      console.error('❌ Erro ao carregar eventos:', err);
+      // console.error('❌ Erro ao carregar eventos:', err);
       setEvents([]);
     } finally {
       setIsLoading(false);

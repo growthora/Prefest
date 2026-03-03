@@ -108,7 +108,7 @@ class AuthService {
         .eq('id', data.user.id);
         
       if (updateError) {
-        console.error('Erro ao atualizar roles do usuário:', updateError);
+        // console.error('Erro ao atualizar roles do usuário:', updateError);
         // Não lançamos erro aqui para não bloquear o cadastro, o usuário pode pedir upgrade depois
       }
     }

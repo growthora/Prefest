@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
     
     const { system, notifications, smtp, integrations } = body;
 
-    console.log('Saving settings for user:', user.id);
+    // console.log('Saving settings for user:', user.id);
 
     // Call RPC using Service Role
     // Note: ensure save_admin_settings RPC exists and accepts these parameters
@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
     });
 
     if (rpcError) {
-        console.error('RPC Error:', rpcError);
+        // console.error('RPC Error:', rpcError);
         return new Response(JSON.stringify({ 
             ok: false,
             error: `Database Error: ${rpcError.message}`,
@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Function Error:', error);
+    // console.error('Function Error:', error);
     return new Response(JSON.stringify({ 
         ok: false,
         error: `Internal Error: ${error.message}`,

@@ -31,10 +31,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true); // Mantido para operações de login/update
   const [error, setError] = useState<string | null>(null);
 
-  console.log('🔐 AuthProvider renderizando', { user: user?.email, profile: profile?.email, authStatus, isLoading, isRecoveryMode });
-
   useEffect(() => {
-    console.log('🔄 AuthProvider useEffect iniciando');
     
     // Check for recovery mode in session storage (persistence across reloads)
     const storedRecoveryMode = sessionStorage.getItem('auth_recovery_mode');
@@ -52,11 +49,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Carregar sessão inicial
     const initAuth = async () => {
       try {
-        console.log('⏳ Iniciando autenticação...');
         setAuthStatus('checking');
         
         const session = await authService.getSession();
-        console.log('📦 Sessão obtida:', session?.user?.email || 'nenhuma');
         
         if (session?.user) {
           // Validar o token com getUser() para garantir que não está expirado/inválido
@@ -69,15 +64,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // Buscar perfil em paralelo se possível, ou sequencial
             try {
                 const userProfile = await authService.getProfile(user.id);
-                console.log('👤 Perfil obtido:', userProfile?.email);
                 setProfile(userProfile);
               } catch (profileError: any) {
-                console.error('❌ Erro ao buscar perfil:', profileError);
                 
                 // Se o erro for de autenticação (401/403), o token é inválido para o banco
                 // Mas cuidado com erros de RLS ou "não encontrado" (PGRST116)
                 if (profileError?.code === 'PGRST301' || profileError?.message?.includes('JWT') || profileError?.status === 401) {
-                   console.warn('⚠️ Token inválido detectado ao buscar perfil. Forçando logout.');
                    await authService.signOut();
                    setUser(null);
                    setProfile(null);
@@ -87,14 +79,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 
                 // Se o perfil não existe (PGRST116), não deslogamos. O usuário pode ter sido criado manualmente ou falha no trigger.
                 if (profileError?.code === 'PGRST116') {
-                  console.warn('⚠️ Perfil não encontrado para usuário autenticado via Auth. Mantendo sessão.');
                   // Opcional: Tentar criar perfil aqui se não existir?
                   // Por enquanto, apenas não deslogamos.
                 }
               }
               setAuthStatus('authenticated');
           } catch (validationError) {
-            console.warn('⚠️ Sessão inválida detectada:', validationError);
             await authService.signOut();
             setUser(null);
             setProfile(null);
@@ -104,11 +94,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setAuthStatus('unauthenticated');
         }
       } catch (err) {
-        console.error('❌ Erro ao inicializar auth:', err);
         setAuthStatus('unauthenticated');
       } finally {
         setIsLoading(false);
-        console.log('✅ Autenticação inicializada');
       }
     };
 
@@ -116,10 +104,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listener para mudanças de autenticação
     const { data: { subscription } } = authService.onAuthStateChange(async (user, event) => {
-      console.log('🔄 Mudança de estado de auth detectada:', user?.email || 'logout', 'Event:', event);
       
       if (event === 'PASSWORD_RECOVERY') {
-        console.log('🔒 Modo de recuperação de senha ativado');
         setIsRecoveryMode(true);
         sessionStorage.setItem('auth_recovery_mode', 'true');
       } else if (event === 'SIGNED_OUT') {
@@ -136,7 +122,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const userProfile = await authService.getProfile(user.id);
           setProfile(userProfile);
         } catch (err) {
-          console.error('Erro ao atualizar perfil no listener:', err);
+          // Erro silencioso
         }
       } else {
         setUser(null);
@@ -162,7 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // 1. O usuário foi deletado do banco mas ainda está logado no frontend
         // 2. RLS impede a atualização
         if (err?.code !== 'PGRST116') {
-          console.error('Error updating last_seen:', err);
+          // Erro silencioso
         }
       }
     };
@@ -187,7 +173,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const userProfile = await authService.getProfile(loggedUser.id);
           setProfile(userProfile);
         } catch (profileErr: any) {
-          console.warn('⚠️ Erro ao buscar perfil no login:', profileErr);
           // Não falhamos o login se o perfil não carregar, a sessão existe
           if (profileErr?.code === 'PGRST116') {
              // Perfil não existe
@@ -219,7 +204,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const userProfile = await authService.getProfile(newUser.id);
           setProfile(userProfile);
         } catch (profileErr) {
-          console.warn('⚠️ Erro ao buscar perfil após cadastro:', profileErr);
+          // Erro silencioso
         }
       }
     } catch (err) {
@@ -250,19 +235,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateProfile = async (updates: Partial<Profile>) => {
     if (!user) {
-      console.error('❌ Tentativa de atualizar perfil sem usuário logado');
       return;
     }
 
     try {
-      console.log('🔄 Iniciando atualização de perfil:', { userId: user.id, updates });
       setIsLoading(true);
       setError(null);
       const updatedProfile = await authService.updateProfile(user.id, updates);
-      console.log('✅ Perfil atualizado com sucesso:', updatedProfile);
       setProfile(updatedProfile);
     } catch (err) {
-      console.error('❌ Erro ao atualizar perfil:', err);
       const errorMessage = err instanceof Error ? err.message : 'Erro ao atualizar perfil';
       setError(errorMessage);
       throw new Error(errorMessage);

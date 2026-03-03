@@ -31,7 +31,7 @@ export function Sales() {
           averageTicketPrice
         });
       } catch (error) {
-        console.error('Failed to load sales stats', error);
+        // console.error('Failed to load sales stats', error);
       } finally {
         setLoading(false);
       }

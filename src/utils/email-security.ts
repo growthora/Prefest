@@ -17,7 +17,7 @@ export function validateEmailContext(context: EMAIL_CONTEXT): void {
       // Isso teoricamente nunca deve acontecer se a constante estiver hardcoded como 'SUPABASE',
       // mas serve como dupla checagem caso alguém mude a configuração.
       const errorMsg = '[SECURITY CRITICAL] Tentativa de usar provedor de email não-nativo para fluxo de Autenticação.';
-      console.error(errorMsg);
+      // console.error(errorMsg);
       throw new Error(errorMsg);
     }
     

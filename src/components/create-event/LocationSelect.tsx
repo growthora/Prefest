@@ -42,7 +42,7 @@ export function LocationSelect({
       const data = await response.json();
       setCities(data.sort((a: City, b: City) => a.nome.localeCompare(b.nome)));
     } catch (error) {
-      console.error('Failed to load cities', error);
+      // console.error('Failed to load cities', error);
       setCities([]);
     } finally {
       setLoadingCities(false);

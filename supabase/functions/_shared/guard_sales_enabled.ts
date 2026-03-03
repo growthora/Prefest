@@ -15,7 +15,7 @@ export async function guardSalesEnabled(
   code?: string; 
   account?: any 
 }> {
-  console.log(`[guardSalesEnabled] Checking status for organizer:`, options)
+  // console.log(`[guardSalesEnabled] Checking status for organizer:`, options)
   
   let query = supabaseClient.from('organizer_asaas_accounts').select('*').single()
   
@@ -42,7 +42,7 @@ export async function guardSalesEnabled(
   const { data: orgAccount, error: orgError } = await query
 
   if (orgError) {
-    console.error(`[guardSalesEnabled] Error fetching account:`, orgError)
+    // console.error(`[guardSalesEnabled] Error fetching account:`, orgError)
     if (orgError.code === 'PGRST116') { // No rows found
       return { 
         isValid: false, 
@@ -66,7 +66,7 @@ export async function guardSalesEnabled(
   }
 
   if (!orgAccount.is_active || orgAccount.kyc_status !== 'approved') {
-    console.warn(`[guardSalesEnabled] Account not active/approved. Status: ${orgAccount.kyc_status}, Active: ${orgAccount.is_active}`)
+    // console.warn(`[guardSalesEnabled] Account not active/approved. Status: ${orgAccount.kyc_status}, Active: ${orgAccount.is_active}`)
     return { 
       isValid: false, 
       error: 'Organizer Asaas account is not active/approved', 

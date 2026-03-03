@@ -67,7 +67,7 @@ export function Settings() {
           });
         }
       } catch (error) {
-        console.error('Failed to load profile', error);
+        // console.error('Failed to load profile', error);
         toast.error("Erro ao carregar perfil");
       } finally {
         setLoading(false);
@@ -86,7 +86,7 @@ export function Settings() {
       });
       toast.success("Perfil atualizado com sucesso!");
     } catch (error) {
-      console.error('Failed to update profile', error);
+      // console.error('Failed to update profile', error);
       toast.error("Erro ao atualizar perfil");
     } finally {
       setSaving(false);

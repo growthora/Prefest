@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (ticketError || !ticket) {
-      console.error('Ticket fetch error:', ticketError);
+      // console.error('Ticket fetch error:', ticketError);
       throw new Error('Ticket not found or invalid');
     }
 
@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
 
     // Check strict separation
     if (buyerEmail === organizerAccount.asaas_account_email) {
-        console.warn(`V2 Warning: Buyer Email matches Organizer Email (${buyerEmail}). Self-testing?`);
+        // console.warn(`V2 Warning: Buyer Email matches Organizer Email (${buyerEmail}). Self-testing?`);
     }
 
     const customerInfo = {
@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
         notificationDisabled: false
     };
 
-    console.log(`V2 Customer Info Prepared: ${JSON.stringify(customerInfo)}`);
+    // console.log(`V2 Customer Info Prepared: ${JSON.stringify(customerInfo)}`);
 
     // 6. Create Customer in Asaas
     let customerId = '';
@@ -263,7 +263,7 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Function error:', error);
+    // console.error('Function error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

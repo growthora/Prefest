@@ -52,7 +52,6 @@ class UserService {
 
   // Listar usuários com estatísticas
   async getUsersWithStats(): Promise<UserWithStats[]> {
-    console.log('🔍 [UserService] Buscando usuários...');
     const { data, error } = await supabase
       .from('profiles')
       .select(`
@@ -64,10 +63,8 @@ class UserService {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('❌ [UserService] Erro ao buscar usuários:', error);
       throw error;
     }
-    console.log('✅ [UserService] Usuários encontrados:', data?.length || 0);
 
     // Calcular estatísticas
     return (data || []).map((user: any) => {
@@ -210,7 +207,6 @@ class UserService {
 
   // Obter estatísticas gerais
   async getStatistics() {
-    console.log('🔍 [UserService] Calculando estatísticas...');
     
     // Total de usuários
     const { count: totalUsers, error: usersError } = await supabase
@@ -218,7 +214,7 @@ class UserService {
       .select('*', { count: 'exact', head: true });
 
     if (usersError) {
-      console.error('❌ [UserService] Erro ao contar usuários:', usersError);
+      // Silently ignore error
     }
 
     // Total de eventos
@@ -227,7 +223,7 @@ class UserService {
       .select('*', { count: 'exact', head: true });
 
     if (eventsError) {
-      console.error('❌ [UserService] Erro ao contar eventos:', eventsError);
+      // Silently ignore error
     }
 
     // Faturamento total e por evento
@@ -236,7 +232,7 @@ class UserService {
       .select('total_paid, event_id, events(title, price)');
 
     if (revenueError) {
-      console.error('❌ [UserService] Erro ao buscar faturamento:', revenueError);
+      // Silently ignore error
     }
 
     const totalRevenue = (revenue || []).reduce((sum, item) => sum + (item.total_paid || 0), 0);
@@ -275,7 +271,6 @@ class UserService {
       eventStats,
     };
     
-    console.log('✅ [UserService] Estatísticas calculadas:', stats);
     return stats;
   }
 }

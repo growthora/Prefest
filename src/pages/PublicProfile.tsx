@@ -85,12 +85,10 @@ export default function PublicProfile() {
         .single();
 
       if (error || !data) {
-        console.warn('User not found in event participants or invalid status', error);
         return false;
       }
       return true;
     } catch (err) {
-      console.error('Error validating event attendance:', err);
       return false;
     }
   };
@@ -154,7 +152,6 @@ export default function PublicProfile() {
       });
 
     } catch (err) {
-      console.error('Error loading profile:', err);
       setError('Erro ao carregar perfil');
     } finally {
       setLoading(false);
@@ -196,7 +193,6 @@ export default function PublicProfile() {
       toast.success(`Você curtiu ${profile.name}!`);
       // Optional: Add visual feedback or disable button
     } catch (error) {
-      console.error('Error liking user:', error);
       toast.error('Erro ao curtir usuário');
     }
   };

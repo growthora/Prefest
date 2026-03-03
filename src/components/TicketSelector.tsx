@@ -40,7 +40,7 @@ export function TicketSelector({ eventId, onSelect, selectedTicketTypeId, onLoad
         onSelect(types[0].id, types[0]);
       }
     } catch (error) {
-      console.error('Erro ao carregar tipos de ingressos:', error);
+      // console.error('Error loading ticket types:', error);
     } finally {
       setLoading(false);
     }

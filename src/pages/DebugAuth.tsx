@@ -18,18 +18,17 @@ export const DebugAuth = () => {
     setError(null);
 
     try {
-      console.log('Testing Debug Auth via invokeEdgeFunction...');
+      // console.log('Testing Debug Auth via invokeEdgeFunction...');
+      const { data, error } = await invokeEdgeFunction('debug-auth', { 
+        method: 'POST',
+        body: { test: true }
+      });
 
-      const { data, error: funcError } = await invokeEdgeFunction('debug-auth');
-
-      if (funcError) {
-        throw funcError;
-      }
-
-      setResult(data);
+      if (error) throw error;
+      setResult(JSON.stringify(data, null, 2));
     } catch (err: any) {
-      console.error('Debug Auth Error:', err);
-      setError(err.message || 'Erro desconhecido');
+      // console.error('Debug Auth Error:', err);
+      setResult(`ERROR: ${err.message}`);
     } finally {
       setLoading(false);
     }

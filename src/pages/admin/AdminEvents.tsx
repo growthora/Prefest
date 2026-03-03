@@ -83,7 +83,7 @@ export default function AdminEvents() {
       const data = await eventService.getAllEvents();
       setEvents(data);
     } catch (error) {
-      console.error('Erro ao carregar eventos:', error);
+      // console.error('Erro ao carregar eventos:', error);
       toast.error('Erro ao carregar eventos');
     } finally {
       setIsLoading(false);

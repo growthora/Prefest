@@ -110,7 +110,7 @@ export default function CompleteProfile() {
       }, 1000);
 
     } catch (error: any) {
-      console.error('Erro ao atualizar perfil:', error);
+      // console.error('Erro ao atualizar perfil:', error);
       toast.error(error.message || 'Erro ao atualizar perfil');
     } finally {
       setLoading(false);

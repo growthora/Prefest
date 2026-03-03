@@ -78,9 +78,9 @@ export function OrganizerEvents() {
       const data = await eventService.getEventsByCreator(user.id);
       setEvents(data);
     } catch (error) {
-      console.error('Failed to load events', error);
+      // console.error('Failed to load events', error);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -119,13 +119,14 @@ export function OrganizerEvents() {
             description: `As vendas para o evento "${event.title}" foram ${checked ? 'habilitadas' : 'desabilitadas'}.`,
         });
     } catch (error) {
-        console.error('Error toggling sales:', error);
-        toast({
-            title: "Erro ao atualizar",
-            description: "Não foi possível atualizar o status de vendas.",
-            variant: "destructive"
-        });
-        // Revert optimistic update if needed, but here we just rely on next load or user retry
+      // console.error('Error toggling sales:', error);
+      toast({
+        title: "Erro ao atualizar",
+        description: "Não foi possível atualizar o status de vendas.",
+        variant: "destructive"
+      });
+      
+      // Revert optimistic update if needed, but here we just rely on next load or user retry
         loadEvents();
     } finally {
         setTogglingEventId(null);
@@ -342,8 +343,12 @@ export function OrganizerEvents() {
           >
             <Card className="overflow-hidden border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow h-full">
               <div className="relative h-40 w-full bg-muted overflow-hidden">
-                 {event.image_url ? (
-                    <img src={event.image_url} alt={event.title} className="h-full w-full object-cover transition-transform hover:scale-105 duration-500" />
+                 {(event.image_url && event.image_url.trim() !== '' && event.image_url !== 'undefined' && event.image_url !== 'null') ? (
+                    <img 
+                      src={event.image_url} 
+                      alt={event.title} 
+                      className="h-full w-full object-cover transition-transform hover:scale-105 duration-500" 
+                    />
                  ) : (
                     <div className="flex h-full items-center justify-center bg-muted/50 text-muted-foreground">
                        <Calendar className="h-12 w-12 opacity-20" />

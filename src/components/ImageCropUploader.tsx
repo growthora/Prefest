@@ -117,7 +117,7 @@ export function ImageCropUploader({
       setImageSrc(null);
       toast.success('Imagem atualizada com sucesso!');
     } catch (e) {
-      console.error(e);
+      // console.error(e);
       toast.error('Erro ao processar imagem.');
     } finally {
       setIsUploading(false);
@@ -143,7 +143,7 @@ export function ImageCropUploader({
         onChange('');
         if (fileInputRef.current) fileInputRef.current.value = '';
       } catch (err) {
-        console.error(err);
+        // console.error(err);
         toast.error('Erro ao remover imagem');
       }
     }
@@ -260,10 +260,10 @@ export function ImageCropUploader({
             <Loader2 className="w-8 h-8 animate-spin mb-2" />
             <span className="text-sm font-medium">Processando...</span>
           </div>
-        ) : value ? (
+        ) : (value && typeof value === 'string' && value.trim() !== '' && value !== 'undefined' && value !== 'null') ? (
           <>
              <img 
-              src={value} 
+              src={value}  
               alt="Preview" 
               className={cn(
                 "absolute inset-0 w-full h-full object-cover",

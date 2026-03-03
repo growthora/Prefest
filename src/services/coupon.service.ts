@@ -52,17 +52,17 @@ class CouponService {
 
   // Listar todos os cupons (admin)
   async getAllCoupons(): Promise<Coupon[]> {
-    console.log('🔍 [CouponService] Buscando cupons...');
+    // console.log('🔍 [CouponService] Buscando cupons...');
     const { data, error } = await supabase
       .from('coupons')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('❌ [CouponService] Erro ao buscar cupons:', error);
+      // console.error('❌ [CouponService] Erro ao buscar cupons:', error);
       throw error;
     }
-    console.log('✅ [CouponService] Cupons encontrados:', data?.length || 0);
+    // console.log('✅ [CouponService] Cupons encontrados:', data?.length || 0);
     return data || [];
   }
 

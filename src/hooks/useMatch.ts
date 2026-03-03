@@ -45,12 +45,12 @@ export function useMatch(eventId?: string) {
             name: m.partner_name,
             photo: m.partner_avatar,
         }
-      }));
-      setMatches(mappedMatches);
-    } catch (error) {
-      console.error('Erro ao carregar matches:', error);
-    }
-  };
+    }));
+    setMatches(mappedMatches);
+  } catch (error) {
+    // console.error('Erro ao carregar matches:', error);
+  }
+};
 
   // Carregar fila de candidatos
   useEffect(() => {
@@ -82,10 +82,10 @@ export function useMatch(eventId?: string) {
       }));
       
       setCurrentQueue(mappedUsers);
-    } catch (error) {
-      console.error('Erro ao carregar fila:', error);
-      toast.error('Erro ao carregar participantes');
-    } finally {
+  } catch (error) {
+    // console.error('Erro ao carregar fila:', error);
+    toast.error('Erro ao carregar participantes');
+  } finally {
       setLoading(false);
     }
   };
@@ -96,7 +96,7 @@ export function useMatch(eventId?: string) {
       await updateProfile({ match_enabled: !isSingleMode });
       toast.success(isSingleMode ? 'Modo Match desativado' : 'Modo Match ativado!');
     } catch (error) {
-      console.error('Erro ao atualizar modo Match:', error);
+      // console.error('Erro ao atualizar modo Match:', error);
       toast.error('Erro ao atualizar status');
     }
   }, [user, isSingleMode, updateProfile]);
@@ -119,7 +119,7 @@ export function useMatch(eventId?: string) {
       }
       return false;
     } catch (error) {
-      console.error('Erro ao dar like:', error);
+      // console.error('Erro ao dar like:', error);
       toast.error('Erro ao processar like');
       return false;
     }
@@ -150,7 +150,7 @@ export function useMatch(eventId?: string) {
             await chatService.sendMessage(chatId, user.id, content);
         }
     } catch (error) {
-        console.error("Erro ao enviar mensagem", error);
+        // console.error("Erro ao enviar mensagem", error);
         toast.error("Erro ao enviar mensagem");
     }
   }, [user]);

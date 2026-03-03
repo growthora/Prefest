@@ -60,7 +60,7 @@ export default function DeletarConta() {
       navigate('/');
       
     } catch (err: any) {
-      console.error('Erro ao excluir conta:', err);
+      // console.error('Erro ao excluir conta:', err);
       const errorMessage = err.message || 'Ocorreu um erro ao tentar excluir sua conta.';
       setError(errorMessage);
       toast.error(errorMessage);

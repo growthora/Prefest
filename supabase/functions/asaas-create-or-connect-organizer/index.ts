@@ -14,7 +14,7 @@ serve(async (req) => {
     // 1. Authenticate User
     const { user } = await requireAuth(req);
     
-    console.log(`[asaas-create-or-connect-organizer] User Authenticated: ${user.id}`);
+    // console.log(`[asaas-create-or-connect-organizer] User Authenticated: ${user.id}`);
 
     const adminClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -60,7 +60,7 @@ serve(async (req) => {
     let asaasWalletId = null;
     let isNewAccount = false;
 
-    console.log(`[asaas-create-or-connect-organizer] Searching for existing Asaas account for CPF/CNPJ: ${cpfCnpj}`);
+    // console.log(`[asaas-create-or-connect-organizer] Searching for existing Asaas account for CPF/CNPJ: ${cpfCnpj}`);
 
     const searchResponse = await fetch(`${API_URL}/accounts?cpfCnpj=${cpfCnpj}`, {
         method: 'GET',
@@ -73,17 +73,17 @@ serve(async (req) => {
     if (searchResponse.ok) {
         const searchData = await searchResponse.json();
         if (searchData.data && searchData.data.length > 0) {
-            console.log(`[asaas-create-or-connect-organizer] Found existing Asaas account: ${searchData.data[0].id}`);
+            // console.log(`[asaas-create-or-connect-organizer] Found existing Asaas account: ${searchData.data[0].id}`);
             asaasAccountId = searchData.data[0].id;
             asaasWalletId = searchData.data[0].walletId;
         }
     } else {
-        console.warn('[asaas-create-or-connect-organizer] Error searching for existing account, proceeding to create.');
+        // console.warn('[asaas-create-or-connect-organizer] Error searching for existing account, proceeding to create.');
     }
 
     // 5. Create Subaccount in Asaas (if not found)
     if (!asaasAccountId) {
-        console.log(`[asaas-create-or-connect-organizer] Creating new Asaas account...`);
+        // console.log(`[asaas-create-or-connect-organizer] Creating new Asaas account...`);
         const accountPayload = {
             name,
             email,
@@ -108,7 +108,7 @@ serve(async (req) => {
         const createData = await createResponse.json()
 
         if (!createResponse.ok) {
-            console.error('Asaas API Error:', createData);
+            // console.error('Asaas API Error:', createData);
             
             // Handle specific "Account already exists" error from Asaas if search failed
             // Asaas usually returns 400 with specific error code if uniqueness is violated in a way that blocks creation
@@ -125,7 +125,7 @@ serve(async (req) => {
     }
 
     // 6. Save to DB
-    console.log(`[asaas-create-or-connect-organizer] Saving to DB: ${asaasAccountId}`);
+    // console.log(`[asaas-create-or-connect-organizer] Saving to DB: ${asaasAccountId}`);
 
     const { data: newAccount, error: dbError } = await adminClient
         .from('organizer_asaas_accounts')
@@ -140,7 +140,7 @@ serve(async (req) => {
         .single()
 
     if (dbError) {
-        console.error('[asaas-create-or-connect-organizer] DB Error:', dbError);
+        // console.error('[asaas-create-or-connect-organizer] DB Error:', dbError);
         return new Response(JSON.stringify({ error: 'Error saving account to database', details: dbError }), {
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -160,7 +160,7 @@ serve(async (req) => {
     })
 
   } catch (error) {
-    console.error('[asaas-create-or-connect-organizer] Unexpected error:', error)
+    // console.error('[asaas-create-or-connect-organizer] Unexpected error:', error)
     return new Response(JSON.stringify({ error: 'Internal Server Error', details: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

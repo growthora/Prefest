@@ -21,11 +21,17 @@ export function EventListItem({ event, className }: EventListItemProps) {
     >
       {/* Thumbnail - Retangular Compacta */}
       <div className="relative w-[120px] h-[90px] sm:w-[140px] sm:h-[90px] flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
-        <img 
-          src={event.image} 
-          alt={event.title} 
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-        />
+        {(event.image && event.image !== 'undefined' && event.image !== 'null' && event.image.trim() !== '') ? (
+          <img 
+            src={event.image} 
+            alt={event.title} 
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-gray-400">
+            <span className="text-xs">Sem img</span>
+          </div>
+        )}
       </div>
 
       {/* Conteúdo */}

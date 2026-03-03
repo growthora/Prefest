@@ -61,9 +61,9 @@ export function Overview() {
 
         } else {
           setHasEvents(false);
-        }
+        }setStats(data);
       } catch (error) {
-        console.error('Failed to load dashboard overview', error);
+        // console.error('Failed to load dashboard overview', error);
       } finally {
         setLoading(false);
       }

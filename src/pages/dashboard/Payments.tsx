@@ -21,7 +21,7 @@ export function Payments() {
         const totalRevenue = events.reduce((acc, curr) => acc + (curr.revenue || 0), 0);
         setBalance(totalRevenue);
       } catch (error) {
-        console.error('Failed to load balance', error);
+        // console.error('Failed to load balance', error);
       } finally {
         setLoading(false);
       }

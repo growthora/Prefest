@@ -20,15 +20,16 @@ export function MatchPersistentToast() {
 
       // Realtime subscription for new matches
       const subscription = supabase
-        .channel('public:matches_toast')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'matches' }, (payload) => {
-          console.log('🔥 New match detected via realtime!', payload);
-          // Check if current user is involved
-          if (payload.new.user_a_id === user.id || payload.new.user_b_id === user.id) {
-             loadUnseenMatches();
-          }
-        })
-        .subscribe();
+      .channel('public:matches_toast')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'matches' }, (payload) => {
+        // console.log('🔥 New match detected via realtime!', payload);
+        if (payload.new.user_a_id === user.id || payload.new.user_b_id === user.id) {
+          loadUnseenMatches();
+        }
+      })
+      .subscribe((status) => {
+        // console.log('Subscription status:', status);
+      });
 
       return () => {
         subscription.unsubscribe();
@@ -46,7 +47,7 @@ export function MatchPersistentToast() {
         setCurrentMatch(unseen[0]);
       }
     } catch (error) {
-      console.error('Error loading unseen matches', error);
+      // console.error('Error loading unseen matches', error);
     }
   };
 
@@ -60,7 +61,7 @@ export function MatchPersistentToast() {
       setUnseenMatches(remaining);
       setCurrentMatch(remaining.length > 0 ? remaining[0] : null);
     } catch (error) {
-      console.error('Error dismissing match toast', error);
+      // console.error('Error dismissing match toast', error);
     }
   };
 
@@ -77,7 +78,7 @@ export function MatchPersistentToast() {
       setUnseenMatches(remaining);
       setCurrentMatch(remaining.length > 0 ? remaining[0] : null);
     } catch (error) {
-      console.error('Error handling chat action', error);
+      // console.error('Error handling chat action', error);
     }
   };
 
@@ -98,7 +99,7 @@ export function MatchPersistentToast() {
 
             <div className="relative">
                 <Avatar className="h-14 w-14 border-2 border-white/40 shadow-md">
-                    <AvatarImage src={currentMatch.partner_avatar} />
+                    <AvatarImage src={(currentMatch.partner_avatar && currentMatch.partner_avatar.trim() !== '' && currentMatch.partner_avatar !== 'undefined' && currentMatch.partner_avatar !== 'null') ? currentMatch.partner_avatar : undefined} />
                     <AvatarFallback>{currentMatch.partner_name[0]}</AvatarFallback>
                 </Avatar>
                 <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-1 shadow-sm">

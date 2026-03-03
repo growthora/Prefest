@@ -103,11 +103,11 @@ export default function Chat() {
       try {
         setLoading(true);
         const data = await matchService.getUserMatches();
-        setMatches(data);
-      } catch (error) {
-        console.error('Error loading matches:', error);
-      } finally {
-        setLoading(false);
+    setMatches(data);
+  } catch (error) {
+    // console.error('Error loading matches:', error);
+  } finally {
+    setLoading(false);
       }
     };
 
@@ -133,7 +133,7 @@ export default function Chat() {
         const events = await eventService.getUserEvents(user.id);
         setUserEvents(events as unknown as UserEvent[]);
       } catch (error) {
-        console.error('Erro ao carregar eventos do usuário:', error);
+        // console.error('Erro ao carregar eventos do usuário:', error);
       } finally {
         setEventsLoading(false);
       }
@@ -153,7 +153,7 @@ export default function Chat() {
         const currentMatch = await matchService.getMatchDetails(matchId);
         
         if (!currentMatch || currentMatch.status !== 'active') {
-          console.error('Match not found or inactive:', matchId);
+          // console.error('Match not found or inactive:', matchId);
           toast.error('Match não encontrado ou inativo');
           navigate(ROUTE_PATHS.MY_EVENTS);
           return;
@@ -169,12 +169,12 @@ export default function Chat() {
         setMessages(msgs);
 
         // Mark as read immediately
-        chatService.markMessagesAsRead(cid);
+    chatService.markMessagesAsRead(cid);
 
-      } catch (error) {
-        console.error('Erro ao carregar chat:', error);
-        toast.error('Erro ao carregar conversa');
-      } finally {
+  } catch (error) {
+    // console.error('Erro ao carregar chat:', error);
+    toast.error('Erro ao carregar conversa');
+  } finally {
         setLoading(false);
       }
     };

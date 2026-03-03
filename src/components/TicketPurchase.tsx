@@ -345,7 +345,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         setStep(nextStep);
 
       } catch (error: any) {
-        console.error('Checkout init error:', error);
+        // console.error('Checkout init error:', error);
         let errorMessage = error.message || 'Erro ao iniciar checkout';
         if (errorMessage && (errorMessage.includes('Invalid JWT') || errorMessage.includes('401'))) {
             errorMessage = 'Sessão inválida. Tente fazer login novamente.';
@@ -440,12 +440,12 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         // 1. Save Profile (if data exists in state)
         if (fullName && cpf && email && phone) {
             const { error: profileError } = await invokeEdgeFunction('save-buyer-profile-v2', {
-                body: { full_name: fullName, cpf, phone, email }
-            });
-            if (profileError) {
-                console.error('Profile save error:', profileError);
-                // Continue anyway? Or stop?
-                // If profile save fails, ticket issue might fail if profile is required by constraint.
+            body: { full_name: fullName, cpf, phone, email }
+        });
+        if (profileError) {
+            // console.error('Profile save error:', profileError);
+            // Continue anyway? Or stop?
+            // If profile save fails, ticket issue might fail if profile is required by constraint.
                 // But let's try to continue.
             }
         }
@@ -479,12 +479,12 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         // 1. Save Profile (Mandatory for Paid too)
         if (fullName && cpf && email && phone) {
             const { error: profileError } = await invokeEdgeFunction('save-buyer-profile-v2', {
-                body: { full_name: fullName, cpf, phone, email }
-            });
-            if (profileError) {
-                console.warn('Profile save warning (paid):', profileError);
-            }
+            body: { full_name: fullName, cpf, phone, email }
+        });
+        if (profileError) {
+            // console.warn('Profile save warning (paid):', profileError);
         }
+    }
 
         const payload = {
             ticket_id: ticketId,
@@ -515,9 +515,9 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
       }
 
     } catch (error: any) {
-      console.error('Purchase error:', error);
-      let errorMessage = error.message || 'Erro inesperado ao processar o pagamento';
-      const errorStr = errorMessage.toLowerCase();
+    // console.error('Purchase error:', error);
+    let errorMessage = error.message || 'Erro inesperado ao processar o pagamento';
+    const errorStr = errorMessage.toLowerCase();
       
       if (errorStr.includes('invalid jwt') || errorStr.includes('401') || errorStr.includes('unauthorized')) {
           errorMessage = 'Sessão inválida. Tente fazer login novamente.';
@@ -614,11 +614,17 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         <Card className="p-6 bg-card/30 border-border backdrop-blur-sm">
           <div className="flex gap-6">
             <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 border border-border/50">
-              <img 
-                src={event.image} 
-                alt={event.title} 
-                className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
-              />
+              {(event.image && event.image.trim() !== '' && event.image !== 'undefined' && event.image !== 'null') ? (
+                <img 
+                  src={event.image} 
+                  alt={event.title} 
+                  className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
+                />
+              ) : (
+                <div className="w-full h-full bg-secondary flex items-center justify-center">
+                  <span className="text-xs text-muted-foreground">Sem img</span>
+                </div>
+              )}
             </div>
             <div className="flex-1 space-y-2">
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">

@@ -17,7 +17,7 @@ export const Honeypot: React.FC<HoneypotProps> = ({ fieldName = "website", onCha
     const val = e.target.value;
     setValue(val);
     if (val.length > 0) {
-      console.warn("Honeypot triggered! Potential bot activity.");
+      // console.warn('🍯 Honeypot filled! Blocking submission.');
       if (onChange) onChange(true);
     }
   };

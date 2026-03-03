@@ -126,13 +126,13 @@ export default function AdminSettings() {
               setIntegrations(intData);
           }
       } else {
-          setIntegrations([{ provider: 'asaas', is_enabled: false, environment: 'sandbox' }]);
-      }
+                setIntegrations([{ provider: 'asaas', is_enabled: false, environment: 'sandbox' }]);
+            }
 
-    } catch (error) {
-      console.error('Error fetching settings:', error);
-      toast.error('Erro ao carregar configurações');
-    } finally {
+          } catch (error) {
+            // console.error('Error fetching settings:', error);
+            toast.error('Erro ao carregar configurações');
+          } finally {
       setIsLoading(false);
     }
   };
@@ -174,8 +174,8 @@ export default function AdminSettings() {
       setAsaasWebhookToken('');
 
     } catch (error: any) {
-      console.error('Error saving settings:', error);
-      toast.error(`Erro ao salvar: ${error.message}`);
+    // console.error('Error saving settings:', error);
+    toast.error(`Erro ao salvar: ${error.message}`);
     } finally {
       setIsSaving(false);
     }

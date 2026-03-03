@@ -70,16 +70,16 @@ export function AsaasConnect() {
         .maybeSingle();
 
       if (error) {
-        console.error('Error loading Asaas account:', error);
+        // console.error('Error loading Asaas account:', error);
       }
       
       if (data) {
         setAccount(data);
-      }
-    } catch (error) {
-      console.error('Unexpected error:', error);
-    } finally {
-      setLoading(false);
+    }
+  } catch (error) {
+    // console.error('Unexpected error:', error);
+  } finally {
+    setLoading(false);
     }
   };
 
@@ -106,7 +106,7 @@ export function AsaasConnect() {
       toast.info('Siga as instruções para verificar a conta.');
 
     } catch (error: any) {
-      console.error('Relink error:', error);
+      // console.error('Relink error:', error);
       toast.error(error.message || 'Erro ao iniciar verificação');
     } finally {
       setSubmitting(false);
@@ -129,7 +129,7 @@ export function AsaasConnect() {
       toast.success('Conta verificada e conectada com sucesso!');
       loadAccount();
     } catch (error: any) {
-      console.error('Confirm error:', error);
+      // console.error('Confirm error:', error);
       toast.error(error.message || 'Erro ao confirmar verificação');
     } finally {
       setSubmitting(false);
@@ -156,11 +156,11 @@ export function AsaasConnect() {
         setAccount(data.account);
       } else {
         loadAccount();
-      }
-    } catch (error: any) {
-      console.error('Connection error:', error);
-      
-      const errorMessage = error.message || 'Erro desconhecido';
+    }
+  } catch (error: any) {
+    // console.error('Connection error:', error);
+    
+    const errorMessage = error.message || 'Erro desconhecido';
       
       if (errorMessage.toLowerCase().includes('email') && errorMessage.toLowerCase().includes('uso')) {
           toast.error('Este e-mail já está cadastrado no Asaas. Por favor, use outro e-mail ou entre em contato com o suporte.');
@@ -188,7 +188,7 @@ export function AsaasConnect() {
         setAccount(data.account);
       }
     } catch (error: any) {
-      console.error('Refresh error:', error);
+      // console.error('Refresh error:', error);
       toast.error('Erro ao atualizar status: ' + (error.message || 'Erro desconhecido'));
     } finally {
       setSubmitting(false);

@@ -6,7 +6,7 @@ import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ROUTE_PATHS } from "@/lib/index";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
-console.log('📦 App.test.tsx carregado');
+// console.log('📦 App.test.tsx carregado');
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,7 +18,7 @@ const queryClient = new QueryClient({
 });
 
 const TestApp = () => {
-  console.log('🧪 TestApp renderizando...');
+  // console.log('🧪 TestApp renderizando...');
   
   return (
     <ErrorBoundary>

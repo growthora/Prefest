@@ -40,7 +40,7 @@ export function DashboardHeader({
       await signOut();
       navigate(ROUTE_PATHS.LOGIN);
     } catch (error) {
-      console.error('Error signing out:', error);
+      // console.error('Error signing out:', error);
     }
   };
 
@@ -153,7 +153,15 @@ export function DashboardHeader({
           </div>
           
           <Avatar className="h-8 w-8 md:h-9 md:w-9 border border-border cursor-pointer transition-opacity hover:opacity-80">
-            <AvatarImage src={profile?.avatar_url || user?.photo || ''} alt={profile?.full_name || 'Avatar'} />
+            <AvatarImage 
+              src={(profile?.avatar_url && profile.avatar_url.trim() !== '' && profile.avatar_url !== 'undefined' && profile.avatar_url !== 'null') 
+                ? profile.avatar_url 
+                : (user?.photo && user.photo.trim() !== '' && user.photo !== 'undefined' && user.photo !== 'null') 
+                  ? user.photo 
+                  : undefined
+              } 
+              alt={profile?.full_name || 'Avatar'} 
+            />
             <AvatarFallback>{getInitials(profile?.full_name || user?.name || 'O')}</AvatarFallback>
           </Avatar>
         </div>

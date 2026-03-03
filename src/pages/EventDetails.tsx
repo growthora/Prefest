@@ -117,7 +117,6 @@ export default function EventDetails() {
             filter: `to_user_id=eq.${user?.id}`
           },
           (payload) => {
-             console.log('❤️ New like received!', payload);
              if (payload.new.event_id === event.id) {
                 loadReceivedLikes();
                 toast.info('Você recebeu uma nova curtida! ❤️');
@@ -139,7 +138,7 @@ export default function EventDetails() {
       const likes = await likeService.getReceivedLikes(event.id);
       setReceivedLikes(likes);
     } catch (error) {
-      console.error('Error loading received likes:', error);
+      // Error loading received likes
     } finally {
       setLoadingReceivedLikes(false);
     }
@@ -156,7 +155,7 @@ export default function EventDetails() {
         
         // Play sound
         const audio = new Audio('/sounds/match.mp3');
-        audio.play().catch(e => console.log('Audio play failed', e));
+        audio.play().catch(() => {});
 
         // Confetti
         confetti({
@@ -176,7 +175,7 @@ export default function EventDetails() {
                 setShowMatchOverlay(true);
             }
         } catch (e) {
-            console.error('Error fetching matched profile', e);
+            // Error fetching matched profile
         }
       }
     } catch (error) {
@@ -203,7 +202,7 @@ export default function EventDetails() {
       try {
         candidates = await eventService.getMatchCandidates(event.id);
       } catch (e) {
-        console.warn('getMatchCandidates failed, using getEventAttendees', e);
+        // Fallback to getEventAttendees
         candidates = await eventService.getEventAttendees(event.id);
       }
 
@@ -237,7 +236,7 @@ export default function EventDetails() {
       
       setMatchQueue(mapped);
     } catch (error) {
-      console.error('Error loading match candidates:', error);
+      // Error loading match candidates
     } finally {
       setLoadingMatchCandidates(false);
     }
@@ -258,7 +257,7 @@ export default function EventDetails() {
         setIsLiked(liked);
       }
     } catch (error) {
-      console.warn("Could not check like status", error);
+      // Ignore error
     }
   };
 
@@ -317,7 +316,7 @@ export default function EventDetails() {
       const data = await eventService.getEventAttendees(event.id);
       setAttendees(data);
     } catch (error) {
-      console.error('Error fetching attendees:', error);
+      // Error fetching attendees
       toast.error('Erro ao carregar lista de participantes');
     } finally {
       setLoadingAttendees(false);
@@ -370,7 +369,6 @@ export default function EventDetails() {
       
       fetchAttendees(); 
     } catch (error) {
-      console.error('Erro ao atualizar configuração:', error);
       toast.error('Erro ao atualizar status');
     }
   };
@@ -465,7 +463,6 @@ export default function EventDetails() {
         navigate(ROUTE_PATHS.HOME);
       }
     } catch (err) {
-      console.error('Erro ao carregar evento:', err);
       toast.error('Erro ao carregar evento');
       navigate(ROUTE_PATHS.HOME);
     } finally {
@@ -480,8 +477,6 @@ export default function EventDetails() {
     }
 
     try {
-      console.log('👍 Dando like em:', userId);
-      
       // Registrar o like no banco de dados
       const likeResult = await likeService.likeUser(userId, event.id);
       
@@ -495,7 +490,6 @@ export default function EventDetails() {
 
       if (likeResult.status === 'match' || likeResult.is_match) {
         // É um match!
-        console.log('💕 É um match!');
         
         // Disparar confetes
         const duration = 3000;
@@ -534,25 +528,20 @@ export default function EventDetails() {
         
         // Tocar som de match se existir
         const audio = new Audio('/sounds/match.mp3');
-        audio.play().catch(e => console.log('Audio play failed', e));
+        audio.play().catch(() => {});
 
         // Marcar match como visto imediatamente (UI feedback loop)
         if (likeResult.match_id) {
-          matchService.markMatchSeen(likeResult.match_id).catch(err => 
-            console.error('Erro ao marcar match como visto:', err)
-          );
+          matchService.markMatchSeen(likeResult.match_id).catch(() => {});
         }
         
       } else {
-        console.log('✅ Like enviado');
         toast.success('Like enviado! ❤️');
       }
       
       // Removed likeUser(userId) to prevent queue from shifting and double-skipping
       // The MatchInterface handles navigation internally
     } catch (error: any) {
-      console.error('❌ Erro ao dar like:', error);
-      
       if (error.code === '23505') {
         toast.info('Você já curtiu esta pessoa');
       } else {

@@ -28,7 +28,7 @@ export default function AdminStats() {
       setStatistics(statsData);
       setEvents(eventsData);
     } catch (error) {
-      console.error('Erro ao carregar estatísticas:', error);
+      // console.error('Erro ao carregar estatísticas:', error);
     } finally {
       setIsLoading(false);
     }

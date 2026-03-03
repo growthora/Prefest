@@ -6,9 +6,9 @@ import { requireAuth } from "../_shared/requireAuth.ts";
 Deno.serve(async (req) => {
   // FASE 1: PROVA DEFINITIVA - DIAGNÓSTICO (Logo na entrada)
   const authProbe = req.headers.get("Authorization") ?? ""
-  console.log("[ENTRY-PROBE] Auth present:", Boolean(authProbe))
-  console.log("[ENTRY-PROBE] Auth prefix:", authProbe.slice(0, 18)) 
-  console.log("[ENTRY-PROBE] Auth len:", authProbe.length)
+  // console.log("[ENTRY-PROBE] Auth present:", Boolean(authProbe))
+  // console.log("[ENTRY-PROBE] Auth prefix:", authProbe.slice(0, 18)) 
+  // console.log("[ENTRY-PROBE] Auth len:", authProbe.length)
 
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
       });
 
     if (upsertError) {
-      console.error('Upsert error:', upsertError);
+      // console.error('Upsert error:', upsertError);
       throw new Error('Failed to save profile');
     }
 

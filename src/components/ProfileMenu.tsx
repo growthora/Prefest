@@ -67,7 +67,12 @@ export const ProfileMenu = () => {
       await signOut();
       navigate(ROUTE_PATHS.LOGIN);
     } catch (error) {
-      console.error('Erro ao sair:', error);
+      // console.error('Erro ao sair:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao sair",
+        description: "Ocorreu um erro ao tentar sair.",
+      });
     }
   };
 
@@ -85,7 +90,7 @@ export const ProfileMenu = () => {
       // O profile deve atualizar automaticamente via AuthContext/subscription ou refresh
       window.location.reload(); // Fallback simples para atualizar estado
     } catch (error) {
-      console.error('Erro ao solicitar acesso:', error);
+      // console.error('Erro ao solicitar acesso:', error);
       toast({
         variant: "destructive",
         title: "Erro ao enviar solicitação",
@@ -101,7 +106,7 @@ export const ProfileMenu = () => {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button className="w-10 h-10 rounded-full border border-border/50 overflow-hidden hover:border-primary/50 transition-colors bg-muted focus:outline-none focus:ring-2 focus:ring-primary/20">
-            {profile.avatar_url ? (
+            {profile.avatar_url && profile.avatar_url.trim() !== '' && profile.avatar_url !== 'undefined' && profile.avatar_url !== 'null' ? (
               <img 
                 src={profile.avatar_url} 
                 alt={profile.full_name || 'Profile'} 

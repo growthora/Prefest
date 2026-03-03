@@ -73,7 +73,7 @@ const Novidades = () => {
 
       setEvents(convertedEvents);
     } catch (err) {
-      console.error('Erro ao carregar novidades', err);
+      // console.error('Erro ao carregar novidades', err);
       setLoadError(true);
       setEvents([]);
     } finally {

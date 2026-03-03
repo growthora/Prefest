@@ -5,9 +5,9 @@ import { requireAuth } from "../_shared/requireAuth.ts"
 Deno.serve(async (req) => {
   // FASE 1: PROVA DEFINITIVA - DIAGNÓSTICO (Logo na entrada)
   const authProbe = req.headers.get("Authorization") ?? ""
-  console.log("[ENTRY-PROBE] Auth present:", Boolean(authProbe))
-  console.log("[ENTRY-PROBE] Auth prefix:", authProbe.slice(0, 18)) 
-  console.log("[ENTRY-PROBE] Auth len:", authProbe.length)
+  // console.log("[ENTRY-PROBE] Auth present:", Boolean(authProbe))
+  // console.log("[ENTRY-PROBE] Auth prefix:", authProbe.slice(0, 18)) 
+  // console.log("[ENTRY-PROBE] Auth len:", authProbe.length)
 
   // 1. Handle CORS (Strictly first)
   const corsResponse = handleCors(req);
@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
 
   try {
     // 2. Validate Authorization Header & Verify User using requireAuth
-    console.log(`[asaas-create-ticket-payment-v3] Request received: ${req.method} ${req.url}`);
+    // console.log(`[asaas-create-ticket-payment-v3] Request received: ${req.method} ${req.url}`);
     const { user } = await requireAuth(req);
 
     // 5. Initialize Admin Client for Privileged Operations (Service Role)
@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
     });
 
     if (rateLimitError) {
-      console.error('Rate Limit Check Error:', rateLimitError);
+      // console.error('Rate Limit Check Error:', rateLimitError);
       // Fail closed for security but allow if function missing (dev)
       if (rateLimitError.code !== 'PGRST202') { // Function not found
          throw new Error('System busy, please try again later.');
@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
             .single();
 
         if (existingKey && new Date(existingKey.expires_at) > new Date()) {
-            console.log(`V3: Idempotency Key Hit: ${idempotencyKey}`);
+            // console.log(`V3: Idempotency Key Hit: ${idempotencyKey}`);
             return new Response(JSON.stringify(existingKey.response_body), {
                 status: existingKey.response_status,
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (ticketError || !ticket) {
-      console.error('Ticket fetch error:', ticketError);
+      // console.error('Ticket fetch error:', ticketError);
       throw new Error('Ticket not found or invalid');
     }
 
@@ -125,72 +125,18 @@ Deno.serve(async (req) => {
     let appliedCouponId = null;
 
     if (coupon_code) {
-        const { data: coupon, error: couponError } = await adminClient
-            .from('coupons')
-            .select('*')
-            .eq('code', coupon_code.toUpperCase())
-            .eq('active', true)
-            .single();
-
-        if (couponError || !coupon) {
-            throw new Error('Cupom inválido ou expirado');
+        try {
+            const { discount, finalPrice: priceAfterDiscount, couponUsage } = await couponService.applyCoupon(coupon_code, user.id, ticket.event_id, basePrice);
+            discountAmount = discount;
+            finalPrice = priceAfterDiscount;
+            appliedCouponId = couponUsage.coupon_id;
+            // console.log(`V3: Coupon Applied: ${coupon_code} - Discount: ${discountAmount} - Final: ${finalPrice}`);
+        } catch (couponErr: any) {
+            // console.warn(`V3: Coupon Error: ${couponErr.message}`);
+            // Ignore coupon error and proceed with full price? Or fail?
+            // Usually fail if user provided a code and it's invalid.
+            return new Response(JSON.stringify({ error: `Coupon Error: ${couponErr.message}` }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
-
-        // Validate Expiration
-        if (coupon.valid_until && new Date(coupon.valid_until) < new Date()) {
-            throw new Error('Cupom expirado');
-        }
-
-        // Validate Max Uses
-        if (coupon.max_uses && coupon.current_uses >= coupon.max_uses) {
-            throw new Error('Limite de uso do cupom atingido');
-        }
-
-        // Calculate Discount
-        if (coupon.discount_type === 'percentage') {
-            discountAmount = (basePrice * coupon.discount_value) / 100;
-        } else {
-            discountAmount = coupon.discount_value;
-        }
-        
-        // Cap discount at base price (Organizer absorbs discount, usually)
-        if (discountAmount > basePrice) discountAmount = basePrice;
-        
-        finalPrice = basePrice + serviceFee - discountAmount;
-        appliedCouponId = coupon.id;
-        
-        console.log(`V3: Coupon Applied: ${coupon.code} - Discount: ${discountAmount} - Final: ${finalPrice}`);
-
-        // NEW: Increment Coupon Usage immediately (Requirement: Count usage even if payment is not finalized)
-        // Check if this coupon was not already applied to this ticket to avoid double counting on retries
-        if (ticket.coupon_id !== coupon.id) {
-            const { error: usageError } = await adminClient
-                .from('coupon_usage')
-                .insert({
-                    coupon_id: coupon.id,
-                    user_id: user.id,
-                    event_id: ticket.event_id, 
-                    discount_applied: discountAmount
-                });
-
-            if (usageError) {
-                 console.error('Failed to log coupon usage:', usageError);
-            } else {
-                 // Increment count on coupons table
-                 const { error: incrementError } = await adminClient
-                    .from('coupons')
-                    .update({ current_uses: (coupon.current_uses || 0) + 1 })
-                    .eq('id', coupon.id);
-                    
-                 if (incrementError) console.error('Failed to increment coupon count:', incrementError);
-            }
-        }
-
-    } else {
-        // Reset if no coupon provided (ensure clean state)
-        finalPrice = basePrice + serviceFee;
-        discountAmount = 0;
-        appliedCouponId = null;
     }
     
     // Round to 2 decimals
@@ -230,7 +176,7 @@ Deno.serve(async (req) => {
       .eq('id', user.id)
       .single();
 
-    console.log(`V3: Buyer Profile: ${user.id} - CPF: ${buyerProfile?.cpf ? '***' : 'MISSING'} - Asaas ID: ${buyerProfile?.asaas_customer_id}`);
+    // console.log(`V3: Buyer Profile: ${user.id} - CPF: ${buyerProfile?.cpf ? '***' : 'MISSING'} - Asaas ID: ${buyerProfile?.asaas_customer_id}`);
     
     // Config already fetched above (Step 9 moved up)
     const baseUrl = env === 'production' ? 'https://www.asaas.com/api/v3' : 'https://sandbox.asaas.com/api/v3';
@@ -257,7 +203,7 @@ Deno.serve(async (req) => {
     // Which equals: (Base + Fee - Discount) - Fee = Base - Discount
     const organizerValue = Number((totalPrice - platformFee).toFixed(2));
     
-    console.log(`V3 Financials: Base ${basePrice} | Fee ${serviceFee} | Discount ${discountAmount} | Total ${totalPrice} | Org ${organizerValue}`);
+    // console.log(`V3 Financials: Base ${basePrice} | Fee ${serviceFee} | Discount ${discountAmount} | Total ${totalPrice} | Org ${organizerValue}`);
 
     // 12. Customer Info (Buyer Data ONLY)
     // STRICT RULE: Never use Organizer data for Customer creation.
@@ -287,7 +233,7 @@ Deno.serve(async (req) => {
 
     // Check strict separation: Customer Email != Organizer Email
     if (buyerEmail === organizerAccount.asaas_account_email) {
-        console.warn(`V3 Warning: Buyer Email matches Organizer Email (${buyerEmail}). This is only valid for self-testing.`);
+        // console.warn(`V3 Warning: Buyer Email matches Organizer Email (${buyerEmail}). This is only valid for self-testing.`);
     }
 
     const customerInfo = {
@@ -298,14 +244,14 @@ Deno.serve(async (req) => {
         notificationDisabled: false, // Ensure buyer receives Asaas emails
     };
 
-    console.log(`V3: Preparing Asaas Customer for User ${user.id} (Email and CPF validated)`);
+    // console.log(`V3: Preparing Asaas Customer for User ${user.id} (Email and CPF validated)`);
 
     // 13. Create/Find Customer in Asaas
     let customerId = '';
     
     // Check if we already have the customer ID in our database
     if (buyerProfile?.asaas_customer_id) {
-        console.log(`V3: Using cached Asaas Customer ID: ${buyerProfile.asaas_customer_id}`);
+        // console.log(`V3: Using cached Asaas Customer ID: ${buyerProfile.asaas_customer_id}`);
         customerId = buyerProfile.asaas_customer_id;
     } else {
         // Search by email
@@ -314,7 +260,7 @@ Deno.serve(async (req) => {
         
         if (searchData.data && searchData.data.length > 0) {
             customerId = searchData.data[0].id;
-            console.log(`V3: Found existing Asaas Customer ID by email: ${customerId}`);
+            // console.log(`V3: Found existing Asaas Customer ID by email: ${customerId}`);
         } else {
             // Create new customer
             const createCustomerRes = await fetch(`${baseUrl}/customers`, {
@@ -327,7 +273,7 @@ Deno.serve(async (req) => {
                  throw new Error(`Customer Creation Error: ${newCustomer.errors[0].description}`);
             }
             customerId = newCustomer.id;
-            console.log(`V3: Created new Asaas Customer ID: ${customerId}`);
+            // console.log(`V3: Created new Asaas Customer ID: ${customerId}`);
         }
 
         // Update Profile with new Asaas Customer ID
@@ -337,7 +283,7 @@ Deno.serve(async (req) => {
             .eq('id', user.id);
             
         if (updateProfileError) {
-            console.error('V3 Error: Failed to update profile with Asaas Customer ID', updateProfileError);
+            // console.error('V3 Error: Failed to update profile with Asaas Customer ID', updateProfileError);
         }
     }
 
@@ -366,7 +312,7 @@ Deno.serve(async (req) => {
     if (split_enabled && organizerAccount.asaas_account_id) {
         // Prevent splitting to the Master Account itself
         if (organizerAccount.asaas_account_id === platformWalletId) {
-            console.log(`V3 Split Skipped: Organizer Wallet (${organizerAccount.asaas_account_id}) is the same as Platform Wallet.`);
+            // console.log(`V3 Split Skipped: Organizer Wallet (${organizerAccount.asaas_account_id}) is the same as Platform Wallet.`);
         } else {
             const split = [];
             
@@ -386,7 +332,7 @@ Deno.serve(async (req) => {
             if (split.length > 0) {
                 // @ts-ignore: dynamic property
                 paymentBody.split = split;
-                console.log(`V3 Split Configured: Total ${totalPrice} -> Organizer ${organizerValue}`);
+                // console.log(`V3 Split Configured: Total ${totalPrice} -> Organizer ${organizerValue}`);
             }
         }
     }
@@ -401,7 +347,7 @@ Deno.serve(async (req) => {
     const paymentData = await paymentRes.json();
     
     if (paymentData.errors) {
-        console.error('Asaas Payment Error:', paymentData.errors);
+        // console.error('Asaas Payment Error:', paymentData.errors);
         throw new Error(`Asaas Payment Error: ${paymentData.errors[0].description}`);
     }
 
@@ -426,13 +372,13 @@ Deno.serve(async (req) => {
         .single();
 
     if (paymentError) {
-        console.error('CRITICAL V3 ERROR: Failed to insert payment', paymentError);
+        // console.error('CRITICAL V3 ERROR: Failed to insert payment', paymentError);
         throw new Error('Falha ao registrar pagamento no sistema. Contacte o suporte.');
     }
 
     // 17.5 Record Payment Split (MANDATORY)
     if (splitConfigForDb && paymentRecord) {
-        console.log('V3: Recording Payment Split in Database...');
+        // console.log('V3: Recording Payment Split in Database...');
         const { error: splitError } = await adminClient
             .from('payment_splits')
             .insert({
@@ -449,7 +395,7 @@ Deno.serve(async (req) => {
             });
             
         if (splitError) {
-             console.error('CRITICAL V3 ERROR: Failed to insert payment_splits', splitError);
+             // console.error('CRITICAL V3 ERROR: Failed to insert payment_splits', splitError);
              throw new Error('Falha crítica ao registrar divisão de pagamento. Contacte o suporte.');
         }
     }
@@ -495,7 +441,7 @@ Deno.serve(async (req) => {
     });
 
   } catch (error: any) {
-    console.error('Function Error:', error);
+    // console.error('V3 Payment Process Error:', error);
     
     if (error instanceof Response) {
       return error

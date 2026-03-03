@@ -47,11 +47,17 @@ export function PixPaymentModal({ isOpen, onClose, qrCodeImage, copyPasteCode, a
 
               <div className="flex flex-col items-center justify-center p-4 bg-white rounded-xl border-2 border-primary/20">
                  {/* QR Code Image - usually comes as base64 from Asaas */}
-                 <img 
-                    src={`data:image/png;base64,${qrCodeImage}`} 
-                    alt="QR Code Pix" 
-                    className="w-48 h-48 object-contain"
-                 />
+                 {qrCodeImage ? (
+                   <img 
+                      src={`data:image/png;base64,${qrCodeImage}`} 
+                      alt="QR Code Pix" 
+                      className="w-48 h-48 object-contain"
+                   />
+                 ) : (
+                   <div className="w-48 h-48 flex items-center justify-center text-muted-foreground text-xs">
+                     QR Code indisponível
+                   </div>
+                 )}
               </div>
 
               <div className="space-y-2">
