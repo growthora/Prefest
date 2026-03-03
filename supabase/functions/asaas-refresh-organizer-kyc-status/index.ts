@@ -32,13 +32,34 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: 'Asaas account not found for this organizer' }), { status: 404, headers: corsHeaders })
     }
 
-    const { data: config, error: configError } = await adminClient.rpc('get_decrypted_asaas_config')
-    
-    if (configError || !config || !config.api_key) {
-        return new Response(JSON.stringify({ error: 'Asaas configuration error' }), { status: 500, headers: corsHeaders })
+    const { data: config, error: configError } = await adminClient
+      .rpc('get_decrypted_asaas_config')
+      .single()
+
+    if (configError || !config) {
+      return new Response(
+        JSON.stringify({
+          error: 'Asaas configuration error',
+          details: configError?.message || 'Asaas integration not configured',
+        }),
+        { status: 500, headers: corsHeaders }
+      )
     }
 
-    const API_URL = config.environment === 'production' 
+    const apiKey = config.api_key || config.secret_key
+    const env = config.environment || config.env || 'sandbox'
+
+    if (!apiKey) {
+      return new Response(
+        JSON.stringify({
+          error: 'Asaas configuration error',
+          details: 'Missing Asaas API key (secret_key_encrypted is empty or invalid)',
+        }),
+        { status: 500, headers: corsHeaders }
+      )
+    }
+
+    const API_URL = env === 'production'
         ? 'https://api.asaas.com/v3' 
         : 'https://sandbox.asaas.com/api/v3'
 
@@ -48,7 +69,7 @@ serve(async (req) => {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
-            'access_token': config.api_key
+            'access_token': apiKey
         }
     })
 

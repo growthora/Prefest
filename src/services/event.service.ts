@@ -290,6 +290,18 @@ export class EventService {
     );
   }
 
+  // Buscar todos os tipos de ingressos de um evento (painel organizador/admin)
+  async getEventTicketTypesForOrganizer(eventId: string): Promise<TicketTypeDB[]> {
+    const { data, error } = await supabase
+      .from('ticket_types')
+      .select('*')
+      .eq('event_id', eventId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  }
+
   // Listar todos os eventos
   async getAllEvents(retries = 3): Promise<Event[]> {
     
@@ -400,7 +412,7 @@ export class EventService {
       .from('event_participants')
       .select('event_id, ticket_quantity, total_paid, ticket:ticket_id(unit_price, quantity, discount_amount)')
       .in('event_id', eventIds)
-      .eq('status', 'valid');
+      .in('status', ['valid', 'used', 'paid', 'confirmed']);
 
     if (partError) {
       // Erro silencioso
@@ -426,13 +438,15 @@ export class EventService {
 
       let organizerAmount = 0;
       if (ticket && typeof ticket.unit_price === 'number') {
-        const qty = Number(ticket.quantity) || Number(p.ticket_quantity) || 1;
+        const qty = Number(p.ticket_quantity) || Number(ticket.quantity) || 1;
         const discount = Number(ticket.discount_amount) || 0;
-        organizerAmount = Math.max(0, Number((Number(ticket.unit_price) * qty - discount).toFixed(2)));
+        const gross = Math.max(0, Number((Number(ticket.unit_price) * qty - discount).toFixed(2)));
+        organizerAmount = Number((gross * 0.9).toFixed(2));
       } else {
-        // Legacy fallback without linked ticket: remove fixed 10% service fee from gross amount.
-        const gross = Number(p.total_paid) || 0;
-        organizerAmount = gross > 0 ? Number((gross / 1.1).toFixed(2)) : 0;
+        // Legacy fallback without linked ticket: assume total_paid includes +10% fee.
+        const paid = Number(p.total_paid) || 0;
+        const gross = paid > 0 ? Number((paid / 1.1).toFixed(2)) : 0;
+        organizerAmount = gross > 0 ? Number((gross * 0.9).toFixed(2)) : 0;
       }
 
       const currentRev = revenueMap.get(p.event_id) || 0;

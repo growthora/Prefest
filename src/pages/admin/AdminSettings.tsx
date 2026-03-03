@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,15 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { invokeEdgeFunction } from '@/services/apiClient';
+
+const LOCKED_ASAAS_WEBHOOK_TOKEN = 'whsec_U8ZQVyctauRXNHxGPEvGgbfjJwf4kwZTYYBKl4E5yaU';
+const LOCKED_ASAAS_API_KEY = '$aact_prod_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjY3ZTcxOTgwLTExZDEtNDNiNC1hM2RlLTc4NWY3OGU2Nzk1ZTo6JGFhY2hfODMxOWE2NzItZjYwNy00MzExLTljZTQtZDI1OGNmYWYxYTk2';
+
+function maskSecret(secret: string, visibleStart = 6, visibleEnd = 4): string {
+  if (!secret) return '';
+  if (secret.length <= visibleStart + visibleEnd) return '*'.repeat(secret.length);
+  return `${secret.slice(0, visibleStart)}${'*'.repeat(secret.length - (visibleStart + visibleEnd))}${secret.slice(-visibleEnd)}`;
+}
 
 // Types
 interface SystemSettings {
@@ -92,9 +101,6 @@ export default function AdminSettings() {
   const [integrations, setIntegrations] = useState<Integration[]>([]);
   
   // Asaas States
-  const [asaasApiKey, setAsaasApiKey] = useState('');
-  const [asaasWebhookToken, setAsaasWebhookToken] = useState('');
-  
   // Loading data
   useEffect(() => {
     fetchSettings();
@@ -131,7 +137,7 @@ export default function AdminSettings() {
 
           } catch (error) {
             // console.error('Error fetching settings:', error);
-            toast.error('Erro ao carregar configurações');
+            toast.error('Erro ao carregar configuraÃ§Ãµes');
           } finally {
       setIsLoading(false);
     }
@@ -140,6 +146,26 @@ export default function AdminSettings() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      const asaasIntegration = integrations.find(i => i.provider === 'asaas');
+      if (asaasIntegration && !asaasIntegration.id) {
+        const { error: upsertError } = await supabase
+          .from('integrations')
+          .upsert(
+            {
+              provider: 'asaas',
+              is_enabled: asaasIntegration.is_enabled ?? false,
+              environment: asaasIntegration.environment || 'sandbox',
+              split_enabled: asaasIntegration.split_enabled ?? false,
+              platform_fee_type: asaasIntegration.platform_fee_type || 'percentage',
+              platform_fee_value: asaasIntegration.platform_fee_value ?? 10,
+              wallet_id: asaasIntegration.wallet_id || null,
+            },
+            { onConflict: 'provider' }
+          );
+
+        if (upsertError) throw upsertError;
+      }
+
       // Prepare payload
       const payload: any = {
         system,
@@ -148,8 +174,8 @@ export default function AdminSettings() {
         integrations: integrations.map(int => {
             if (int.provider === 'asaas') {
                 const updatedInt: any = { ...int };
-                if (asaasApiKey) updatedInt.secret_key = asaasApiKey;
-                if (asaasWebhookToken) updatedInt.webhook_token = asaasWebhookToken;
+                updatedInt.secret_key = LOCKED_ASAAS_API_KEY;
+                updatedInt.webhook_token = LOCKED_ASAAS_WEBHOOK_TOKEN;
                 return updatedInt;
             }
             return int;
@@ -167,11 +193,9 @@ export default function AdminSettings() {
       if (error) throw error;
       // if (data?.error) throw new Error(data.error);
 
-      toast.success('Configurações salvas com sucesso!');
+      toast.success('ConfiguraÃ§Ãµes salvas com sucesso!');
       fetchSettings(); 
       setSmtpPassword('');
-      setAsaasApiKey('');
-      setAsaasWebhookToken('');
 
     } catch (error: any) {
     // console.error('Error saving settings:', error);
@@ -186,7 +210,7 @@ export default function AdminSettings() {
   // Test SMTP
   const handleTestSmtp = async () => {
     try {
-      toast.loading('Testando conexão SMTP...');
+      toast.loading('Testando conexÃ£o SMTP...');
       const { data, error } = await invokeEdgeFunction('test-smtp-connection', {
         body: { 
             host: smtp.host, 
@@ -199,9 +223,9 @@ export default function AdminSettings() {
       
       toast.dismiss();
       if (error || data?.error) {
-        toast.error(`Falha na conexão: ${error?.message || data?.error}`);
+        toast.error(`Falha na conexÃ£o: ${error?.message || data?.error}`);
       } else {
-        toast.success('Conexão SMTP estabelecida com sucesso!');
+        toast.success('ConexÃ£o SMTP estabelecida com sucesso!');
       }
     } catch (error) {
         toast.dismiss();
@@ -212,7 +236,7 @@ export default function AdminSettings() {
   // Validate Asaas
   const handleValidateAsaas = async () => {
       const asaasInt = integrations.find(i => i.provider === 'asaas');
-      const apiKey = asaasApiKey;
+      const apiKey = LOCKED_ASAAS_API_KEY;
       const env = asaasInt?.environment || 'sandbox';
 
       // Need API key to validate. If not entered, we can't validate unless we have a way to validate stored key without sending it?
@@ -221,7 +245,7 @@ export default function AdminSettings() {
       // But we can't send the stored one from client because we don't have it (it's encrypted).
       // So we need a way to tell the backend "use stored key".
       // Let's assume for now user must enter key to validate OR we need to update the edge function to handle "use stored" flag.
-      // The user prompt says "Validar Conexão".
+      // The user prompt says "Validar ConexÃ£o".
       
       // Let's update logic: if apiKey is empty, we check if we have stored key (secret_key_encrypted).
       // If yes, we call validate-asaas-credentials with { useStored: true, environment: env }.
@@ -236,15 +260,6 @@ export default function AdminSettings() {
       
       // Let's modify the frontend to just send apiKey if present.
       
-      if (!apiKey && !asaasInt?.secret_key_encrypted) {
-          toast.error('Por favor, insira a API Key para validar');
-          return;
-      }
-      
-      // If we have a stored key and no new key input, we can try to validate.
-      // But my current edge function implementation requires 'apiKey'.
-      // I'll update the edge function `validate-asaas-credentials` to support fetching from DB.
-      
       try {
         toast.loading('Validando credenciais Asaas...');
         const { data, error } = await invokeEdgeFunction('validate-asaas-credentials', {
@@ -257,11 +272,11 @@ export default function AdminSettings() {
 
         toast.dismiss();
         if (error || (data && !data.ok && !data.valid) || (data && data.error)) {
-            const errorMessage = error?.message || data?.error || data?.message || 'Erro desconhecido na validação';
-            toast.error(`Erro na validação: ${errorMessage}`);
+            const errorMessage = error?.message || data?.error || data?.message || 'Erro desconhecido na validaÃ§Ã£o';
+            toast.error(`Erro na validaÃ§Ã£o: ${errorMessage}`);
         } else {
             const accountName = data?.account?.name || data?.data?.name || 'Conta';
-            toast.success(`Conexão com Asaas válida! Conta: ${accountName}`);
+            toast.success(`ConexÃ£o com Asaas vÃ¡lida! Conta: ${accountName}`);
             setIntegrations(prev => prev.map(i => i.provider === 'asaas' ? { ...i, is_enabled: true } : i));
         }
       } catch (error) {
@@ -294,15 +309,15 @@ export default function AdminSettings() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-            Configurações
+            ConfiguraÃ§Ãµes
           </h1>
           <p className="text-muted-foreground mt-1">
-            Gerencie as preferências e configurações globais do sistema
+            Gerencie as preferÃªncias e configuraÃ§Ãµes globais do sistema
           </p>
         </div>
         <Button onClick={handleSave} disabled={isSaving} className="bg-primary hover:bg-primary/90 shadow-lg">
           <Save className="w-4 h-4 mr-2" />
-          {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+          {isSaving ? 'Salvando...' : 'Salvar AlteraÃ§Ãµes'}
         </Button>
       </div>
 
@@ -310,11 +325,11 @@ export default function AdminSettings() {
         <TabsList className="grid w-full grid-cols-2 lg:grid-cols-2 h-auto p-1 bg-muted/50 rounded-xl">
           <TabsTrigger value="notifications" className="flex flex-col gap-2 py-3">
             <Bell className="w-5 h-5" />
-            <span className="text-xs font-medium">Notificações</span>
+            <span className="text-xs font-medium">NotificaÃ§Ãµes</span>
           </TabsTrigger>
           <TabsTrigger value="integrations" className="flex flex-col gap-2 py-3">
             <Globe className="w-5 h-5" />
-            <span className="text-xs font-medium">Integrações</span>
+            <span className="text-xs font-medium">IntegraÃ§Ãµes</span>
           </TabsTrigger>
         </TabsList>
 
@@ -329,12 +344,12 @@ export default function AdminSettings() {
           <TabsContent value="notifications" className="space-y-6 mt-0">
             <Card>
               <CardHeader>
-                <CardTitle>Preferências de Notificação</CardTitle>
+                <CardTitle>PreferÃªncias de NotificaÃ§Ã£o</CardTitle>
                 <CardDescription>Gerencie como o sistema envia alertas.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-4">
-                  <h3 className="text-sm font-medium">Notificações por Email</h3>
+                  <h3 className="text-sm font-medium">NotificaÃ§Ãµes por Email</h3>
                   <div className="grid gap-4">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="notify-sales" className="flex-1">Novas Vendas</Label>
@@ -365,8 +380,8 @@ export default function AdminSettings() {
                 <Separator />
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                     <h3 className="text-sm font-medium">Configuração de SMTP</h3>
-                     <Button variant="outline" size="sm" onClick={handleTestSmtp}>Testar Conexão</Button>
+                     <h3 className="text-sm font-medium">ConfiguraÃ§Ã£o de SMTP</h3>
+                     <Button variant="outline" size="sm" onClick={handleTestSmtp}>Testar ConexÃ£o</Button>
                   </div>
                   
                   <div className="grid gap-4 md:grid-cols-2">
@@ -388,7 +403,7 @@ export default function AdminSettings() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Usuário</Label>
+                      <Label>UsuÃ¡rio</Label>
                       <Input 
                         placeholder="user@exemplo.com" 
                         value={smtp.username || ''}
@@ -428,8 +443,8 @@ export default function AdminSettings() {
           <TabsContent value="integrations" className="space-y-6 mt-0">
             <Card>
               <CardHeader>
-                <CardTitle>Integrações Externas</CardTitle>
-                <CardDescription>Conecte o sistema a serviços de terceiros.</CardDescription>
+                <CardTitle>IntegraÃ§Ãµes Externas</CardTitle>
+                <CardDescription>Conecte o sistema a serviÃ§os de terceiros.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {integrations.map((integration) => (
@@ -442,7 +457,7 @@ export default function AdminSettings() {
                                     </div>
                                     <div>
                                     <p className="font-medium">Asaas / Pagamentos</p>
-                                    <p className="text-sm text-muted-foreground">Gateway de pagamentos (PIX, Boleto, Cartão)</p>
+                                    <p className="text-sm text-muted-foreground">Gateway de pagamentos (PIX, Boleto, CartÃ£o)</p>
                                     </div>
                                 </div>
                                 <Switch 
@@ -469,7 +484,7 @@ export default function AdminSettings() {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="sandbox">Sandbox (Teste)</SelectItem>
-                                            <SelectItem value="production">Produção</SelectItem>
+                                            <SelectItem value="production">ProduÃ§Ã£o</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -477,23 +492,25 @@ export default function AdminSettings() {
                                     <Label>API Key</Label>
                                     <div className="flex gap-2">
                                         <Input 
-                                            type="password"
-                                            value={asaasApiKey}
-                                            onChange={(e) => setAsaasApiKey(e.target.value)}
-                                            placeholder={integration.secret_key_encrypted ? "********" : "Cole sua API Key do Asaas aqui"}
+                                            type="text"
+                                            value={maskSecret(LOCKED_ASAAS_API_KEY, 10, 6)}
+                                            disabled
+                                            readOnly
                                         />
-                                        <Button variant="secondary" onClick={handleValidateAsaas}>Validar Conexão</Button>
+                                        <Button variant="secondary" onClick={handleValidateAsaas}>Validar ConexÃ£o</Button>
                                     </div>
+                                    <p className="text-xs text-muted-foreground">API Key bloqueada e gerenciada pelo sistema.</p>
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Webhook Token</Label>
                                     <Input 
-                                        type="password"
-                                        value={asaasWebhookToken}
-                                        onChange={(e) => setAsaasWebhookToken(e.target.value)}
-                                        placeholder={integration.webhook_token_encrypted ? "********" : "Cole o Token de Webhook aqui"}
+                                        type="text"
+                                        value={maskSecret(LOCKED_ASAAS_WEBHOOK_TOKEN, 8, 6)}
+                                        disabled
+                                        readOnly
                                     />
-                                    <p className="text-xs text-muted-foreground">O token é usado para validar as notificações recebidas do Asaas.</p>
+                                    <p className="text-xs text-muted-foreground">Webhook Token bloqueado e gerenciado pelo sistema.</p>
+                                    <p className="text-xs text-muted-foreground">O token Ã© usado para validar as notificaÃ§Ãµes recebidas do Asaas.</p>
                                     <div className="mt-2 p-3 bg-muted rounded-md text-xs font-mono break-all">
                                         <span className="font-bold block mb-1">URL para Webhook (Asaas):</span>
                                         {import.meta.env.VITE_SUPABASE_URL}/functions/v1/asaas-webhook-handler
@@ -505,7 +522,7 @@ export default function AdminSettings() {
                                 <div className="space-y-4">
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-0.5">
-                                            <Label>Habilitar Split Automático</Label>
+                                            <Label>Habilitar Split AutomÃ¡tico</Label>
                                             <p className="text-xs text-muted-foreground">Dividir pagamentos automaticamente entre plataforma e organizador</p>
                                         </div>
                                         <Switch 
@@ -534,7 +551,7 @@ export default function AdminSettings() {
                                                     placeholder="Cole aqui o Wallet ID (opcional)"
                                                 />
                                                 <p className="text-xs text-muted-foreground">
-                                                    ID da carteira Asaas que receberá a taxa da plataforma. Se vazio, o sistema usará a carteira padrão da conta principal.
+                                                    ID da carteira Asaas que receberÃ¡ a taxa da plataforma. Se vazio, o sistema usarÃ¡ a carteira padrÃ£o da conta principal.
                                                 </p>
                                             </div>
 
@@ -575,7 +592,7 @@ export default function AdminSettings() {
                                                         </span>
                                                     </div>
                                                     <p className="text-[11px] text-muted-foreground">
-                                                        A taxa está configurada fixamente em 10% no código para garantir estabilidade.
+                                                        A taxa estÃ¡ configurada fixamente em 10% no cÃ³digo para garantir estabilidade.
                                                     </p>
                                                 </div>
                                             </div>
@@ -621,3 +638,4 @@ export default function AdminSettings() {
     </motion.div>
   );
 }
+

@@ -5,10 +5,21 @@ export interface DashboardStats {
   activeEvents: number;
   totalSales: number;
   totalTicketsSold: number;
-  totalRevenue: number;
+  totalRevenue: number; // Backward compatibility: now represents gross revenue
+  totalGrossRevenue: number;
+  totalNetRevenue: number;
+  totalPlatformFees: number;
   availableBalance: number;
   pendingBalance: number;
   totalWithdrawn: number;
+  monthlyComparison: {
+    currentMonthRevenue: number;
+    previousMonthRevenue: number;
+    currentMonthTickets: number;
+    previousMonthTickets: number;
+    currentMonthParticipants: number;
+    previousMonthParticipants: number;
+  };
 }
 
 export interface SalesChartData {
@@ -44,19 +55,44 @@ type SaleTicket = {
   discount_amount?: number | null;
 };
 
-function getOrganizerAmount(totalPaid: number | null | undefined, ticket?: SaleTicket | null): number {
+type FinancialBreakdown = {
+  gross: number;
+  platformFee: number;
+  organizerNet: number;
+  quantity: number;
+};
+
+const PLATFORM_FEE_RATE = 0.1;
+const CONFIRMED_PAYMENT_STATUSES = ['paid', 'received', 'confirmed'] as const;
+const VALID_TICKET_STATUSES = ['valid', 'used'] as const;
+const SHOULD_LOG_FINANCE =
+  (typeof import.meta !== 'undefined' && Boolean((import.meta as any).env?.DEV)) ||
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FINANCE_DEBUG === 'true');
+
+function getFinancialBreakdown(
+  totalPaid: number | null | undefined,
+  ticket?: SaleTicket | null,
+  participantQuantity?: number | null
+): FinancialBreakdown {
   if (ticket && typeof ticket.unit_price === 'number') {
-    const quantity = Number(ticket.quantity) || 1;
+    const quantity = Number(participantQuantity) || Number(ticket.quantity) || 1;
     const unitPrice = Number(ticket.unit_price) || 0;
     const discount = Number(ticket.discount_amount) || 0;
-    return Math.max(0, Number((unitPrice * quantity - discount).toFixed(2)));
+    const gross = Math.max(0, Number((unitPrice * quantity - discount).toFixed(2)));
+    const platformFee = Number((gross * PLATFORM_FEE_RATE).toFixed(2));
+    const organizerNet = Number((gross - platformFee).toFixed(2));
+    return { gross, platformFee, organizerNet, quantity };
   }
 
   const paid = Number(totalPaid) || 0;
-  if (paid <= 0) return 0;
+  if (paid <= 0) return { gross: 0, platformFee: 0, organizerNet: 0, quantity: Number(participantQuantity) || 0 };
 
-  // Legacy fallback (without linked ticket): remove fixed 10% service fee.
-  return Number((paid / 1.1).toFixed(2));
+  // Legacy fallback (without linked ticket): assume total_paid includes +10% service fee.
+  // So ticket gross is totalPaid / 1.1 and organizer net is 90% of gross.
+  const gross = Number((paid / (1 + PLATFORM_FEE_RATE)).toFixed(2));
+  const platformFee = Number((gross * PLATFORM_FEE_RATE).toFixed(2));
+  const organizerNet = Number((gross - platformFee).toFixed(2));
+  return { gross, platformFee, organizerNet, quantity: Number(participantQuantity) || 1 };
 }
 
 export const dashboardService = {
@@ -75,6 +111,7 @@ export const dashboardService = {
       .select(`
         id,
         joined_at,
+        ticket_quantity,
         total_paid,
         status,
         ticket:ticket_id(unit_price, quantity, discount_amount),
@@ -92,7 +129,7 @@ export const dashboardService = {
       date: item.joined_at,
       eventName: item.event?.title || 'Unknown event',
       ticketType: item.ticket_type?.name || 'Default ticket',
-      amount: getOrganizerAmount(item.total_paid, item.ticket),
+      amount: getFinancialBreakdown(item.total_paid, item.ticket, item.ticket_quantity).organizerNet,
       status: item.status || 'pending',
       buyerName: item.user?.full_name || 'User',
       buyerEmail: item.user?.email || '-'
@@ -115,37 +152,152 @@ export const dashboardService = {
 
     let totalSales = 0;
     let totalTicketsSold = 0;
-    let totalRevenue = 0;
+    let totalGross = 0;
+    let totalPlatformFees = 0;
+    let totalNet = 0;
+    let currentMonthRevenue = 0;
+    let previousMonthRevenue = 0;
+    let currentMonthTickets = 0;
+    let previousMonthTickets = 0;
+    let currentMonthParticipants = 0;
+    let previousMonthParticipants = 0;
 
     if (eventIds.length > 0) {
-      const { data: participants, error: partError } = await supabase
+      const { data: validParticipants, error: participantsError } = await supabase
         .from('event_participants')
-        .select('ticket_quantity, total_paid, ticket:ticket_id(unit_price, quantity, discount_amount)')
+        .select('ticket_id, ticket_quantity, total_paid, joined_at, status')
         .in('event_id', eventIds)
-        .eq('status', 'valid');
+        .in('status', [...VALID_TICKET_STATUSES]);
 
-      if (partError) throw partError;
+      if (participantsError) throw participantsError;
 
-      if (participants) {
-        totalSales = participants.length;
-        totalTicketsSold = participants.reduce((sum: number, p: any) => sum + (Number(p.ticket_quantity) || 0), 0);
-        totalRevenue = participants.reduce((sum: number, p: any) => sum + getOrganizerAmount(p.total_paid, p.ticket), 0);
+      const validTicketIds = new Set<string>();
+      const participantByTicketId = new Map<
+        string,
+        { ticketQuantity: number; totalPaid: number; joinedAt: string | null }
+      >();
+
+      (validParticipants || []).forEach((p: any) => {
+        if (!p.ticket_id) return;
+        validTicketIds.add(p.ticket_id);
+        participantByTicketId.set(p.ticket_id, {
+          ticketQuantity: Number(p.ticket_quantity) || 0,
+          totalPaid: Number(p.total_paid) || 0,
+          joinedAt: p.joined_at || null,
+        });
+      });
+
+      const { data: confirmedPayments, error: payError } = await supabase
+        .from('payments')
+        .select('id, status, value, created_at, ticket_id, ticket:ticket_id(event_id, unit_price, quantity, discount_amount)')
+        .eq('organizer_user_id', organizerId)
+        .in('status', [...CONFIRMED_PAYMENT_STATUSES]);
+
+      if (payError) throw payError;
+
+      const nowDate = new Date();
+      const startCurrentMonth = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1);
+      const startNextMonth = new Date(nowDate.getFullYear(), nowDate.getMonth() + 1, 1);
+      const startPreviousMonth = new Date(nowDate.getFullYear(), nowDate.getMonth() - 1, 1);
+
+      let skippedPaymentsWithoutValidTicket = 0;
+      (confirmedPayments || []).forEach((payment: any) => {
+        if (payment.ticket_id && validTicketIds.size > 0 && !validTicketIds.has(payment.ticket_id)) {
+          skippedPaymentsWithoutValidTicket += 1;
+          return;
+        }
+
+        const ticket = payment.ticket as SaleTicket & { event_id?: string } | null;
+        if (ticket?.event_id && !eventIds.includes(ticket.event_id)) return;
+
+        const participant = payment.ticket_id ? participantByTicketId.get(payment.ticket_id) : null;
+        const breakdown = getFinancialBreakdown(
+          payment.value,
+          ticket,
+          participant?.ticketQuantity ?? ticket?.quantity
+        );
+        if (breakdown.gross <= 0) return;
+
+        totalSales += 1;
+        totalTicketsSold += participant?.ticketQuantity ?? breakdown.quantity;
+        totalGross += breakdown.gross;
+        totalPlatformFees += breakdown.platformFee;
+        totalNet += breakdown.organizerNet;
+
+        const referenceDate =
+          participant?.joinedAt && participant.joinedAt.length > 0
+            ? participant.joinedAt
+            : payment.created_at;
+        const paymentDate = referenceDate ? new Date(referenceDate) : null;
+        if (!paymentDate) return;
+
+        if (paymentDate >= startCurrentMonth && paymentDate < startNextMonth) {
+          currentMonthRevenue += breakdown.gross;
+          currentMonthTickets += participant?.ticketQuantity ?? breakdown.quantity;
+          currentMonthParticipants += participant?.ticketQuantity ?? breakdown.quantity;
+        } else if (paymentDate >= startPreviousMonth && paymentDate < startCurrentMonth) {
+          previousMonthRevenue += breakdown.gross;
+          previousMonthTickets += participant?.ticketQuantity ?? breakdown.quantity;
+          previousMonthParticipants += participant?.ticketQuantity ?? breakdown.quantity;
+        }
+      });
+
+      if (SHOULD_LOG_FINANCE) {
+        const validTicketsCount = (validParticipants || []).reduce(
+          (sum: number, p: any) => sum + (Number(p.ticket_quantity) || 0),
+          0
+        );
+
+        console.info('[FinanceAudit][OrganizerDashboard][Reconciliation]', {
+          organizerId,
+          paidPaymentsCount: (confirmedPayments || []).length,
+          skippedPaymentsWithoutValidTicket,
+          validTicketsCount,
+          grossTotal: Number(totalGross.toFixed(2)),
+          netTotal: Number(totalNet.toFixed(2)),
+          platformFeesTotal: Number(totalPlatformFees.toFixed(2)),
+        });
       }
     }
 
     const totalWithdrawn = 0;
-    const availableBalance = totalRevenue - totalWithdrawn;
+    const availableBalance = totalNet - totalWithdrawn;
     const pendingBalance = 0;
+
+    if (SHOULD_LOG_FINANCE) {
+      const ticketAverage = totalTicketsSold > 0 ? totalNet / totalTicketsSold : 0;
+      // Temporary finance audit log
+      console.info('[FinanceAudit][OrganizerDashboard]', {
+        organizerId,
+        totalSales,
+        totalTicketsSold,
+        totalGross: Number(totalGross.toFixed(2)),
+        totalPlatformFees: Number(totalPlatformFees.toFixed(2)),
+        totalOrganizerNet: Number(totalNet.toFixed(2)),
+        averageTicketNet: Number(ticketAverage.toFixed(2)),
+      });
+    }
 
     return {
       totalEvents,
       activeEvents,
       totalSales,
       totalTicketsSold,
-      totalRevenue,
+      totalRevenue: totalGross,
+      totalGrossRevenue: totalGross,
+      totalNetRevenue: totalNet,
+      totalPlatformFees,
       availableBalance,
       pendingBalance,
       totalWithdrawn,
+      monthlyComparison: {
+        currentMonthRevenue: Number(currentMonthRevenue.toFixed(2)),
+        previousMonthRevenue: Number(previousMonthRevenue.toFixed(2)),
+        currentMonthTickets,
+        previousMonthTickets,
+        currentMonthParticipants,
+        previousMonthParticipants,
+      },
     };
   },
 
@@ -166,10 +318,10 @@ export const dashboardService = {
 
     const { data: sales, error } = await supabase
       .from('event_participants')
-      .select('joined_at, total_paid, ticket:ticket_id(unit_price, quantity, discount_amount)')
+      .select('joined_at, ticket_quantity, total_paid, ticket:ticket_id(unit_price, quantity, discount_amount)')
       .in('event_id', eventIds)
       .gte('joined_at', startDate.toISOString())
-      .eq('status', 'valid');
+      .in('status', ['valid', 'used']);
 
     if (error) throw error;
 
@@ -188,8 +340,10 @@ export const dashboardService = {
 
       if (salesMap.has(key)) {
         const current = salesMap.get(key)!;
+        const breakdown = getFinancialBreakdown(sale.total_paid, sale.ticket, sale.ticket_quantity);
+        if (breakdown.gross <= 0) return;
         salesMap.set(key, {
-          amount: current.amount + getOrganizerAmount(sale.total_paid, sale.ticket),
+          amount: current.amount + breakdown.gross,
           count: current.count + 1,
         });
       }

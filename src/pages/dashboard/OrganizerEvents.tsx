@@ -41,8 +41,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CreateEventModal } from '@/components/CreateEventModal';
-import { EventDetailsModal } from '@/components/dashboard/events/EventDetailsModal';
-import { EditEventModal } from '@/components/dashboard/events/EditEventModal';
+import { EventDetailsEditorModal } from '@/components/dashboard/events/EventDetailsEditorModal';
 import { DeleteEventDialog } from '@/components/dashboard/events/DeleteEventDialog';
 import { useOrganizerStatus } from '@/hooks/useOrganizerStatus';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -62,9 +61,9 @@ export function OrganizerEvents() {
   const { toast } = useToast();
 
   // CRUD State
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [isViewOpen, setIsViewOpen] = useState(false);
-  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<DashboardEvent | null>(null);
+  const [detailsMode, setDetailsMode] = useState<'view' | 'edit'>('view');
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
   useEffect(() => {
@@ -80,7 +79,7 @@ export function OrganizerEvents() {
     } catch (error) {
       // console.error('Failed to load events', error);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
@@ -154,21 +153,29 @@ export function OrganizerEvents() {
         });
         return;
       }
-      setIsEditOpen(true);
+      setDetailsMode('edit');
+      setSelectedEvent(event as DashboardEvent);
+      setIsDetailsOpen(true);
+      return;
     }
     
     setSelectedEvent(event);
-    if (action === 'view') setIsViewOpen(true);
+    if (action === 'view') {
+      setDetailsMode('view');
+      setIsDetailsOpen(true);
+    }
     if (action === 'delete') setIsDeleteOpen(true);
   };
 
   const handleSuccess = () => {
     loadEvents();
-    // Close all modals
-    setIsViewOpen(false);
-    setIsEditOpen(false);
+    setIsDetailsOpen(false);
     setIsDeleteOpen(false);
     setSelectedEvent(null);
+  };
+
+  const handleOptimisticUpdated = (updated: DashboardEvent) => {
+    setEvents(prev => prev.map(item => (item.id === updated.id ? { ...item, ...updated } : item)));
   };
 
   const filteredEvents = events.filter(event => 
@@ -422,17 +429,13 @@ export function OrganizerEvents() {
       </motion.div>
 
       {/* CRUD Modals */}
-      <EventDetailsModal
+      <EventDetailsEditorModal
         event={selectedEvent}
-        isOpen={isViewOpen}
-        onClose={() => setIsViewOpen(false)}
-      />
-
-      <EditEventModal
-        event={selectedEvent}
-        isOpen={isEditOpen}
-        onClose={() => setIsEditOpen(false)}
-        onSuccess={handleSuccess}
+        isOpen={isDetailsOpen}
+        mode={detailsMode}
+        asaasStatus={asaasStatus}
+        onClose={() => setIsDetailsOpen(false)}
+        onUpdated={handleOptimisticUpdated}
       />
 
       <DeleteEventDialog

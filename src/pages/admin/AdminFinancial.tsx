@@ -275,12 +275,12 @@ export default function AdminFinancial() {
                 <motion.div variants={itemVariants}>
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Lucro da Plataforma</CardTitle>
+                      <CardTitle className="text-sm font-medium">Repasse Líquido Organizadores</CardTitle>
                       <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold text-yellow-600">{formatCurrency(overview.platform_profit)}</div>
-                      <p className="text-xs text-muted-foreground">10% do total arrecadado em taxas</p>
+                      <div className="text-2xl font-bold text-yellow-600">{formatCurrency(overview.organizer_revenue)}</div>
+                      <p className="text-xs text-muted-foreground">Total líquido devido aos organizadores</p>
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -506,5 +506,6 @@ export default function AdminFinancial() {
     </motion.div>
   );
 }
+
 
 

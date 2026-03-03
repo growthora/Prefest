@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { userService, type UserWithStats } from '@/services/user.service';
 import { eventService, type Event } from '@/services/event.service';
@@ -14,6 +14,7 @@ import {
   Users, 
   BarChart3, 
   ArrowUpRight, 
+  ArrowDownRight,
   UserPlus,
   Plus,
   Ticket,
@@ -29,6 +30,16 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/lib/index';
+
+function getTrend(current: number, previous: number): { value: number | null; isUp: boolean } {
+  if (previous <= 0) {
+    if (current <= 0) return { value: 0, isUp: true };
+    return { value: null, isUp: true };
+  }
+
+  const delta = ((current - previous) / previous) * 100;
+  return { value: Math.abs(delta), isUp: delta >= 0 };
+}
 
 export default function AdminOverview() {
   const { user } = useAuth();
@@ -114,6 +125,14 @@ export default function AdminOverview() {
   ];
 
   const recentUsers = users.slice(0, 5);
+  const revenueTrend = getTrend(
+    Number(statistics?.comparison?.currentMonthRevenue || 0),
+    Number(statistics?.comparison?.previousMonthRevenue || 0)
+  );
+  const newUsersTrend = getTrend(
+    Number(statistics?.comparison?.currentWeekNewUsers || 0),
+    Number(statistics?.comparison?.previousWeekNewUsers || 0)
+  );
 
   if (isLoading) {
     return (
@@ -134,10 +153,10 @@ export default function AdminOverview() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 rounded-xl border border-primary/10">
         <div>
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-            Visão Geral
+            VisÃ£o Geral
           </h1>
           <p className="text-muted-foreground mt-1">
-            Bem-vindo de volta, {user?.user_metadata?.full_name?.split(' ')[0]}. Aqui está o resumo da sua plataforma hoje.
+            Bem-vindo de volta, {user?.user_metadata?.full_name?.split(' ')[0]}. Aqui estÃ¡ o resumo da sua plataforma hoje.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -171,7 +190,7 @@ export default function AdminOverview() {
           <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
             <UserPlus className="h-4 w-4 text-blue-500" />
           </div>
-          <span className="font-medium">Adicionar Usuário</span>
+          <span className="font-medium">Adicionar UsuÃ¡rio</span>
         </Button>
         <Button 
           variant="outline" 
@@ -191,7 +210,7 @@ export default function AdminOverview() {
           <div className="h-8 w-8 rounded-full bg-orange-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
             <Settings className="h-4 w-4 text-orange-500" />
           </div>
-          <span className="font-medium">Configurações</span>
+          <span className="font-medium">ConfiguraÃ§Ãµes</span>
         </Button>
       </motion.div>
 
@@ -208,9 +227,21 @@ export default function AdminOverview() {
             <CardContent>
               <div className="text-2xl font-bold">R$ {statistics?.totalRevenue?.toFixed(2) || '0.00'}</div>
               <p className="text-xs text-muted-foreground mt-1 flex items-center">
-                <ArrowUpRight className="h-3 w-3 text-green-500 mr-1" />
-                <span className="text-green-500 font-medium">+15%</span>
-                <span className="ml-1">vs. mês passado</span>
+                {revenueTrend.value === null ? (
+                  <span className="text-muted-foreground">Sem base comparativa no mês passado</span>
+                ) : (
+                  <>
+                    {revenueTrend.isUp ? (
+                      <ArrowUpRight className="h-3 w-3 text-green-500 mr-1" />
+                    ) : (
+                      <ArrowDownRight className="h-3 w-3 text-red-500 mr-1" />
+                    )}
+                    <span className={`font-medium ${revenueTrend.isUp ? 'text-green-500' : 'text-red-500'}`} >
+                      {revenueTrend.isUp ? '+' : '-'}{revenueTrend.value.toFixed(1)}%
+                    </span>
+                    <span className="ml-1">vs. mês passado</span>
+                  </>
+                )}
               </p>
             </CardContent>
           </Card>
@@ -236,7 +267,7 @@ export default function AdminOverview() {
         <motion.div variants={itemVariants}>
           <Card className="hover:shadow-lg transition-all duration-300 border-l-4 border-l-purple-500 bg-gradient-to-br from-background to-purple-500/5">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total de Usuários</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total de UsuÃ¡rios</CardTitle>
               <div className="h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-900/20 flex items-center justify-center shadow-sm">
                 <Users className="h-4 w-4 text-purple-600 dark:text-purple-400" />
               </div>
@@ -244,9 +275,21 @@ export default function AdminOverview() {
             <CardContent>
               <div className="text-2xl font-bold">{counts.users}</div>
               <p className="text-xs text-muted-foreground mt-1 flex items-center">
-                <UserPlus className="h-3 w-3 text-purple-500 mr-1" />
-                <span className="text-purple-500 font-medium">+12</span>
-                <span className="ml-1">novos esta semana</span>
+                {newUsersTrend.value === null ? (
+                  <span className="text-muted-foreground">Sem base comparativa na semana passada</span>
+                ) : (
+                  <>
+                    {newUsersTrend.isUp ? (
+                      <ArrowUpRight className="h-3 w-3 text-green-500 mr-1" />
+                    ) : (
+                      <ArrowDownRight className="h-3 w-3 text-red-500 mr-1" />
+                    )}
+                    <span className={`font-medium ${newUsersTrend.isUp ? 'text-green-500' : 'text-red-500'}`} >
+                      {newUsersTrend.isUp ? '+' : '-'}{newUsersTrend.value.toFixed(1)}%
+                    </span>
+                    <span className="ml-1">vs. semana passada</span>
+                  </>
+                )}
               </p>
             </CardContent>
           </Card>
@@ -343,7 +386,7 @@ export default function AdminOverview() {
                 ) : (
                   <div className="flex h-full flex-col items-center justify-center text-muted-foreground bg-muted/20 rounded-lg border border-dashed">
                     <BarChart3 className="h-8 w-8 mb-2 opacity-50" />
-                    <p>Sem dados suficientes para o gráfico</p>
+                    <p>Sem dados suficientes para o grÃ¡fico</p>
                   </div>
                 )}
               </div>
@@ -357,8 +400,8 @@ export default function AdminOverview() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Novos Usuários</CardTitle>
-                  <CardDescription>Últimos cadastros na plataforma</CardDescription>
+                  <CardTitle>Novos UsuÃ¡rios</CardTitle>
+                  <CardDescription>Ãšltimos cadastros na plataforma</CardDescription>
                 </div>
                 <Users className="h-5 w-5 text-muted-foreground" />
               </div>
@@ -373,7 +416,7 @@ export default function AdminOverview() {
                         <AvatarFallback className="bg-primary/10 text-primary">{user.full_name?.substring(0, 2).toUpperCase() || 'US'}</AvatarFallback>
                       </Avatar>
                       <div className="flex flex-col">
-                        <span className="text-sm font-medium leading-none">{user.full_name || 'Usuário sem nome'}</span>
+                        <span className="text-sm font-medium leading-none">{user.full_name || 'UsuÃ¡rio sem nome'}</span>
                         <span className="text-xs text-muted-foreground mt-1">{user.email}</span>
                       </div>
                     </div>
@@ -385,7 +428,7 @@ export default function AdminOverview() {
                 {recentUsers.length === 0 && (
                   <div className="text-center py-8 text-muted-foreground">
                     <Users className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                    Nenhum usuário encontrado
+                    Nenhum usuÃ¡rio encontrado
                   </div>
                 )}
               </div>
@@ -400,7 +443,7 @@ export default function AdminOverview() {
           <Card className="border-border/50 shadow-sm overflow-hidden">
             <CardHeader>
               <CardTitle>Performance Detalhada</CardTitle>
-              <CardDescription>Métricas principais por evento</CardDescription>
+              <CardDescription>MÃ©tricas principais por evento</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -411,7 +454,7 @@ export default function AdminOverview() {
                       <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Status</th>
                       <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Ingressos</th>
                       <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Receita</th>
-                      <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Conversão</th>
+                      <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">ConversÃ£o</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -441,3 +484,4 @@ export default function AdminOverview() {
     </motion.div>
   );
 }
+

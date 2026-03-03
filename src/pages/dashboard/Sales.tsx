@@ -9,7 +9,8 @@ export function Sales() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<{
-    totalRevenue: number;
+    totalGrossRevenue: number;
+    totalNetRevenue: number;
     totalTickets: number;
     averageTicketPrice: number;
   } | null>(null);
@@ -21,12 +22,14 @@ export function Sales() {
         setLoading(true);
 
         const dashboardStats = await dashboardService.getStats(user.id);
-        const totalRevenue = dashboardStats.totalRevenue;
+        const totalGrossRevenue = dashboardStats.totalGrossRevenue;
+        const totalNetRevenue = dashboardStats.totalNetRevenue;
         const totalTickets = dashboardStats.totalTicketsSold;
-        const averageTicketPrice = totalTickets > 0 ? totalRevenue / totalTickets : 0;
+        const averageTicketPrice = totalTickets > 0 ? totalNetRevenue / totalTickets : 0;
 
         setStats({
-          totalRevenue,
+          totalGrossRevenue,
+          totalNetRevenue,
           totalTickets,
           averageTicketPrice,
         });
@@ -45,18 +48,33 @@ export function Sales() {
     <div className="space-y-6 animate-in fade-in duration-500">
       <h1 className="text-3xl font-bold tracking-tight">Vendas</h1>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Receita do Organizador</CardTitle>
+            <CardTitle className="text-sm font-medium">Receita Bruta Total</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.totalRevenue)}
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.totalGrossRevenue)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Soma apenas do valor do ingresso (sem taxa de servico)
+              Soma bruta dos ingressos vendidos
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Receita Líquida Organizador</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.totalNetRevenue)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Bruto menos taxa de plataforma (10%)
             </p>
           </CardContent>
         </Card>
@@ -84,7 +102,7 @@ export function Sales() {
               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.averageTicketPrice)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Media liquida por ingresso vendido
+              Ticket médio líquido por ingresso válido
             </p>
           </CardContent>
         </Card>

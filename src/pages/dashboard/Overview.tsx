@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { eventService, type Event } from '@/services/event.service';
@@ -14,6 +14,16 @@ import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 
+function getTrend(current: number, previous: number): { value: number | null; isUp: boolean } {
+  if (previous <= 0) {
+    if (current <= 0) return { value: 0, isUp: true };
+    return { value: null, isUp: true };
+  }
+
+  const delta = ((current - previous) / previous) * 100;
+  return { value: Math.abs(delta), isUp: delta >= 0 };
+}
+
 export function Overview() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -24,6 +34,14 @@ export function Overview() {
     totalTicketsSold: number;
     totalRevenue: number;
     activeEvents: number;
+    monthlyComparison: {
+      currentMonthRevenue: number;
+      previousMonthRevenue: number;
+      currentMonthTickets: number;
+      previousMonthTickets: number;
+      currentMonthParticipants: number;
+      previousMonthParticipants: number;
+    };
   } | null>(null);
   const [salesData, setSalesData] = useState<SalesChartData[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
@@ -35,7 +53,7 @@ export function Overview() {
       try {
         setLoading(true);
         
-        // 1. Carregar estatísticas gerais
+        // 1. Carregar estatÃ­sticas gerais
         const dashboardStats = await dashboardService.getStats(user.id);
         
         if (dashboardStats.totalEvents > 0) {
@@ -45,13 +63,14 @@ export function Overview() {
             activeEvents: dashboardStats.activeEvents,
             totalTicketsSold: dashboardStats.totalTicketsSold,
             totalRevenue: dashboardStats.totalRevenue,
+            monthlyComparison: dashboardStats.monthlyComparison,
           });
 
-          // 2. Carregar gráfico de vendas (últimos 7 dias)
+          // 2. Carregar grÃ¡fico de vendas (Ãºltimos 7 dias)
           const chartData = await dashboardService.getSalesChart(user.id, 'week');
           setSalesData(chartData);
 
-          // 3. Carregar próximos eventos
+          // 3. Carregar prÃ³ximos eventos
           const events = await eventService.getEventsByCreator(user.id);
           const upcoming = events
             .filter(e => new Date(e.event_date) > new Date())
@@ -81,17 +100,30 @@ export function Overview() {
       <div className="flex-1 flex flex-col items-center justify-center h-full">
         <DashboardEmptyState 
           title="Comece sua jornada como organizador"
-          description="Você ainda não criou nenhum evento. Crie seu primeiro evento agora e comece a vender ingressos."
+          description="VocÃª ainda nÃ£o criou nenhum evento. Crie seu primeiro evento agora e comece a vender ingressos."
         />
       </div>
     );
   }
+
+  const revenueTrend = getTrend(
+    stats.monthlyComparison.currentMonthRevenue,
+    stats.monthlyComparison.previousMonthRevenue
+  );
+  const ticketsTrend = getTrend(
+    stats.monthlyComparison.currentMonthTickets,
+    stats.monthlyComparison.previousMonthTickets
+  );
+  const participantsTrend = getTrend(
+    stats.monthlyComparison.currentMonthParticipants,
+    stats.monthlyComparison.previousMonthParticipants
+  );
   
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-8">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Visão Geral</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">VisÃ£o Geral</h1>
           <p className="text-muted-foreground mt-1">Acompanhe o desempenho dos seus eventos em tempo real.</p>
         </div>
         <Button onClick={() => navigate(ROUTE_PATHS.ORGANIZER_SCANNER)} className="w-full sm:w-auto shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all">
@@ -105,7 +137,7 @@ export function Overview() {
         <Card className="hover:shadow-md transition-shadow duration-200 border-l-4 border-l-green-500">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Receita Total
+              Receita Bruta Total
             </CardTitle>
             <div className="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center">
               <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
@@ -114,9 +146,21 @@ export function Overview() {
           <CardContent>
             <div className="text-2xl font-bold">R$ {stats.totalRevenue.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground mt-1 flex items-center">
-              <ArrowUpRight className="h-3 w-3 text-green-500 mr-1" />
-              <span className="text-green-500 font-medium">+12.5%</span>
-              <span className="ml-1">vs. mês passado</span>
+              {revenueTrend.value === null ? (
+                <span className="text-muted-foreground">Sem base comparativa no mês passado</span>
+              ) : (
+                <>
+                  {revenueTrend.isUp ? (
+                    <ArrowUpRight className="h-3 w-3 text-green-500 mr-1" />
+                  ) : (
+                    <ArrowDownRight className="h-3 w-3 text-red-500 mr-1" />
+                  )}
+                  <span className={cn("font-medium", revenueTrend.isUp ? "text-green-500" : "text-red-500")}>
+                    {revenueTrend.isUp ? '+' : '-'}{revenueTrend.value.toFixed(1)}%
+                  </span>
+                  <span className="ml-1">vs. mês passado</span>
+                </>
+              )}
             </p>
           </CardContent>
         </Card>
@@ -133,9 +177,21 @@ export function Overview() {
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalTicketsSold}</div>
             <p className="text-xs text-muted-foreground mt-1 flex items-center">
-              <ArrowUpRight className="h-3 w-3 text-green-500 mr-1" />
-              <span className="text-green-500 font-medium">+8.2%</span>
-              <span className="ml-1">vs. mês passado</span>
+              {ticketsTrend.value === null ? (
+                <span className="text-muted-foreground">Sem base comparativa no mês passado</span>
+              ) : (
+                <>
+                  {ticketsTrend.isUp ? (
+                    <ArrowUpRight className="h-3 w-3 text-green-500 mr-1" />
+                  ) : (
+                    <ArrowDownRight className="h-3 w-3 text-red-500 mr-1" />
+                  )}
+                  <span className={cn("font-medium", ticketsTrend.isUp ? "text-green-500" : "text-red-500")}>
+                    {ticketsTrend.isUp ? '+' : '-'}{ticketsTrend.value.toFixed(1)}%
+                  </span>
+                  <span className="ml-1">vs. mês passado</span>
+                </>
+              )}
             </p>
           </CardContent>
         </Card>
@@ -169,9 +225,21 @@ export function Overview() {
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalTicketsSold}</div>
             <p className="text-xs text-muted-foreground mt-1 flex items-center">
-              <ArrowUpRight className="h-3 w-3 text-green-500 mr-1" />
-              <span className="text-green-500 font-medium">+24%</span>
-              <span className="ml-1">novos usuários</span>
+              {participantsTrend.value === null ? (
+                <span className="text-muted-foreground">Sem base comparativa no mês passado</span>
+              ) : (
+                <>
+                  {participantsTrend.isUp ? (
+                    <ArrowUpRight className="h-3 w-3 text-green-500 mr-1" />
+                  ) : (
+                    <ArrowDownRight className="h-3 w-3 text-red-500 mr-1" />
+                  )}
+                  <span className={cn("font-medium", participantsTrend.isUp ? "text-green-500" : "text-red-500")}>
+                    {participantsTrend.isUp ? '+' : '-'}{participantsTrend.value.toFixed(1)}%
+                  </span>
+                  <span className="ml-1">vs. mês passado</span>
+                </>
+              )}
             </p>
           </CardContent>
         </Card>
@@ -184,7 +252,7 @@ export function Overview() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-xl">Vendas Recentes</CardTitle>
-                <CardDescription>Receita dos últimos 7 dias</CardDescription>
+                <CardDescription>Receita dos Ãºltimos 7 dias</CardDescription>
               </div>
               <div className="p-2 bg-primary/10 rounded-full">
                 <TrendingUp className="h-5 w-5 text-primary" />
@@ -254,7 +322,7 @@ export function Overview() {
             ) : (
               <div className="h-[300px] flex flex-col items-center justify-center text-muted-foreground border-2 border-dashed rounded-xl bg-muted/30">
                 <TrendingUp className="h-10 w-10 mb-2 opacity-20" />
-                <p>Nenhuma venda registrada nos últimos 7 dias</p>
+                <p>Nenhuma venda registrada nos Ãºltimos 7 dias</p>
               </div>
             )}
           </CardContent>
@@ -265,7 +333,7 @@ export function Overview() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-xl">Próximos Eventos</CardTitle>
+                <CardTitle className="text-xl">PrÃ³ximos Eventos</CardTitle>
                 <CardDescription>Eventos agendados futuramente</CardDescription>
               </div>
               <Calendar className="h-5 w-5 text-muted-foreground" />
@@ -305,8 +373,8 @@ export function Overview() {
                      <Calendar className="h-6 w-6 text-muted-foreground" />
                    </div>
                    <div className="space-y-1">
-                     <p className="font-medium">Nenhum evento próximo</p>
-                     <p className="text-sm text-muted-foreground">Crie um novo evento para começar.</p>
+                     <p className="font-medium">Nenhum evento prÃ³ximo</p>
+                     <p className="text-sm text-muted-foreground">Crie um novo evento para comeÃ§ar.</p>
                    </div>
                    <Button variant="outline" size="sm" onClick={() => navigate(ROUTE_PATHS.CREATE_EVENT)}>
                      Criar Evento
@@ -322,6 +390,9 @@ export function Overview() {
 }
 
 export default Overview;
+
+
+
 
 
 

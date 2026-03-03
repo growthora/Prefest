@@ -3,7 +3,8 @@ import { Wallet, History } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
-import { eventService } from '@/services/event.service';
+import { dashboardService } from '@/services/dashboard.service';
+import { invokeEdgeFunction } from '@/services/apiClient';
 import { DashboardLoader } from '@/components/dashboard/DashboardLoader';
 import { AsaasConnect } from '@/components/dashboard/organizer/AsaasConnect';
 
@@ -17,9 +18,17 @@ export function Payments() {
       if (!user) return;
       try {
         setLoading(true);
-        const events = await eventService.getEventsByCreator(user.id);
-        const totalRevenue = events.reduce((acc, curr) => acc + (curr.revenue || 0), 0);
-        setBalance(totalRevenue);
+        const { data, error } = await invokeEdgeFunction<{ balance?: number }>('asaas-get-organizer-balance', {
+          method: 'POST',
+        });
+
+        if (!error && data && typeof data.balance === 'number') {
+          setBalance(data.balance);
+          return;
+        }
+
+        const stats = await dashboardService.getStats(user.id);
+        setBalance(stats.availableBalance);
       } catch (error) {
         // console.error('Failed to load balance', error);
       } finally {

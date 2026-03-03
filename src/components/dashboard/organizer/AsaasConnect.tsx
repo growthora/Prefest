@@ -181,7 +181,10 @@ export function AsaasConnect() {
       });
 
       if (error) throw error;
-      if (data.error) throw new Error(data.error);
+      if (data.error) {
+        const details = data.details ? ` (${typeof data.details === 'string' ? data.details : JSON.stringify(data.details)})` : '';
+        throw new Error(`${data.error}${details}`);
+      }
 
       toast.success('Status atualizado!');
       if (data.account) {

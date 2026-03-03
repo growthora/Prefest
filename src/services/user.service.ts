@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+﻿import { supabase } from '../lib/supabase';
 import type { Profile } from './auth.service';
 
 export interface UserWithStats extends Profile {
@@ -39,7 +39,7 @@ export interface UpdateUserData {
 }
 
 class UserService {
-  // Listar todos os usuários
+  // Listar todos os usuÃ¡rios
   async getAllUsers(): Promise<Profile[]> {
     const { data, error } = await supabase
       .from('profiles')
@@ -50,7 +50,7 @@ class UserService {
     return data || [];
   }
 
-  // Listar usuários com estatísticas
+  // Listar usuÃ¡rios com estatÃ­sticas
   async getUsersWithStats(): Promise<UserWithStats[]> {
     const { data, error } = await supabase
       .from('profiles')
@@ -66,7 +66,7 @@ class UserService {
       throw error;
     }
 
-    // Calcular estatísticas
+    // Calcular estatÃ­sticas
     return (data || []).map((user: any) => {
       const participants = user.event_participants || [];
       return {
@@ -77,7 +77,7 @@ class UserService {
     });
   }
 
-  // Buscar usuário por ID
+  // Buscar usuÃ¡rio por ID
   async getUserById(userId: string): Promise<Profile> {
     const { data, error } = await supabase
       .from('profiles')
@@ -89,7 +89,7 @@ class UserService {
     return data;
   }
 
-  // Buscar usuário por username (slug)
+  // Buscar usuÃ¡rio por username (slug)
   async getUserByUsername(username: string): Promise<Profile | null> {
     const { data, error } = await supabase
       .from('profiles')
@@ -131,7 +131,7 @@ class UserService {
     const user = await this.getUserById(userId);
     const currentRoles = user.roles || ['BUYER'];
     
-    // Adicionar ORGANIZER se não existir
+    // Adicionar ORGANIZER se nÃ£o existir
     const newRoles = currentRoles.includes('ORGANIZER') 
       ? currentRoles 
       : [...currentRoles, 'ORGANIZER'];
@@ -147,9 +147,9 @@ class UserService {
     if (error) throw error;
   }
 
-  // Criar novo usuário (requer permissão admin)
+  // Criar novo usuÃ¡rio (requer permissÃ£o admin)
   async createUser(userData: CreateUserData): Promise<{ user: any; profile: Profile }> {
-    // Criar usuário no auth
+    // Criar usuÃ¡rio no auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: userData.email,
       password: userData.password,
@@ -162,10 +162,10 @@ class UserService {
 
     if (authError) throw authError;
 
-    // Aguardar criação do perfil via trigger
+    // Aguardar criaÃ§Ã£o do perfil via trigger
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Atualizar roles se necessário
+    // Atualizar roles se necessÃ¡rio
     if (userData.roles && userData.roles.length > 0 && authData.user) {
       const { data: profile, error: updateError } = await supabase
         .from('profiles')
@@ -182,7 +182,7 @@ class UserService {
     return { user: authData.user, profile };
   }
 
-  // Atualizar usuário
+  // Atualizar usuÃ¡rio
   async updateUser(userId: string, updates: UpdateUserData): Promise<Profile> {
     const { data, error } = await supabase
       .from('profiles')
@@ -195,7 +195,7 @@ class UserService {
     return data;
   }
 
-  // Deletar usuário
+  // Deletar usuÃ¡rio
   async deleteUser(userId: string): Promise<void> {
     const { error } = await supabase
       .from('profiles')
@@ -205,10 +205,8 @@ class UserService {
     if (error) throw error;
   }
 
-  // Obter estatísticas gerais
+  // Obter estatÃ­sticas gerais
   async getStatistics() {
-    
-    // Total de usuários
     const { count: totalUsers, error: usersError } = await supabase
       .from('profiles')
       .select('*', { count: 'exact', head: true });
@@ -217,7 +215,6 @@ class UserService {
       // Silently ignore error
     }
 
-    // Total de eventos
     const { count: totalEvents, error: eventsError } = await supabase
       .from('events')
       .select('*', { count: 'exact', head: true });
@@ -226,24 +223,44 @@ class UserService {
       // Silently ignore error
     }
 
-    // Faturamento total e por evento
     const { data: revenue, error: revenueError } = await supabase
       .from('event_participants')
-      .select('total_paid, event_id, events(title, price)');
+      .select('total_paid, event_id, joined_at, status, events(title, price)')
+      .in('status', ['valid', 'used']);
 
     if (revenueError) {
       // Silently ignore error
     }
 
-    const totalRevenue = (revenue || []).reduce((sum, item) => sum + (item.total_paid || 0), 0);
-    
-    // Calcular faturamento por evento
+    const totalRevenue = (revenue || []).reduce((sum: number, item: any) => sum + (item.total_paid || 0), 0);
+
+    const now = new Date();
+    const startCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const startPreviousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+    const currentMonthRevenue = (revenue || []).reduce((sum: number, item: any) => {
+      const joinedAt = item.joined_at ? new Date(item.joined_at) : null;
+      if (joinedAt && joinedAt >= startCurrentMonth && joinedAt < startNextMonth) {
+        return sum + (item.total_paid || 0);
+      }
+      return sum;
+    }, 0);
+
+    const previousMonthRevenue = (revenue || []).reduce((sum: number, item: any) => {
+      const joinedAt = item.joined_at ? new Date(item.joined_at) : null;
+      if (joinedAt && joinedAt >= startPreviousMonth && joinedAt < startCurrentMonth) {
+        return sum + (item.total_paid || 0);
+      }
+      return sum;
+    }, 0);
+
     const revenueByEvent = (revenue || []).reduce((acc: any, item: any) => {
       const eventId = item.event_id;
       if (!acc[eventId]) {
         acc[eventId] = {
           event_id: eventId,
-          event_title: item.events?.title || 'Sem título',
+          event_title: item.events?.title || 'Sem titulo',
           event_price: item.events?.price || 0,
           revenue: 0,
           tickets_sold: 0,
@@ -256,7 +273,45 @@ class UserService {
 
     const eventStats = Object.values(revenueByEvent);
 
-    // Calcular custos estimados (exemplo: 30% do faturamento)
+    const { data: profilesCreated, error: profilesCreatedError } = await supabase
+      .from('profiles')
+      .select('created_at');
+
+    if (profilesCreatedError) {
+      // Silently ignore error
+    }
+
+    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStartsOnMonday = (date: Date) => {
+      const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const day = d.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      d.setDate(d.getDate() + diff);
+      return d;
+    };
+
+    const startCurrentWeek = weekStartsOnMonday(dayStart);
+    const startNextWeek = new Date(startCurrentWeek);
+    startNextWeek.setDate(startCurrentWeek.getDate() + 7);
+    const startPreviousWeek = new Date(startCurrentWeek);
+    startPreviousWeek.setDate(startCurrentWeek.getDate() - 7);
+
+    const currentWeekNewUsers = (profilesCreated || []).reduce((sum: number, profile: any) => {
+      const createdAt = profile.created_at ? new Date(profile.created_at) : null;
+      if (createdAt && createdAt >= startCurrentWeek && createdAt < startNextWeek) {
+        return sum + 1;
+      }
+      return sum;
+    }, 0);
+
+    const previousWeekNewUsers = (profilesCreated || []).reduce((sum: number, profile: any) => {
+      const createdAt = profile.created_at ? new Date(profile.created_at) : null;
+      if (createdAt && createdAt >= startPreviousWeek && createdAt < startCurrentWeek) {
+        return sum + 1;
+      }
+      return sum;
+    }, 0);
+
     const estimatedCosts = totalRevenue * 0.3;
     const profit = totalRevenue - estimatedCosts;
     const profitMargin = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
@@ -269,10 +324,17 @@ class UserService {
       profit,
       profitMargin,
       eventStats,
+      comparison: {
+        currentMonthRevenue,
+        previousMonthRevenue,
+        currentWeekNewUsers,
+        previousWeekNewUsers,
+      },
     };
-    
+
     return stats;
   }
 }
 
 export const userService = new UserService();
+
