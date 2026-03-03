@@ -114,7 +114,7 @@ Deno.serve(async (req) => {
 
         const { secret_key, env } = config;
         const apiKey = secret_key;
-        const baseUrl = env === 'production' ? 'https://www.asaas.com/api/v3' : 'https://sandbox.asaas.com/api/v3';
+        const baseUrl = env === 'production' ? 'https://api.asaas.com/v3' : 'https://sandbox.asaas.com/api/v3';
 
         // 3. Call Asaas
         const asaasRes = await fetch(`${baseUrl}/payments/${payment.external_payment_id}`, {

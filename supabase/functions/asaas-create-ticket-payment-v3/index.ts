@@ -238,7 +238,7 @@ Deno.serve(async (req) => {
     // console.log(`V3: Buyer Profile: ${user.id} - CPF: ${buyerProfile?.cpf ? '***' : 'MISSING'} - Asaas ID: ${buyerProfile?.asaas_customer_id}`);
     
     // Config already fetched above (Step 9 moved up)
-    const baseUrl = env === 'production' ? 'https://www.asaas.com/api/v3' : 'https://sandbox.asaas.com/api/v3';
+    const baseUrl = env === 'production' ? 'https://api.asaas.com/v3' : 'https://sandbox.asaas.com/api/v3';
     const headers = { 'access_token': apiKey, 'Content-Type': 'application/json' };
     
     // 10. Validate Organizer Account

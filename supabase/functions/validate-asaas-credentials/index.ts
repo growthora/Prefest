@@ -15,9 +15,27 @@ Deno.serve(async (req) => {
     // Admin check
     await requireRole(supabaseClient, user.id, ['ADMIN']);
 
-    const { apiKey, environment } = await req.json();
+    const { apiKey, environment, useStored } = await req.json();
+    let keyToValidate = (apiKey || '').trim();
 
-    if (!apiKey) {
+    if (!keyToValidate && useStored) {
+      const adminClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+
+      const { data: config, error: configError } = await adminClient
+        .rpc('get_decrypted_asaas_config')
+        .single();
+
+      if (configError || !config?.api_key) {
+        throw new Error('Stored Asaas API Key not found');
+      }
+
+      keyToValidate = config.api_key;
+    }
+
+    if (!keyToValidate) {
       throw new Error('API Key is required');
     }
 
@@ -29,7 +47,7 @@ Deno.serve(async (req) => {
     const response = await fetch(`${baseUrl}/customers?limit=1`, {
       method: 'GET',
       headers: {
-        'access_token': apiKey,
+        'access_token': keyToValidate,
         'Content-Type': 'application/json'
       }
     });

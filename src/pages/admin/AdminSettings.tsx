@@ -13,15 +13,6 @@ import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { invokeEdgeFunction } from '@/services/apiClient';
 
-const LOCKED_ASAAS_WEBHOOK_TOKEN = 'whsec_U8ZQVyctauRXNHxGPEvGgbfjJwf4kwZTYYBKl4E5yaU';
-const LOCKED_ASAAS_API_KEY = '$aact_prod_000MzkwODA2MWY2OGM3MWRlMDU2NWM3MzJlNzZmNGZhZGY6OjY3ZTcxOTgwLTExZDEtNDNiNC1hM2RlLTc4NWY3OGU2Nzk1ZTo6JGFhY2hfODMxOWE2NzItZjYwNy00MzExLTljZTQtZDI1OGNmYWYxYTk2';
-
-function maskSecret(secret: string, visibleStart = 6, visibleEnd = 4): string {
-  if (!secret) return '';
-  if (secret.length <= visibleStart + visibleEnd) return '*'.repeat(secret.length);
-  return `${secret.slice(0, visibleStart)}${'*'.repeat(secret.length - (visibleStart + visibleEnd))}${secret.slice(-visibleEnd)}`;
-}
-
 // Types
 interface SystemSettings {
   id?: string;
@@ -146,40 +137,13 @@ export default function AdminSettings() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const asaasIntegration = integrations.find(i => i.provider === 'asaas');
-      if (asaasIntegration && !asaasIntegration.id) {
-        const { error: upsertError } = await supabase
-          .from('integrations')
-          .upsert(
-            {
-              provider: 'asaas',
-              is_enabled: asaasIntegration.is_enabled ?? false,
-              environment: asaasIntegration.environment || 'sandbox',
-              split_enabled: asaasIntegration.split_enabled ?? false,
-              platform_fee_type: asaasIntegration.platform_fee_type || 'percentage',
-              platform_fee_value: asaasIntegration.platform_fee_value ?? 10,
-              wallet_id: asaasIntegration.wallet_id || null,
-            },
-            { onConflict: 'provider' }
-          );
-
-        if (upsertError) throw upsertError;
-      }
-
       // Prepare payload
       const payload: any = {
         system,
         notifications,
         smtp: { ...smtp, ...(smtpPassword ? { pass: smtpPassword } : {}) },
-        integrations: integrations.map(int => {
-            if (int.provider === 'asaas') {
-                const updatedInt: any = { ...int };
-                updatedInt.secret_key = LOCKED_ASAAS_API_KEY;
-                updatedInt.webhook_token = LOCKED_ASAAS_WEBHOOK_TOKEN;
-                return updatedInt;
-            }
-            return int;
-        })
+        // Asaas integration is locked and managed directly in the database.
+        integrations: integrations.filter(int => int.provider !== 'asaas')
       };
 
       // Using RPC directly to avoid Edge Function auth issues
@@ -231,58 +195,6 @@ export default function AdminSettings() {
         toast.dismiss();
         toast.error('Erro ao testar SMTP');
     }
-  };
-
-  // Validate Asaas
-  const handleValidateAsaas = async () => {
-      const asaasInt = integrations.find(i => i.provider === 'asaas');
-      const apiKey = LOCKED_ASAAS_API_KEY;
-      const env = asaasInt?.environment || 'sandbox';
-
-      // Need API key to validate. If not entered, we can't validate unless we have a way to validate stored key without sending it?
-      // The validate-asaas-credentials function expects apiKey in body.
-      // If we don't have it in state (user didn't type it), we assume they want to validate the stored one.
-      // But we can't send the stored one from client because we don't have it (it's encrypted).
-      // So we need a way to tell the backend "use stored key".
-      // Let's assume for now user must enter key to validate OR we need to update the edge function to handle "use stored" flag.
-      // The user prompt says "Validar Conexao".
-      
-      // Let's update logic: if apiKey is empty, we check if we have stored key (secret_key_encrypted).
-      // If yes, we call validate-asaas-credentials with { useStored: true, environment: env }.
-      // But I implemented validate-asaas-credentials to expect apiKey.
-      // I should update validate-asaas-credentials to handle this case or just ask user to enter key.
-      // However, for better UX, if it's already saved, we should be able to validate it.
-      // I'll update the edge function later if needed, but for now let's send what we have.
-      // Wait, I can't update the edge function easily without rewriting it.
-      // Let's just prompt user if they haven't entered it, unless it's saved.
-      // If it's saved, we can't validate it with current edge function implementation which requires apiKey in body.
-      // Actually, I can pass a flag to the edge function, and inside the edge function I can fetch the decrypted key from DB if the flag is present.
-      
-      // Let's modify the frontend to just send apiKey if present.
-      
-      try {
-        toast.loading('Validando credenciais Asaas...');
-        const { data, error } = await invokeEdgeFunction('validate-asaas-credentials', {
-            body: { 
-                apiKey: apiKey, // Can be empty if we rely on stored
-                environment: env,
-                useStored: !apiKey && !!asaasInt?.secret_key_encrypted
-            }
-        });
-
-        toast.dismiss();
-        if (error || (data && !data.ok && !data.valid) || (data && data.error)) {
-            const errorMessage = error?.message || data?.error || data?.message || 'Erro desconhecido na validacao';
-            toast.error(`Erro na validacao: ${errorMessage}`);
-        } else {
-            const accountName = data?.account?.name || data?.data?.name || 'Conta';
-            toast.success(`Conexao com Asaas vlida! Conta: ${accountName}`);
-            setIntegrations(prev => prev.map(i => i.provider === 'asaas' ? { ...i, is_enabled: true } : i));
-        }
-      } catch (error) {
-          toast.dismiss();
-          toast.error('Erro ao validar Asaas');
-      }
   };
 
   const containerVariants = {
@@ -462,10 +374,7 @@ export default function AdminSettings() {
                                 </div>
                                 <Switch 
                                     checked={integration.is_enabled}
-                                    onCheckedChange={(c) => {
-                                        const updated = integrations.map(i => i.provider === 'asaas' ? {...i, is_enabled: c} : i);
-                                        setIntegrations(updated);
-                                    }}
+                                    disabled
                                 />
                             </div>
                             
@@ -474,10 +383,7 @@ export default function AdminSettings() {
                                     <Label>Ambiente</Label>
                                     <Select 
                                         value={integration.environment} 
-                                        onValueChange={(v: 'sandbox' | 'production') => {
-                                            const updated = integrations.map(i => i.provider === 'asaas' ? {...i, environment: v} : i);
-                                            setIntegrations(updated);
-                                        }}
+                                        disabled
                                     >
                                         <SelectTrigger>
                                             <SelectValue />
@@ -490,26 +396,13 @@ export default function AdminSettings() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label>API Key</Label>
-                                    <div className="flex gap-2">
-                                        <Input 
-                                            type="text"
-                                            value={maskSecret(LOCKED_ASAAS_API_KEY, 10, 6)}
-                                            disabled
-                                            readOnly
-                                        />
-                                        <Button variant="secondary" onClick={handleValidateAsaas}>Validar Conexao</Button>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground">API Key bloqueada e gerenciada pelo sistema.</p>
+                                    <Input type="password" value="********" disabled readOnly />
+                                    <p className="text-xs text-muted-foreground">Gerenciado pelo sistema e bloqueado para alteracoes no painel admin.</p>
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Webhook Token</Label>
-                                    <Input 
-                                        type="text"
-                                        value={maskSecret(LOCKED_ASAAS_WEBHOOK_TOKEN, 8, 6)}
-                                        disabled
-                                        readOnly
-                                    />
-                                    <p className="text-xs text-muted-foreground">Webhook Token bloqueado e gerenciado pelo sistema.</p>
+                                    <Input type="password" value="********" disabled readOnly />
+                                    <p className="text-xs text-muted-foreground">Gerenciado pelo sistema e bloqueado para alteracoes no painel admin.</p>
                                     <p className="text-xs text-muted-foreground">O token  usado para validar as notificacoes recebidas do Asaas.</p>
                                     <div className="mt-2 p-3 bg-muted rounded-md text-xs font-mono break-all">
                                         <span className="font-bold block mb-1">URL para Webhook (Asaas):</span>
@@ -527,10 +420,7 @@ export default function AdminSettings() {
                                         </div>
                                         <Switch 
                                             checked={integration.split_enabled || false}
-                                            onCheckedChange={(c) => {
-                                                const updated = integrations.map(i => i.provider === 'asaas' ? {...i, split_enabled: c} : i);
-                                                setIntegrations(updated);
-                                            }}
+                                            disabled
                                         />
                                     </div>
 
@@ -544,10 +434,7 @@ export default function AdminSettings() {
                                                 <Label>Wallet ID da Plataforma (Opcional)</Label>
                                                 <Input 
                                                     value={integration.wallet_id || ''}
-                                                    onChange={(e) => {
-                                                        const updated = integrations.map(i => i.provider === 'asaas' ? {...i, wallet_id: e.target.value} : i);
-                                                        setIntegrations(updated);
-                                                    }}
+                                                    disabled
                                                     placeholder="Cole aqui o Wallet ID (opcional)"
                                                 />
                                                 <p className="text-xs text-muted-foreground">

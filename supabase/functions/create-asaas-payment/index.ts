@@ -46,9 +46,10 @@ Deno.serve(async (req) => {
       throw new Error('Asaas configuration not found or invalid');
     }
 
-    const { api_key: apiKey, environment: env, wallet_id: platformWalletId, split_enabled, platform_fee_type, platform_fee_value } = config;
+    const { api_key: apiKey, wallet_id: platformWalletId, split_enabled, platform_fee_type, platform_fee_value } = config;
+    const env = config.env || config.environment;
     const baseUrl = env === 'production' 
-      ? 'https://api.asaas.com/api/v3' 
+      ? 'https://api.asaas.com/v3' 
       : 'https://sandbox.asaas.com/api/v3';
 
     const headers = {
