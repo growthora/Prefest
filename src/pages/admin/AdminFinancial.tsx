@@ -26,8 +26,10 @@ import { ptBR } from 'date-fns/locale';
 import { invokeEdgeFunction } from '@/services/apiClient';
 
 interface FinancialOverview {
-  total_sales: number;
-  platform_fees: number;
+  total_gross_sales: number;
+  total_service_fees: number;
+  platform_profit: number;
+  organizer_revenue: number;
   organizer_splits: number;
   pending_balance: number;
   total_refunded: number;
@@ -89,13 +91,15 @@ export default function AdminFinancial() {
         
         // Map backend response to frontend interface
         setOverview({
-          total_sales: data.total_revenue || 0,
-          platform_fees: 0, // Not yet implemented in RPC
-          organizer_splits: 0, // Not yet implemented in RPC
-          pending_balance: 0, // Not yet implemented in RPC
-          total_refunded: 0, // Not yet implemented in RPC
-          daily_sales: data.daily_revenue || [], 
-          top_organizers: [] // Not yet implemented in RPC
+          total_gross_sales: data.total_gross_sales ?? data.total_sales ?? data.total_revenue ?? 0,
+          total_service_fees: data.total_service_fees ?? data.platform_fees ?? 0,
+          platform_profit: data.platform_profit ?? 0,
+          organizer_revenue: data.organizer_revenue ?? data.organizer_splits ?? 0,
+          organizer_splits: data.organizer_splits ?? data.organizer_revenue ?? 0,
+          pending_balance: data.pending_balance ?? 0,
+          total_refunded: data.total_refunded ?? 0,
+          daily_sales: data.daily_sales ?? data.daily_revenue ?? [], 
+          top_organizers: data.top_organizers ?? []
         });
       } else if (activeTab === 'transactions') {
         queryParams.append('type', 'payments');
@@ -112,15 +116,15 @@ export default function AdminFinancial() {
 
         const mappedPayments = paymentData.map((p: any) => ({
           id: p.id,
-          external_payment_id: p.external_id,
-          value: p.amount,
+          external_payment_id: p.external_id || p.external_payment_id,
+          value: p.amount ?? p.value ?? 0,
           status: p.status,
           created_at: p.created_at,
-          payment_method: p.method,
+          payment_method: p.method || p.payment_method,
           buyer_name: p.customer_name,
           buyer_email: p.customer_email,
-          organizer_name: 'N/A', // Not returned by RPC yet
-          event_title: 'N/A'     // Not returned by RPC yet
+          organizer_name: p.organizer_name || 'N/A',
+          event_title: p.event_title || 'N/A'
         }));
 
         setPayments(mappedPayments);
@@ -251,7 +255,7 @@ export default function AdminFinancial() {
                       <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold">{formatCurrency(overview.total_sales)}</div>
+                      <div className="text-2xl font-bold">{formatCurrency(overview.total_gross_sales)}</div>
                       <p className="text-xs text-muted-foreground">Volume total bruto</p>
                     </CardContent>
                   </Card>
@@ -259,24 +263,24 @@ export default function AdminFinancial() {
                 <motion.div variants={itemVariants}>
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Receita da Plataforma</CardTitle>
+                      <CardTitle className="text-sm font-medium">Total em Taxas de Servi�o</CardTitle>
                       <Wallet className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold text-green-600">{formatCurrency(overview.platform_fees)}</div>
-                      <p className="text-xs text-muted-foreground">Líquido após splits</p>
+                      <div className="text-2xl font-bold text-green-600">{formatCurrency(overview.total_service_fees)}</div>
+                      <p className="text-xs text-muted-foreground">Arrecadado somente em taxas</p>
                     </CardContent>
                   </Card>
                 </motion.div>
                 <motion.div variants={itemVariants}>
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Repasses Pendentes</CardTitle>
+                      <CardTitle className="text-sm font-medium">Lucro da Plataforma</CardTitle>
                       <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold text-yellow-600">{formatCurrency(overview.pending_balance)}</div>
-                      <p className="text-xs text-muted-foreground">Aguardando liberação</p>
+                      <div className="text-2xl font-bold text-yellow-600">{formatCurrency(overview.platform_profit)}</div>
+                      <p className="text-xs text-muted-foreground">10% do total arrecadado em taxas</p>
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -502,3 +506,5 @@ export default function AdminFinancial() {
     </motion.div>
   );
 }
+
+

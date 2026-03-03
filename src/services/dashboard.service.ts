@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 export interface DashboardStats {
   totalEvents: number;
   activeEvents: number;
+  totalSales: number;
   totalTicketsSold: number;
   totalRevenue: number;
   availableBalance: number;
@@ -24,7 +25,7 @@ export interface Sale {
   amount: number;
   status: string;
   buyerName: string;
-  buyerEmail: string; // Nota: profiles pode não ter email dependendo da privacidade, mas vamos tentar
+  buyerEmail: string;
 }
 
 export interface Participant {
@@ -37,16 +38,36 @@ export interface Participant {
   checkIn: boolean;
 }
 
+type SaleTicket = {
+  unit_price?: number | null;
+  quantity?: number | null;
+  discount_amount?: number | null;
+};
+
+function getOrganizerAmount(totalPaid: number | null | undefined, ticket?: SaleTicket | null): number {
+  if (ticket && typeof ticket.unit_price === 'number') {
+    const quantity = Number(ticket.quantity) || 1;
+    const unitPrice = Number(ticket.unit_price) || 0;
+    const discount = Number(ticket.discount_amount) || 0;
+    return Math.max(0, Number((unitPrice * quantity - discount).toFixed(2)));
+  }
+
+  const paid = Number(totalPaid) || 0;
+  if (paid <= 0) return 0;
+
+  // Legacy fallback (without linked ticket): remove fixed 10% service fee.
+  return Number((paid / 1.1).toFixed(2));
+}
+
 export const dashboardService = {
   async getSales(organizerId: string): Promise<Sale[]> {
-    // Buscar eventos do organizador primeiro para filtrar
     const { data: events } = await supabase
       .from('events')
       .select('id')
       .eq('creator_id', organizerId);
-      
+
     if (!events || events.length === 0) return [];
-    
+
     const eventIds = events.map(e => e.id);
 
     const { data, error } = await supabase
@@ -56,6 +77,7 @@ export const dashboardService = {
         joined_at,
         total_paid,
         status,
+        ticket:ticket_id(unit_price, quantity, discount_amount),
         event:events(title),
         user:profiles!event_participants_user_id_fkey(full_name, email),
         ticket_type:ticket_types(name)
@@ -63,149 +85,122 @@ export const dashboardService = {
       .in('event_id', eventIds)
       .order('joined_at', { ascending: false });
 
-    if (error) {
-      // console.error('Erro ao buscar vendas:', error);
-      throw error;
-    }
+    if (error) throw error;
 
     return (data || []).map((item: any) => ({
       id: item.id,
       date: item.joined_at,
-      eventName: item.event?.title || 'Evento desconhecido',
-      ticketType: item.ticket_type?.name || 'Ingresso padrão',
-      amount: Number(item.total_paid) || 0,
+      eventName: item.event?.title || 'Unknown event',
+      ticketType: item.ticket_type?.name || 'Default ticket',
+      amount: getOrganizerAmount(item.total_paid, item.ticket),
       status: item.status || 'pending',
-      buyerName: item.user?.full_name || 'Usuário',
+      buyerName: item.user?.full_name || 'User',
       buyerEmail: item.user?.email || '-'
     }));
   },
 
   async getStats(organizerId: string): Promise<DashboardStats> {
-    try {
-      // 1. Buscar todos os eventos do organizador
-      const { data: events, error: eventsError } = await supabase
-        .from('events')
-        .select('id, event_date')
-        .eq('creator_id', organizerId);
+    const { data: events, error: eventsError } = await supabase
+      .from('events')
+      .select('id, event_date')
+      .eq('creator_id', organizerId);
 
-      if (eventsError) throw eventsError;
+    if (eventsError) throw eventsError;
 
-      const totalEvents = events?.length || 0;
-      const now = new Date().toISOString();
-      const activeEvents = events?.filter(e => e.event_date > now).length || 0;
+    const totalEvents = events?.length || 0;
+    const now = new Date().toISOString();
+    const activeEvents = events?.filter(e => e.event_date > now).length || 0;
 
-      const eventIds = events?.map(e => e.id) || [];
-      
-      let totalTicketsSold = 0;
-      let totalRevenue = 0;
+    const eventIds = events?.map(e => e.id) || [];
 
-      if (eventIds.length > 0) {
-        // 2. Buscar vendas (participantes)
-        const { data: participants, error: partError } = await supabase
-          .from('event_participants')
-          .select('ticket_quantity, total_paid')
-          .in('event_id', eventIds)
-          .eq('status', 'valid');
+    let totalSales = 0;
+    let totalTicketsSold = 0;
+    let totalRevenue = 0;
 
-        if (partError) throw partError;
+    if (eventIds.length > 0) {
+      const { data: participants, error: partError } = await supabase
+        .from('event_participants')
+        .select('ticket_quantity, total_paid, ticket:ticket_id(unit_price, quantity, discount_amount)')
+        .in('event_id', eventIds)
+        .eq('status', 'valid');
 
-        if (participants) {
-          totalTicketsSold = participants.reduce((sum, p) => sum + (p.ticket_quantity || 0), 0);
-          totalRevenue = participants.reduce((sum, p) => sum + (Number(p.total_paid) || 0), 0);
-        }
+      if (partError) throw partError;
+
+      if (participants) {
+        totalSales = participants.length;
+        totalTicketsSold = participants.reduce((sum: number, p: any) => sum + (Number(p.ticket_quantity) || 0), 0);
+        totalRevenue = participants.reduce((sum: number, p: any) => sum + getOrganizerAmount(p.total_paid, p.ticket), 0);
       }
-
-      // Dados financeiros reais baseados nas vendas
-      // Futuramente: subtrair taxas da plataforma e saques realizados
-      const platformFee = 0.10; // 10%
-      const netRevenue = totalRevenue * (1 - platformFee);
-      
-      // TODO: Implementar tabela de saques no banco de dados
-      // Por enquanto retorna 0 pois a funcionalidade de saques ainda não existe
-      const totalWithdrawn = 0; 
-      const availableBalance = netRevenue - totalWithdrawn;
-      const pendingBalance = 0; // TODO: Implementar lógica de retenção (d+30 etc)
-
-      return {
-        totalEvents,
-        activeEvents,
-        totalTicketsSold,
-        totalRevenue, // Bruto
-        availableBalance,
-        pendingBalance,
-        totalWithdrawn
-      };
-    } catch (error) {
-      // console.error('Erro ao buscar estatísticas do dashboard:', error);
-      throw error;
     }
+
+    const totalWithdrawn = 0;
+    const availableBalance = totalRevenue - totalWithdrawn;
+    const pendingBalance = 0;
+
+    return {
+      totalEvents,
+      activeEvents,
+      totalSales,
+      totalTicketsSold,
+      totalRevenue,
+      availableBalance,
+      pendingBalance,
+      totalWithdrawn,
+    };
   },
 
   async getSalesChart(organizerId: string, period: 'day' | 'week' | 'month' = 'week'): Promise<SalesChartData[]> {
-    try {
-      // 1. Buscar eventos do organizador
-      const { data: events } = await supabase
-        .from('events')
-        .select('id')
-        .eq('creator_id', organizerId);
+    const { data: events } = await supabase
+      .from('events')
+      .select('id')
+      .eq('creator_id', organizerId);
 
-      if (!events || events.length === 0) return [];
+    if (!events || events.length === 0) return [];
 
-      const eventIds = events.map(e => e.id);
-      
-      // 2. Definir range de datas
-      const now = new Date();
-      const startDate = new Date();
-      const days = period === 'month' ? 30 : period === 'week' ? 7 : 1;
-      startDate.setDate(now.getDate() - days);
+    const eventIds = events.map(e => e.id);
 
-      // 3. Buscar vendas no período
-      const { data: sales, error } = await supabase
-        .from('event_participants')
-        .select('joined_at, total_paid')
-        .in('event_id', eventIds)
-        .gte('joined_at', startDate.toISOString())
-        .eq('status', 'valid');
+    const now = new Date();
+    const startDate = new Date();
+    const days = period === 'month' ? 30 : period === 'week' ? 7 : 1;
+    startDate.setDate(now.getDate() - days);
 
-      if (error) throw error;
+    const { data: sales, error } = await supabase
+      .from('event_participants')
+      .select('joined_at, total_paid, ticket:ticket_id(unit_price, quantity, discount_amount)')
+      .in('event_id', eventIds)
+      .gte('joined_at', startDate.toISOString())
+      .eq('status', 'valid');
 
-      // 4. Agrupar por data
-      const salesMap = new Map<string, { amount: number; count: number }>();
-      
-      // Inicializar mapa com datas vazias para garantir continuidade no gráfico
-      for (let i = 0; i < days; i++) {
-        const d = new Date();
-        d.setDate(now.getDate() - i);
-        const key = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-        salesMap.set(key, { amount: 0, count: 0 });
+    if (error) throw error;
+
+    const salesMap = new Map<string, { amount: number; count: number }>();
+
+    for (let i = 0; i < days; i++) {
+      const d = new Date();
+      d.setDate(now.getDate() - i);
+      const key = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      salesMap.set(key, { amount: 0, count: 0 });
+    }
+
+    sales?.forEach((sale: any) => {
+      const date = new Date(sale.joined_at);
+      const key = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+
+      if (salesMap.has(key)) {
+        const current = salesMap.get(key)!;
+        salesMap.set(key, {
+          amount: current.amount + getOrganizerAmount(sale.total_paid, sale.ticket),
+          count: current.count + 1,
+        });
       }
+    });
 
-      sales?.forEach(sale => {
-        const date = new Date(sale.joined_at);
-        const key = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-        
-        if (salesMap.has(key)) {
-          const current = salesMap.get(key)!;
-          salesMap.set(key, {
-            amount: current.amount + (Number(sale.total_paid) || 0),
-            count: current.count + 1
-          });
-        }
-      });
-
-      // 5. Converter para array ordenado
-      const result: SalesChartData[] = Array.from(salesMap.entries())
-        .map(([date, data]) => ({
-          date,
-          amount: data.amount,
-          count: data.count
-        }))
-        .reverse(); // Reverter para ficar cronológico (antigo -> novo)
-
-      return result;
-          } catch (error) {
-            // console.error('Erro ao gerar gráfico de vendas:', error);
-            return [];
-          }
-        }
+    return Array.from(salesMap.entries())
+      .map(([date, data]) => ({
+        date,
+        amount: data.amount,
+        count: data.count,
+      }))
+      .reverse();
+  },
 };

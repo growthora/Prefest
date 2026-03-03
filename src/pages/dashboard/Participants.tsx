@@ -55,7 +55,7 @@ export function Participants() {
       } catch (error) {
         // console.error('Failed to load participants', error);
       } finally {
-        setLoading(false);
+        setLoadingParticipants(false);
       }
     }
     loadParticipants();

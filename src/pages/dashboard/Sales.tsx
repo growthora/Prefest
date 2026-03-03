@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, Ticket, CreditCard } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { eventService } from '@/services/event.service';
+import { dashboardService } from '@/services/dashboard.service';
 import { DashboardLoader } from '@/components/dashboard/DashboardLoader';
 
 export function Sales() {
@@ -19,19 +19,17 @@ export function Sales() {
       if (!user) return;
       try {
         setLoading(true);
-        const events = await eventService.getEventsByCreator(user.id);
-        
-        const totalRevenue = events.reduce((acc, curr) => acc + (curr.revenue || 0), 0);
-        const totalTickets = events.reduce((acc, curr) => acc + (curr.ticketsSold || 0), 0);
+
+        const dashboardStats = await dashboardService.getStats(user.id);
+        const totalRevenue = dashboardStats.totalRevenue;
+        const totalTickets = dashboardStats.totalTicketsSold;
         const averageTicketPrice = totalTickets > 0 ? totalRevenue / totalTickets : 0;
 
         setStats({
           totalRevenue,
           totalTickets,
-          averageTicketPrice
+          averageTicketPrice,
         });
-      } catch (error) {
-        // console.error('Failed to load sales stats', error);
       } finally {
         setLoading(false);
       }
@@ -46,11 +44,11 @@ export function Sales() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <h1 className="text-3xl font-bold tracking-tight">Vendas</h1>
-      
+
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Receita Bruta</CardTitle>
+            <CardTitle className="text-sm font-medium">Receita do Organizador</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -58,7 +56,7 @@ export function Sales() {
               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.totalRevenue)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Total acumulado de todos os eventos
+              Soma apenas do valor do ingresso (sem taxa de servico)
             </p>
           </CardContent>
         </Card>
@@ -71,14 +69,14 @@ export function Sales() {
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalTickets}</div>
             <p className="text-xs text-muted-foreground">
-              Ingressos confirmados
+              Quantidade total de ingressos validos
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ticket Médio</CardTitle>
+            <CardTitle className="text-sm font-medium">Ticket Medio</CardTitle>
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -86,7 +84,7 @@ export function Sales() {
               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.averageTicketPrice)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Média por venda
+              Media liquida por ingresso vendido
             </p>
           </CardContent>
         </Card>
@@ -96,7 +94,7 @@ export function Sales() {
         {stats.totalTickets > 0 ? (
           <div className="flex flex-col items-center justify-center space-y-4">
             <TrendingUp className="w-10 h-10 text-muted-foreground/50" />
-            <p>Gráficos detalhados de vendas serão disponibilizados em breve.</p>
+            <p>Graficos detalhados de vendas serao disponibilizados em breve.</p>
           </div>
         ) : (
           <p>Nenhuma venda registrada ainda.</p>

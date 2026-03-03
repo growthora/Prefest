@@ -35,7 +35,6 @@ Deno.serve(async (req) => {
     let result;
 
     if (type === 'overview') {
-      // Call RPC for overview with date filters
       const dateStartParam = url.searchParams.get('dateStart')
       const dateEndParam = url.searchParams.get('dateEnd')
       
@@ -45,15 +44,28 @@ Deno.serve(async (req) => {
       
       // console.log(`[admin-financial-dashboard] Fetching overview. dateStart=${dateStart}, dateEnd=${dateEnd}`);
 
-      const { data, error } = await supabaseUser.rpc('get_financial_overview', {
+      let overviewData: any = null;
+      let overviewError: any = null;
+
+      const overviewV2 = await supabaseUser.rpc('get_admin_financial_overview', {
         date_start: dateStart,
-        date_end: dateEnd
-      })
-      if (error) {
-        // console.error('[admin-financial-dashboard] RPC Error (get_financial_overview):', error);
-        throw error;
+        date_end: dateEnd,
+      });
+
+      if (!overviewV2.error) {
+        overviewData = overviewV2.data;
+      } else {
+        // Backward compatibility with older RPC name.
+        const legacyOverview = await supabaseUser.rpc('get_financial_overview', {
+          date_start: dateStart,
+          date_end: dateEnd,
+        });
+        overviewData = legacyOverview.data;
+        overviewError = legacyOverview.error;
       }
-      result = data
+
+      if (overviewError) throw overviewError;
+      result = overviewData;
     } else if (type === 'payments') {
       // Call RPC for payments list
       const page = Number(url.searchParams.get('page')) || 1

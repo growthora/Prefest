@@ -398,7 +398,7 @@ export class EventService {
     // 1. Receita (Sales)
     const { data: participants, error: partError } = await supabase
       .from('event_participants')
-      .select('event_id, total_paid')
+      .select('event_id, ticket_quantity, total_paid, ticket:ticket_id(unit_price, quantity, discount_amount)')
       .in('event_id', eventIds)
       .eq('status', 'valid');
 
@@ -421,14 +421,25 @@ export class EventService {
     const ticketsMap = new Map<string, number>();
     const capacityMap = new Map<string, number>();
     
-    participants?.forEach(p => {
-      // Receita
+    participants?.forEach((p: any) => {
+      const ticket = p.ticket as { unit_price?: number | null; quantity?: number | null; discount_amount?: number | null } | null;
+
+      let organizerAmount = 0;
+      if (ticket && typeof ticket.unit_price === 'number') {
+        const qty = Number(ticket.quantity) || Number(p.ticket_quantity) || 1;
+        const discount = Number(ticket.discount_amount) || 0;
+        organizerAmount = Math.max(0, Number((Number(ticket.unit_price) * qty - discount).toFixed(2)));
+      } else {
+        // Legacy fallback without linked ticket: remove fixed 10% service fee from gross amount.
+        const gross = Number(p.total_paid) || 0;
+        organizerAmount = gross > 0 ? Number((gross / 1.1).toFixed(2)) : 0;
+      }
+
       const currentRev = revenueMap.get(p.event_id) || 0;
-      revenueMap.set(p.event_id, currentRev + (Number(p.total_paid) || 0));
-      
-      // Contagem de participantes/vendas
+      revenueMap.set(p.event_id, currentRev + organizerAmount);
+
       const currentTickets = ticketsMap.get(p.event_id) || 0;
-      ticketsMap.set(p.event_id, currentTickets + 1);
+      ticketsMap.set(p.event_id, currentTickets + (Number(p.ticket_quantity) || 0));
     });
 
     ticketTypes?.forEach(t => {
