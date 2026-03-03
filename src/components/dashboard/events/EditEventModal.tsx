@@ -150,7 +150,7 @@ export function EditEventModal({ event, isOpen, onClose, onSuccess }: EditEventM
       // console.log('Evento atualizado:', updatedEvent);
 
       toast({
-        title: "Evento atualizado!"
+        title: "Evento atualizado!",
         description: "As alterações foram salvas com sucesso.",
         variant: "default",
       });

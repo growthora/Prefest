@@ -38,8 +38,7 @@ export function Participants() {
         setEvents(data);
       } catch (error) {
         // console.error('Failed to load events', error);
-      }
-    };finally {
+      } finally {
         setLoading(false);
       }
     }
