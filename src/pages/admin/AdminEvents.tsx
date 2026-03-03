@@ -322,7 +322,12 @@ export default function AdminEvents() {
                       </div>
                       <div className="flex items-center gap-1.5 text-muted-foreground">
                         <DollarSign className="w-4 h-4 text-green-500" />
-                        <span>{event.price > 0 ? `R$ ${event.price.toFixed(2)}` : 'Grátis'}</span>
+                        <span>
+                          {event.is_free_event ? 'Grátis' : 
+                           (event.display_price_value && event.display_price_value > 0) ? `A partir de R$ ${event.display_price_value.toFixed(2)}` :
+                           (event.price > 0 ? `R$ ${event.price.toFixed(2)}` : 'Grátis')
+                          }
+                        </span>
                       </div>
                       <div className="flex items-center gap-1.5 text-muted-foreground col-span-2">
                         <Users className="w-4 h-4 text-blue-500" />
