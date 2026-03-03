@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Shield, Camera, Key, FileText, AlertTriangle, LayoutDashboard, Ticket, User as UserIcon, Heart, Trash2 } from "lucide-react";
+import { Shield, Camera, Key, FileText, AlertTriangle, LayoutDashboard, Ticket, User as UserIcon, Heart, Trash2, LogOut } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { EventGrid } from "@/components/EventCards";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,7 +31,7 @@ import { toast } from "sonner";
 import { MatchGuidelinesModal } from "@/components/MatchGuidelinesModal";
 
 export default function Profile() {
-  const { profile, isAuthenticated, isAdmin, updateProfile, user, isEmailConfirmed } = useAuth();
+  const { profile, isAuthenticated, isAdmin, updateProfile, user, isEmailConfirmed, signOut } = useAuth();
   const { checkAccess } = useFeatureAccess();
   const navigate = useNavigate();
   const location = useLocation();
@@ -111,6 +111,9 @@ export default function Profile() {
         city: ev.city,
         event_type: ev.event_type,
         price: ev.price,
+        display_price_label: ev.display_price_label,
+        display_price_value: ev.display_price_value,
+        is_free_event: ev.is_free_event,
         image: ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1770&q=80',
         description: ev.description,
         category: ev.category || 'Geral',
@@ -725,6 +728,20 @@ export default function Profile() {
               </div>
             </CardContent>
           </Card>
+
+          <div className="pt-2 pb-8">
+            <Button 
+              variant="destructive" 
+              className="w-full flex items-center justify-center gap-2 h-12 text-base font-medium rounded-xl shadow-lg shadow-red-500/10 hover:shadow-red-500/20 transition-all"
+              onClick={async () => {
+                await signOut();
+                navigate(ROUTE_PATHS.LOGIN);
+              }}
+            >
+              <LogOut className="w-5 h-5" />
+              Sair da conta
+            </Button>
+          </div>
           </TabsContent>
 
           <TabsContent value="favorites" className="mt-0">

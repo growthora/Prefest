@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
     // Verify User Authentication
     const { user } = await requireAuth(req);
 
-    const { event_id, ticket_type_id, quantity } = await req.json();
+    const { event_id, ticket_type_id, quantity, coupon_code } = await req.json();
 
     if (!event_id || !ticket_type_id || !quantity) {
       throw new Error('Missing required fields');
@@ -58,9 +58,70 @@ Deno.serve(async (req) => {
 
     if (ticketError || !ticketType) throw new Error('Ticket type not found');
 
-    // 3. Verify Price (Must be 0)
-    if (Number(ticketType.price) > 0) {
-      throw new Error('This endpoint is for free tickets only');
+    // 3. Verify Price (Must be 0 OR discounted to 0)
+    let finalPrice = Number(ticketType.price);
+    let appliedCouponId = null;
+    let discountAmount = 0;
+
+    if (finalPrice > 0) {
+        // If price is > 0, we MUST have a coupon that reduces it to 0
+        if (!coupon_code) {
+             throw new Error('This endpoint is for free tickets only');
+        }
+
+        // Validate Coupon
+        const now = new Date().toISOString();
+        const { data: coupon, error: couponFindError } = await adminClient
+            .from('coupons')
+            .select('*')
+            .eq('code', coupon_code.toUpperCase())
+            .eq('active', true)
+            .lte('valid_from', now)
+            .or(`valid_until.is.null,valid_until.gte.${now}`)
+            .single();
+
+        if (couponFindError || !coupon) {
+            throw new Error('Cupom inválido ou expirado');
+        }
+
+        if (coupon.max_uses && coupon.current_uses >= coupon.max_uses) {
+             throw new Error('Cupom esgotado');
+        }
+
+        // Calculate discount
+        let calculatedDiscount = 0;
+        if (coupon.discount_type === 'percentage') {
+            calculatedDiscount = (finalPrice * coupon.discount_value) / 100;
+        } else {
+            calculatedDiscount = coupon.discount_value;
+        }
+        
+        // Check if it covers the full price
+        // We accept if final price is 0 or less
+        if (finalPrice - calculatedDiscount > 0) {
+             throw new Error('Cupom não cobre o valor total do ingresso. Use o fluxo de pagamento.');
+        }
+
+        discountAmount = calculatedDiscount;
+        appliedCouponId = coupon.id;
+
+        // Record Usage
+         const { error: usageError } = await adminClient
+            .from('coupon_usage')
+            .insert({
+                coupon_id: coupon.id,
+                user_id: user.id,
+                event_id: event_id,
+                discount_applied: discountAmount,
+            });
+            
+        if (usageError) throw new Error('Erro ao registrar uso do cupom');
+
+        // Update usage count
+        await adminClient
+            .from('coupons')
+            .update({ current_uses: coupon.current_uses + 1 })
+            .eq('id', coupon.id);
     }
 
     // 4. Validate Quantity
@@ -77,8 +138,10 @@ Deno.serve(async (req) => {
         buyer_profile_id: user.id,
         ticket_type_id,
         quantity,
-        unit_price: 0,
-        total_price: 0,
+        unit_price: ticketType.price, // Original price
+        total_price: 0, // Paid price
+        discount_amount: discountAmount,
+        coupon_id: appliedCouponId,
         status: 'issued', // Immediately valid
         is_free: true
       })

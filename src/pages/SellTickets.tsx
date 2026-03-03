@@ -172,7 +172,7 @@ const SellTickets = () => {
           <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
             Junte-se a milhares de organizadores e leve seu evento para o próximo nível hoje mesmo.
           </p>
-          <Button size="lg" className="h-16 px-10 text-xl font-bold shadow-xl hover:scale-105 transition-transform">
+          <Button size="lg" className="h-auto min-h-[64px] w-full sm:w-auto px-6 py-4 text-lg sm:text-xl font-bold shadow-xl hover:scale-105 transition-transform whitespace-normal text-center">
             Criar meu evento gratuitamente
           </Button>
           <p className="mt-4 text-sm text-muted-foreground">

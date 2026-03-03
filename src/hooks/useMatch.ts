@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { User, Match, Message, APP_CONFIG } from '@/lib/index';
+import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { likeService } from '@/services/like.service';
@@ -66,20 +67,37 @@ export function useMatch(eventId?: string) {
       const candidates = await likeService.getPotentialMatches(eventId, user.id);
       
       // Mapear profile do backend para interface User do frontend
-      const mappedUsers: User[] = candidates.map(c => ({
-        id: c.id,
-        name: c.full_name || 'Usuário',
-        age: c.birth_date ? new Date().getFullYear() - new Date(c.birth_date).getFullYear() : 25,
-        bio: c.bio || '',
-        photo: c.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(c.full_name || 'User')}`,
-        vibes: c.vibes || [],
-        isSingleMode: c.single_mode,
-        showInitialsOnly: c.show_initials_only,
-        matchIntention: c.match_intention,
-        genderPreference: c.match_gender_preference,
-        sexuality: c.sexuality,
-        // compatibilityScore removido temporariamente até termos o algoritmo real
-      }));
+      const mappedUsers: User[] = candidates.map(c => {
+        let photoUrl = c.avatar_url;
+        
+        // Tratamento robusto para URL da foto
+        if (photoUrl) {
+           // Se for caminho relativo, construir URL completa do Supabase
+           if (!photoUrl.startsWith('http')) {
+             const { data } = supabase.storage
+               .from('profiles') // Alterado de 'event-images' para 'profiles'
+               .getPublicUrl(photoUrl);
+             photoUrl = data.publicUrl;
+           }
+        } else {
+           photoUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(c.full_name || 'User')}&background=random`;
+        }
+
+        return {
+          id: c.id,
+          name: c.full_name || 'Usuário',
+          age: c.birth_date ? new Date().getFullYear() - new Date(c.birth_date).getFullYear() : 25,
+          bio: c.bio || '',
+          photo: photoUrl,
+          vibes: c.vibes || [],
+          isSingleMode: c.single_mode,
+          showInitialsOnly: c.show_initials_only,
+          matchIntention: c.match_intention,
+          genderPreference: c.match_gender_preference,
+          sexuality: c.sexuality,
+          // compatibilityScore removido temporariamente até termos o algoritmo real
+        };
+      });
       
       setCurrentQueue(mappedUsers);
   } catch (error) {

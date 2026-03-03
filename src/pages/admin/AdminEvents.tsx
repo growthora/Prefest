@@ -80,7 +80,7 @@ export default function AdminEvents() {
   const loadEvents = async () => {
     try {
       setIsLoading(true);
-      const data = await eventService.getAllEvents();
+      const data = await eventService.getAllEvents(3, true);
       setEvents(data);
     } catch (error) {
       // console.error('Erro ao carregar eventos:', error);

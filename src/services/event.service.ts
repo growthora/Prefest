@@ -81,7 +81,7 @@ export const calculateEventDisplayPrice = (tickets: TicketTypeDB[]) => {
   const paidTickets = visibleTickets.filter(t => Number(t.price) > 0);
 
   let display_price_label = '';
-  let display_price_value = 0;
+  let display_price_value: number | undefined = undefined;
   let is_free_event = false;
 
   if (paidTickets.length > 0) {
@@ -109,6 +109,7 @@ export const calculateEventDisplayPrice = (tickets: TicketTypeDB[]) => {
       // Use "Consultar" or empty, or fallback to event.price if needed (but user said avoid it)
       // Leaving empty allows frontend to handle or show nothing
       display_price_label = '';
+      display_price_value = undefined;
     }
   }
 
@@ -218,6 +219,7 @@ export class EventService {
     // Sanitize data before insert
     const eventToInsert = {
       ...eventData,
+      status: eventData.status || 'draft', // Explicitly set status, default to draft
       slug,
       event_date: eventDateToSave,
       end_at: endAtToSave,
@@ -303,14 +305,20 @@ export class EventService {
   }
 
   // Listar todos os eventos
-  async getAllEvents(retries = 3): Promise<Event[]> {
+  async getAllEvents(retries = 3, includeDrafts = false): Promise<Event[]> {
     
     for (let i = 0; i < retries; i++) {
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('events')
           .select('*, ticket_types(*)')
           .order('event_date', { ascending: true });
+
+        if (!includeDrafts) {
+          query = query.eq('status', 'published');
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
         
@@ -344,6 +352,7 @@ export class EventService {
     const { data, error } = await supabase
       .from('events')
       .select('*, ticket_types(*)')
+      .eq('status', 'published') // Apenas eventos publicados
       .gte('event_date', now)
       .order('event_date', { ascending: true });
 
@@ -1080,15 +1089,27 @@ export class EventService {
   async getUserLikedEvents(userId: string): Promise<Event[]> {
     const { data, error } = await supabase
       .from('event_likes')
-      .select('event_id, events(*)')
+      .select('event_id, events(*, ticket_types(*))')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    const rows = (data ?? []) as { events: Event | null }[];
+    const rows = (data ?? []) as { events: any }[];
+    
     return rows
-      .map(row => row.events)
+      .map(row => {
+        const event = row.events;
+        if (!event) return null;
+
+        const tickets = event.ticket_types as TicketTypeDB[] || [];
+        const priceInfo = calculateEventDisplayPrice(tickets);
+
+        return {
+          ...event,
+          ...priceInfo
+        };
+      })
       .filter((event): event is Event => Boolean(event));
   }
 }

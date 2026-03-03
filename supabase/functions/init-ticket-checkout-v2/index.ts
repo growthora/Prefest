@@ -39,7 +39,11 @@ Deno.serve(async (req) => {
       .single();
 
     if (profileError || !profile) {
-      throw new Error('Profile not found');
+      // Instead of failing, we can return a specific code to frontend to prompt profile creation
+      // Or just proceed if we are in free flow (but we need profile for ticket)
+      // Let's return a specific error that frontend can handle
+      console.warn("Profile not found for user:", user.id);
+      throw new Error('Profile incomplete: Please complete your profile data');
     }
 
     // Removed strict profile validation to allow data collection in next step

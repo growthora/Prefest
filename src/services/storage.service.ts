@@ -53,7 +53,7 @@ class StorageService {
   }
 
   // Upload de imagem para o bucket
-  async uploadImage(file: File, folder: string = 'events'): Promise<string> {
+  async uploadImage(file: File, bucket: string = 'event-images', folder: string = ''): Promise<string> {
     let fileToUpload = file;
     
     // Tentar comprimir se for imagem
@@ -68,12 +68,14 @@ class StorageService {
     }
 
     const fileExt = fileToUpload.name.split('.').pop();
-    const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const fileName = folder 
+      ? `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+      : `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-    // console.log('📤 [StorageService] Fazendo upload de imagem:', fileName);
+    // console.log('📤 [StorageService] Fazendo upload de imagem:', fileName, 'Bucket:', bucket);
 
     const { data, error } = await supabase.storage
-      .from(this.bucketName)
+      .from(bucket)
       .upload(fileName, fileToUpload, {
         cacheControl: '3600',
         upsert: false
@@ -86,7 +88,7 @@ class StorageService {
 
     // Obter URL pública da imagem
     const { data: { publicUrl } } = supabase.storage
-      .from(this.bucketName)
+      .from(bucket)
       .getPublicUrl(fileName);
 
     // console.log('✅ [StorageService] Upload concluído:', publicUrl);
@@ -96,8 +98,14 @@ class StorageService {
   // Deletar imagem do bucket
   async deleteImage(imageUrl: string): Promise<void> {
     try {
+      // Tenta identificar o bucket pela URL ou usa o padrão
+      let bucket = this.bucketName;
+      if (imageUrl.includes('/profiles/')) bucket = 'profiles';
+      else if (imageUrl.includes('/events/')) bucket = 'events';
+      else if (imageUrl.includes('/event-images/')) bucket = 'event-images';
+
       // Extrair o caminho do arquivo da URL
-      const urlParts = imageUrl.split(`/${this.bucketName}/`);
+      const urlParts = imageUrl.split(`/${bucket}/`);
       if (urlParts.length < 2) return;
 
       const filePath = urlParts[1];

@@ -346,13 +346,19 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         setStep(nextStep);
 
       } catch (error: any) {
-        // console.error('Checkout init error:', error);
+        console.error('Checkout init error:', error);
         let errorMessage = error.message || 'Erro ao iniciar checkout';
+        
+        // Extract error from response if available
+        if (error.context && error.context.status) {
+             errorMessage = `Erro no servidor (${error.context.status}): Tente novamente mais tarde.`;
+        }
+
         if (errorMessage && (errorMessage.includes('Invalid JWT') || errorMessage.includes('401'))) {
             errorMessage = 'Sessão inválida. Tente fazer login novamente.';
         }
         // If profile is incomplete, the backend might return specific error
-        if (errorMessage.includes('Dados incompletos') || errorMessage.includes('Profile incomplete')) {
+        if (errorMessage.includes('Dados incompletos') || errorMessage.includes('Profile incomplete') || errorMessage.includes('Profile not found')) {
             toast.error('Seu cadastro está incompleto. Redirecionando...');
             
             // Save current location for post-registration redirect with context

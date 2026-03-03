@@ -168,10 +168,11 @@ export const CreateEventForm = () => {
       const isPaid = formData.price > 0 || ticketTypes.some(t => t.price > 0);
       const dataToSubmit = { 
         ...formData, 
-        status,
+        status: status, // Force status from argument
         is_paid_event: isPaid,
-        sales_enabled: isPaid, // Auto-enable sales if paid, but guard will block if not approved
-        asaas_required: true
+        sales_enabled: status === 'published' ? isPaid : false, // Only enable sales if publishing
+        asaas_required: true,
+        is_published: status === 'published' // Explicit flag helper
       };
       const event = await eventService.createEvent(dataToSubmit, user.id);
       // console.log('✅ [CreateEvent] Evento criado com sucesso:', event);

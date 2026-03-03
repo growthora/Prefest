@@ -126,15 +126,74 @@ Deno.serve(async (req) => {
 
     if (coupon_code) {
         try {
-            const { discount, finalPrice: priceAfterDiscount, couponUsage } = await couponService.applyCoupon(coupon_code, user.id, ticket.event_id, basePrice);
-            discountAmount = discount;
-            finalPrice = priceAfterDiscount;
-            appliedCouponId = couponUsage.coupon_id;
+            // Internal Coupon Logic (Replica of CouponService)
+            const now = new Date().toISOString();
+            
+            // 1. Find and validate coupon
+            const { data: coupon, error: couponFindError } = await adminClient
+                .from('coupons')
+                .select('*')
+                .eq('code', coupon_code.toUpperCase())
+                .eq('active', true)
+                .lte('valid_from', now)
+                .or(`valid_until.is.null,valid_until.gte.${now}`)
+                .single();
+
+            if (couponFindError || !coupon) {
+                throw new Error('Cupom inválido ou expirado');
+            }
+
+            // 2. Check usage limit
+            if (coupon.max_uses && coupon.current_uses >= coupon.max_uses) {
+                 throw new Error('Cupom esgotado');
+            }
+
+            // 3. Calculate discount
+            let calculatedDiscount = 0;
+            if (coupon.discount_type === 'percentage') {
+                calculatedDiscount = (basePrice * coupon.discount_value) / 100;
+            } else {
+                calculatedDiscount = coupon.discount_value;
+            }
+            
+            // Cap discount
+            calculatedDiscount = Math.min(calculatedDiscount, basePrice);
+            const calculatedFinalPrice = basePrice - calculatedDiscount;
+
+            // 4. Record usage
+            const { data: usage, error: usageError } = await adminClient
+                .from('coupon_usage')
+                .insert({
+                    coupon_id: coupon.id,
+                    user_id: user.id,
+                    event_id: ticket.event_id,
+                    discount_applied: calculatedDiscount,
+                })
+                .select()
+                .single();
+
+            if (usageError) {
+                 // console.error('Coupon usage insert error:', usageError);
+                 throw new Error('Erro ao processar cupom');
+            }
+
+            // 5. Update usage count
+            await adminClient
+                .from('coupons')
+                .update({ current_uses: coupon.current_uses + 1 })
+                .eq('id', coupon.id);
+
+            discountAmount = calculatedDiscount;
+            finalPrice = calculatedFinalPrice + serviceFee; // Service fee is added on top of discounted price? 
+            // Wait, logic at line 123 was: let finalPrice = basePrice + serviceFee;
+            // If discount applies to basePrice, then finalPrice = (basePrice - discount) + serviceFee.
+            // Yes.
+            
+            appliedCouponId = usage.coupon_id;
             // console.log(`V3: Coupon Applied: ${coupon_code} - Discount: ${discountAmount} - Final: ${finalPrice}`);
+
         } catch (couponErr: any) {
             // console.warn(`V3: Coupon Error: ${couponErr.message}`);
-            // Ignore coupon error and proceed with full price? Or fail?
-            // Usually fail if user provided a code and it's invalid.
             return new Response(JSON.stringify({ error: `Coupon Error: ${couponErr.message}` }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
     }

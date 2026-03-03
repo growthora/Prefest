@@ -12,8 +12,13 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/lib';
 import { BRAZIL_STATES } from '@/constants/states';
 
+interface ExtendedEvent extends FrontendEvent {
+  rawDate: Date;
+  numericPrice: number;
+}
+
 const ExploreEvents = () => {
-  const [events, setEvents] = useState<FrontendEvent[]>([]);
+  const [events, setEvents] = useState<ExtendedEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -22,9 +27,11 @@ const ExploreEvents = () => {
   const categoryParam = searchParams.get('category');
   const stateParam = searchParams.get('state');
   const searchParam = searchParams.get('q') || '';
+  const sortParam = searchParams.get('sort') || 'relevance';
 
   // Local state for inputs (synced with URL on submit/change)
   const [localSearchQuery, setLocalSearchQuery] = useState(searchParam);
+  const [sortBy, setSortBy] = useState(sortParam);
 
   useEffect(() => {
     loadEvents();
@@ -34,12 +41,16 @@ const ExploreEvents = () => {
     setLocalSearchQuery(searchParam);
   }, [searchParam]);
 
+  useEffect(() => {
+    setSortBy(sortParam);
+  }, [sortParam]);
+
   const loadEvents = async () => {
     try {
       setIsLoading(true);
       const data = await eventService.getAllEvents();
       
-      const convertedEvents: FrontendEvent[] = data.map((event: SupabaseEvent) => {
+      const convertedEvents: ExtendedEvent[] = data.map((event: SupabaseEvent) => {
         let imageUrl = 'https://placehold.co/600x400/1a1a1a/ffffff?text=Evento';
         if (event.image_url) imageUrl = event.image_url;
         
@@ -60,6 +71,8 @@ const ExploreEvents = () => {
           category: event.category || 'Geral',
           attendeesCount: event.current_participants,
           tags: event.category ? [event.category] : [],
+          rawDate: new Date(event.event_date),
+          numericPrice: event.display_price_value ?? event.price ?? 0,
         };
       });
       
@@ -93,6 +106,31 @@ const ExploreEvents = () => {
 
     return matchesSearch && matchesCategory && matchesState;
   });
+
+  // Sort Logic
+  const sortedEvents = [...filteredEvents].sort((a, b) => {
+    if (sortBy === 'date') {
+      return a.rawDate.getTime() - b.rawDate.getTime();
+    }
+    if (sortBy === 'price_asc') {
+      return a.numericPrice - b.numericPrice;
+    }
+    return 0; // relevance (default order)
+  });
+
+  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    setSortBy(value);
+    
+    // Update URL params
+    const params = new URLSearchParams(searchParams);
+    if (value === 'relevance') {
+      params.delete('sort');
+    } else {
+      params.set('sort', value);
+    }
+    setSearchParams(params);
+  };
 
   const handleCategoryChange = (category: string) => {
     if (category === 'Todas') {
@@ -245,32 +283,57 @@ const ExploreEvents = () => {
             <div className="lg:col-span-3">
               {/* Mobile Quick Filters */}
               <div className="lg:hidden flex gap-3 overflow-x-auto pb-4 scrollbar-hide mb-6">
-                 {['Filtrar', 'Data', 'Preço', 'Categoria'].map((filter, idx) => (
-                   <Button 
-                     key={filter} 
-                     variant="outline" 
-                     className={`rounded-full border-gray-300 text-gray-700 h-9 px-4 font-normal flex-shrink-0 ${idx === 0 ? 'bg-gray-100 font-medium' : ''}`}
-                   >
-                     {idx === 0 && <Filter size={14} className="mr-2" />}
-                     {filter} 
-                     {idx !== 0 && <ChevronDown size={14} className="ml-2" />}
-                   </Button>
-                 ))}
+                 {['Filtrar', 'Data', 'Preço', 'Categoria'].map((filter, idx) => {
+                   const isActive = (filter === 'Data' && sortBy === 'date') || (filter === 'Preço' && sortBy === 'price_asc');
+                   return (
+                     <Button 
+                       key={filter} 
+                       variant="outline" 
+                       className={`rounded-full border-gray-300 text-gray-700 h-9 px-4 font-normal flex-shrink-0 ${idx === 0 ? 'bg-gray-100 font-medium' : ''} ${isActive ? 'bg-primary/10 border-primary text-primary' : ''}`}
+                       onClick={() => {
+                         if (filter === 'Data') {
+                           const newValue = sortBy === 'date' ? 'relevance' : 'date';
+                           setSortBy(newValue);
+                           const params = new URLSearchParams(searchParams);
+                           if (newValue === 'relevance') params.delete('sort');
+                           else params.set('sort', newValue);
+                           setSearchParams(params);
+                         }
+                         if (filter === 'Preço') {
+                           const newValue = sortBy === 'price_asc' ? 'relevance' : 'price_asc';
+                           setSortBy(newValue);
+                           const params = new URLSearchParams(searchParams);
+                           if (newValue === 'relevance') params.delete('sort');
+                           else params.set('sort', newValue);
+                           setSearchParams(params);
+                         }
+                       }}
+                     >
+                       {idx === 0 && <Filter size={14} className="mr-2" />}
+                       {filter} 
+                       {idx !== 0 && <ChevronDown size={14} className="ml-2" />}
+                     </Button>
+                   );
+                 })}
                </div>
 
               <div className="flex items-center justify-between mb-6">
                 <div className="text-gray-600 font-medium">
                   {isLoading ? 'Buscando eventos...' : 
-                   filteredEvents.length > 0 ? `${filteredEvents.length} eventos encontrados` : 'Nenhum evento encontrado'}
+                   sortedEvents.length > 0 ? `${sortedEvents.length} eventos encontrados` : 'Nenhum evento encontrado'}
                 </div>
                 
                 {/* Sort - Desktop */}
                 <div className="hidden md:flex items-center gap-2">
                   <span className="text-sm text-gray-500">Ordenar por:</span>
-                  <select className="text-sm font-medium text-gray-800 bg-transparent border-none cursor-pointer focus:ring-0 outline-none">
-                    <option>Relevância</option>
-                    <option>Data (próximos)</option>
-                    <option>Menor preço</option>
+                  <select 
+                    value={sortBy}
+                    onChange={handleSortChange}
+                    className="text-sm font-medium text-gray-800 bg-transparent border-none cursor-pointer focus:ring-0 outline-none"
+                  >
+                    <option value="relevance">Relevância</option>
+                    <option value="date">Data (próximos)</option>
+                    <option value="price_asc">Menor preço</option>
                   </select>
                 </div>
               </div>
@@ -289,9 +352,9 @@ const ExploreEvents = () => {
                       </div>
                     </div>
                   ))
-                ) : filteredEvents.length > 0 ? (
+                ) : sortedEvents.length > 0 ? (
                   <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-                    {filteredEvents.map((event) => (
+                    {sortedEvents.map((event) => (
                       <EventListItem 
                         key={event.id} 
                         event={event} 

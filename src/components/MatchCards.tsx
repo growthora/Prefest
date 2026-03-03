@@ -29,6 +29,8 @@ export function MatchCard({ user, onLike, onSkip, onDetails, isTop = false }: Ma
   // Ref para rastrear se estamos arrastando ou clicando
   const isDragging = React.useRef(false);
 
+  const [hasError, setHasError] = useState(false);
+
   const handleDragEnd = (_: any, info: any) => {
     // Pequeno delay para resetar o flag de drag e evitar clique acidental logo após soltar
     setTimeout(() => {
@@ -81,10 +83,11 @@ export function MatchCard({ user, onLike, onSkip, onDetails, isTop = false }: Ma
       >
         {/* Background Image with Overlay */}
         <div className="absolute inset-0 bg-zinc-800">
-          {user.photo && user.photo.trim() !== '' && user.photo !== 'undefined' && user.photo !== 'null' ? (
+          {user.photo && !hasError && user.photo.trim() !== '' && user.photo !== 'undefined' && user.photo !== 'null' ? (
             <img 
               src={user.photo} 
               alt={displayName} 
+              onError={() => setHasError(true)}
               className="w-full h-full object-cover saturate-[0.8] brightness-[0.7] transition-transform duration-700 hover:scale-110"
             />
           ) : (
