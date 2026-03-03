@@ -101,7 +101,10 @@ export interface Event {
   state?: string | null;
   image: string;
   category: string;
-  price?: string;
+  price?: string | number;
+  display_price_label?: string;
+  display_price_value?: number;
+  is_free_event?: boolean;
   organizer: {
     id: string;
     name: string;

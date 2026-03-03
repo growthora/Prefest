@@ -672,20 +672,27 @@ export class EventService {
 
     const { data, error } = await supabase
       .from('events')
-      .select('*')
+      .select('*, ticket_types(*)')
       .eq('status', 'published')
       .gte('event_date', now);
 
     if (error) throw error;
 
-    const events = (data || []) as (Event & { tickets_sold?: number | null; views?: number | null })[];
+    const events = (data || []) as (Event & { tickets_sold?: number | null; views?: number | null; ticket_types?: TicketTypeDB[] })[];
 
     const scored = events
       .map(event => {
         const tickets = typeof event.tickets_sold === 'number' ? event.tickets_sold : 0;
         const views = typeof event.views === 'number' ? event.views : 0;
         const score = tickets * 0.6 + views * 0.4;
-        return { event, score };
+        
+        // Calcular display price
+        const priceInfo = calculateEventDisplayPrice(event.ticket_types || []);
+        
+        return { 
+          event: { ...event, ...priceInfo }, 
+          score 
+        };
       })
       .sort((a, b) => b.score - a.score)
       .map(item => item.event);
@@ -699,14 +706,19 @@ export class EventService {
 
     const { data, error } = await supabase
       .from('events')
-      .select('*')
+      .select('*, ticket_types(*)')
       .eq('status', 'published')
       .gte('event_date', now.toISOString())
       .gte('created_at', fourteenDaysAgo.toISOString())
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return data || [];
+    
+    // Mapear com preço calculado
+    return (data || []).map((event: any) => {
+      const priceInfo = calculateEventDisplayPrice(event.ticket_types || []);
+      return { ...event, ...priceInfo };
+    });
   }
 
   async getCategoriesWithUpcomingEvents(): Promise<(Category & { upcoming_events_count: number })[]> {
