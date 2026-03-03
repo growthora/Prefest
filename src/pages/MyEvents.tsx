@@ -77,7 +77,7 @@ const EventCard = ({ ticket, isPast = false, navigate }: { ticket: TicketWithEve
               </Button>
               <Button 
                 className="w-full bg-primary hover:bg-primary/90 md:hidden col-span-1" 
-                onClick={() => navigate(`/eventos/${event.id}/matchs`)}
+                onClick={() => navigate(`/eventos/${event.id}?tab=match`)}
               >
                   <Heart className="mr-2 h-4 w-4 fill-current" />
                   Ver Matchs

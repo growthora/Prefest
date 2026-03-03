@@ -326,7 +326,8 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
                 event_id: event.id,
                 ticket_type_id: selectedTicketTypeId,
                 quantity: 1 
-            }
+            },
+            requiresAuth: true
         });
 
         if (error) throw error;

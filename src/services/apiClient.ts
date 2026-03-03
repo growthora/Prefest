@@ -96,6 +96,28 @@ export async function invokeEdgeFunction<T = any>(
         errorJson.includes('"status":401');
 
       if (isAuthError) {
+         if (requiresAuth && token) {
+           try {
+             const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${functionName}`;
+             const directRes = await fetch(functionUrl, {
+               method: invokeOptions.method,
+               headers: {
+                 'Content-Type': 'application/json',
+                 apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+                 Authorization: `Bearer ${token}`,
+                 ...(options.headers || {}),
+               },
+               body: invokeOptions.method !== 'GET' && options.body ? JSON.stringify(options.body) : undefined,
+             });
+
+             const directJson = await directRes.json().catch(() => ({}));
+             if (directRes.ok) {
+               return { data: directJson as T, error: null };
+             }
+           } catch {
+             // Keep default auth handling below if fallback call fails.
+           }
+         }
          // console.error(`[apiClient] Erro 401/JWT Inválido na função ${functionName}. Forçando logout.`);
          
          // Limpar sessão local
@@ -138,3 +160,4 @@ export async function apiFetch(url: string, options: RequestInit = {}) {
     },
   });
 }
+
