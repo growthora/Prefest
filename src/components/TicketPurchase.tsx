@@ -26,6 +26,7 @@ import { useSensitiveDataProtection } from '@/hooks/useSensitiveDataProtection';
 
 import { Skeleton } from '@/components/ui/skeleton';
 import { useNavigate } from 'react-router-dom';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 interface SingleModeToggleProps {
   enabled: boolean;
@@ -557,6 +558,75 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
 
   const isEventRealized = event.status === 'realizado';
 
+  const handlePaymentSuccess = React.useCallback(() => {
+    setPixModalOpen(false);
+    toast.success('Pagamento confirmado! Ingresso liberado.');
+    onPurchase(singleMode, selectedTicketTypeId, total);
+  }, [singleMode, selectedTicketTypeId, total, onPurchase]);
+
+  const checkPaymentStatus = React.useCallback(async () => {
+    if (!ticketId) return false;
+    
+    try {
+      const { data } = await supabase
+        .from('payments')
+        .select('status')
+        .eq('ticket_id', ticketId)
+        .single();
+        
+      if (data && data.status === 'paid') {
+        handlePaymentSuccess();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error("Error checking payment status", e);
+      return false;
+    }
+  }, [ticketId, handlePaymentSuccess]);
+
+  const handleManualCheck = async () => {
+      const isPaid = await checkPaymentStatus();
+      if (!isPaid) {
+          toast.info('Pagamento ainda em processamento. Aguarde mais alguns instantes.');
+      }
+  };
+
+  // Realtime & Polling for Pix Payment
+  React.useEffect(() => {
+    let channel: RealtimeChannel;
+    let interval: NodeJS.Timeout;
+
+    if (pixModalOpen && ticketId) {
+        // 1. Realtime Subscription
+        channel = supabase
+            .channel(`payment_status_${ticketId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'payments',
+                    filter: `ticket_id=eq.${ticketId}`
+                },
+                (payload) => {
+                    if (payload.new.status === 'paid') {
+                        handlePaymentSuccess();
+                    }
+                }
+            )
+            .subscribe();
+
+        // 2. Polling Fallback (every 5s)
+        interval = setInterval(checkPaymentStatus, 5000);
+    }
+
+    return () => {
+        if (channel) supabase.removeChannel(channel);
+        if (interval) clearInterval(interval);
+    };
+  }, [pixModalOpen, ticketId, handlePaymentSuccess, checkPaymentStatus]);
+
   return (
     <div className="w-full max-w-2xl mx-auto space-y-8">
       <div className="space-y-6">
@@ -1044,6 +1114,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
             copyPasteCode={pixData.copyPaste}
             amount={total}
             expirationDate={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()}
+            onCheckStatus={handleManualCheck}
         />
       )}
     </div>

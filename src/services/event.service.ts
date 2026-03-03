@@ -127,6 +127,7 @@ export interface EventParticipant {
   check_in_at?: string;
   security_token?: string;
   ticket_code?: string;
+  qr_code_data?: string | null;
 }
 
 export interface MatchCandidate {
@@ -556,7 +557,7 @@ export class EventService {
       .single();
 
     if (existing) {
-      throw new Error('Você já está inscrito neste evento');
+      return existing;
     }
 
     // Verificar se o evento está disponível

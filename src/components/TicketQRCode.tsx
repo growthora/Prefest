@@ -11,6 +11,7 @@ interface TicketQRCodeProps {
   eventId: string;
   ticketToken: string;
   ticketCode?: string;
+  qrCodeData?: string | null;
   status: string;
   checkInAt?: string;
   eventTitle: string;
@@ -24,6 +25,7 @@ export default function TicketQRCode({
   eventId, 
   ticketToken,
   ticketCode,
+  qrCodeData,
   status,
   checkInAt,
   eventTitle, 
@@ -39,6 +41,11 @@ export default function TicketQRCode({
          // Não gerar QR Code para ingressos inválidos/usados
          setQrCodeUrl('');
          return;
+      }
+
+      if (qrCodeData) {
+        setQrCodeUrl(qrCodeData);
+        return;
       }
 
       try {
@@ -74,7 +81,7 @@ export default function TicketQRCode({
     };
 
     generateQRCode();
-  }, [ticketId, eventId, ticketToken, ticketCode, status]);
+  }, [ticketId, eventId, ticketToken, ticketCode, status, qrCodeData]);
 
   const downloadQRCode = () => {
     if (!qrCodeUrl) return;

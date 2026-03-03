@@ -70,6 +70,7 @@ export default function TicketDetails() {
           ticketCode={ticket.ticket_code}
           status={ticket.status || 'valid'}
           checkInAt={ticket.check_in_at}
+          qrCodeData={ticket.qr_code_data}
           eventTitle={ticket.event.title}
           eventDate={ticket.event.event_date}
           eventLocation={ticket.event.location}

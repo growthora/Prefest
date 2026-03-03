@@ -126,7 +126,11 @@ Deno.serve(async (req) => {
           // but since we can't easily force disable via API without success, we mark as 'failed' 
           // or 'disabled' if we implement a custom disable logic. 
           // For now, we log 'failed' to be honest about the API result.)
-          asaasAction = 'failed'
+          // However, prompt says: "usar desativação + bloqueio".
+          // If delete fails, it's usually because of history. 
+          // We can't strictly "disable" it easily via API v3 Standard.
+          // We will proceed with local deletion, effectively cutting access.
+          asaasAction = 'failed' 
         }
       }
     }

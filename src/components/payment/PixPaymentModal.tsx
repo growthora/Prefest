@@ -11,12 +11,25 @@ interface PixPaymentModalProps {
   copyPasteCode: string;
   amount: number;
   expirationDate?: string; // Optional
+  onCheckStatus?: () => Promise<void>;
 }
 
-export function PixPaymentModal({ isOpen, onClose, qrCodeImage, copyPasteCode, amount, expirationDate }: PixPaymentModalProps) {
+export function PixPaymentModal({ isOpen, onClose, qrCodeImage, copyPasteCode, amount, expirationDate, onCheckStatus }: PixPaymentModalProps) {
+  const [isChecking, setIsChecking] = React.useState(false);
+
   const handleCopy = () => {
     navigator.clipboard.writeText(copyPasteCode);
     toast.success('Código Pix copiado com sucesso!');
+  };
+
+  const handleCheckStatus = async () => {
+    if (!onCheckStatus) return;
+    setIsChecking(true);
+    try {
+        await onCheckStatus();
+    } finally {
+        setIsChecking(false);
+    }
   };
 
   return (
@@ -95,7 +108,16 @@ export function PixPaymentModal({ isOpen, onClose, qrCodeImage, copyPasteCode, a
               </div>
             </div>
             
-            <div className="p-4 bg-muted/30 border-t border-border flex justify-end">
+            <div className="p-4 bg-muted/30 border-t border-border flex justify-end gap-2">
+                {onCheckStatus && (
+                    <Button 
+                        onClick={handleCheckStatus} 
+                        variant="outline"
+                        disabled={isChecking}
+                    >
+                        {isChecking ? 'Verificando...' : 'Já paguei'}
+                    </Button>
+                )}
                 <Button onClick={onClose}>
                     Fechar e Aguardar
                 </Button>

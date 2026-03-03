@@ -114,7 +114,6 @@ export default function TicketScanner() {
     const rawValue = extractQrCodeValue(detectedCodes);
     
     if (rawValue) {
-      // console.log('QR Code scanned:', rawValue);
       await processTicket(rawValue);
     }
   };

@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import QRCode from "npm:qrcode";
 
 Deno.serve(async (req) => {
   // Webhooks do not require CORS headers as they are server-to-server calls.
@@ -25,7 +26,7 @@ Deno.serve(async (req) => {
     // 1. Security & Auth Check
     const asaasToken = req.headers.get('asaas-access-token');
     if (!asaasToken) {
-        // console.warn('Missing asaas-access-token header');
+        console.warn('Missing asaas-access-token header');
         return unauthorized();
     }
 
@@ -35,18 +36,12 @@ Deno.serve(async (req) => {
       .single();
 
     if (configError || !config) {
-         // console.error('Configuration error or missing:', configError);
-         // If we can't load config, we can't validate token. 
-         // Safest is to reject (401/500) or return 200 to stop retries if it's permanent?
-         // Security wise: 500 or 401. But user wants NO penalties.
-         // If it's a config error, Asaas retrying might be good if DB is temp down.
-         // But if it's permanent, we get penalized.
-         // Let's return 401 (Unauthorized) which implies "Fix your auth/config".
+         console.error('Configuration error or missing:', configError);
          return unauthorized();
     }
     
     if (config.webhook_token !== asaasToken) {
-        // console.warn('Invalid webhook token');
+        console.warn('Invalid webhook token');
         return unauthorized();
     }
 
@@ -55,7 +50,7 @@ Deno.serve(async (req) => {
     try {
         eventData = await req.json();
     } catch (e) {
-        // console.error('Failed to parse JSON body', e);
+        console.error('Failed to parse JSON body', e);
         return ok('invalid_json_handled');
     }
 
@@ -76,19 +71,19 @@ Deno.serve(async (req) => {
     ];
 
     if (!event || IGNORED_EVENTS.includes(event)) {
-        // console.log(`[INFO] Ignoring event: ${event}`);
+        console.log(`[INFO] Ignoring event: ${event}`);
         return ok('ignored');
     }
 
     // 5. Validate Payment Data for Payment Events
     if (event.startsWith('PAYMENT_') || event.startsWith('SUBSCRIPTION_')) {
         if (!payment || !payment.id) {
-            // console.error(`[WARN] Event ${event} received without payment data/id. Ignoring.`);
+            console.error(`[WARN] Event ${event} received without payment data/id. Ignoring.`);
             return ok('missing_payment_data');
         }
     }
 
-    // console.log(`Processing event: ${event} | ID: ${eventId} | Payment: ${payment?.id || 'N/A'}`);
+    console.log(`Processing event: ${event} | ID: ${eventId} | Payment: ${payment?.id || 'N/A'}`);
 
     // Helper: Redact Sensitive Data
     const redactPayload = (payload: any): any => {
@@ -119,17 +114,16 @@ Deno.serve(async (req) => {
             status: 'processing',
             request_id: requestId,
             correlation_id: payment?.id || null,
-            processed_at: null
+            processed_at: null,
+            received_at: new Date().toISOString()
         });
 
     if (insertError) {
         if (insertError.code === '23505') { // Unique violation
-            // console.log(`[INFO] Event ${eventId} already processed. Skipping.`);
+            console.log(`[INFO] Event ${eventId} already processed. Skipping.`);
             return ok('already_processed');
         }
-        // console.error('Failed to log integration event:', insertError);
-        // Continue processing even if log fails? 
-        // Better to try processing, but log error.
+        console.error('Failed to log integration event:', insertError);
     }
 
     // 7. Process Business Logic
@@ -147,25 +141,30 @@ Deno.serve(async (req) => {
                 newStatus = 'refunded';
                 break;
             case 'PAYMENT_OVERDUE': 
-            case 'PAYMENT_CANCELED': // Fixed typo from original code (check both spellings?)
-            case 'PAYMENT_CANCELLED': // Asaas uses CANCELLED sometimes? Check docs. standard is usually double L in english but Asaas might vary.
-                newStatus = 'canceled';
+            case 'PAYMENT_CANCELED':
+            case 'PAYMENT_CANCELLED':
+            case 'PAYMENT_DELETED':
+                newStatus = 'cancelled'; // normalized to 'cancelled' (LL vs L)
+                break;
+            case 'PAYMENT_RESTORED':
+                newStatus = 'pending';
                 break;
         }
 
         if (newStatus && payment?.id) {
-            // Find internal payment ID
+            // Find internal payment ID AND Ticket ID
             const { data: paymentRecord, error: paymentError } = await supabaseClient
                 .from('payments')
-                .select('id')
+                .select('id, ticket_id')
                 .eq('external_payment_id', payment.id)
                 .single();
 
             if (paymentError || !paymentRecord) {
-                // console.warn(`Payment not found for external ID: ${payment.id}`);
+                console.warn(`Payment not found for external ID: ${payment.id}`);
                 processResultStatus = 'failed';
                 processErrorMessage = `Payment not found: ${payment.id}`;
             } else {
+                // Update Payment Status
                 const { error: updateError } = await supabaseClient
                     .from('payments')
                     .update({ status: newStatus, updated_at: new Date().toISOString() })
@@ -173,6 +172,102 @@ Deno.serve(async (req) => {
 
                 if (updateError) {
                      throw new Error(`Error updating payment: ${updateError.message}`);
+                }
+                
+                console.log(`Payment ${paymentRecord.id} updated to ${newStatus}`);
+
+                // Update Ticket Status
+                if (paymentRecord.ticket_id) {
+                    const { error: ticketError } = await supabaseClient
+                        .from('tickets')
+                        .update({ status: newStatus, updated_at: new Date().toISOString() })
+                        .eq('id', paymentRecord.ticket_id);
+                    
+                    if (ticketError) {
+                        console.error('Ticket update error:', ticketError);
+                        // Don't throw, proceed to splits
+                    } else {
+                        console.log(`Ticket ${paymentRecord.ticket_id} updated to ${newStatus}`);
+                        
+                        // Create Participant if PAID
+                        if (newStatus === 'paid') {
+                             const { data: existingParticipant } = await supabaseClient
+                                .from('event_participants')
+                                .select('id')
+                                .eq('ticket_id', paymentRecord.ticket_id)
+                                .single();
+                             
+                             if (!existingParticipant) {
+                                 // Fetch ticket details for participant creation
+                                 const { data: ticketData } = await supabaseClient
+                                    .from('tickets')
+                                    .select('*')
+                                    .eq('id', paymentRecord.ticket_id)
+                                    .single();
+                                 
+                                 if (ticketData) {
+                                     const { data: newParticipant, error: participantError } = await supabaseClient
+                                        .from('event_participants')
+                                        .insert({
+                                            event_id: ticketData.event_id,
+                                            user_id: ticketData.buyer_user_id,
+                                            ticket_type_id: ticketData.ticket_type_id,
+                                            ticket_quantity: ticketData.quantity,
+                                            total_paid: ticketData.total_price,
+                                            status: 'valid',
+                                            ticket_id: ticketData.id,
+                                            ticket_token: ticketData.id
+                                        })
+                                        .select('*')
+                                        .single();
+                                     
+                                     if (participantError) {
+                                         console.error('Error creating participant:', participantError);
+                                     } else if (newParticipant) {
+                                         console.log(`Participant created: ${newParticipant.id}`);
+
+                                         // Generate and save QR Code
+                                         try {
+                                             let qrContent = '';
+                                             if (newParticipant.ticket_code) {
+                                                 qrContent = newParticipant.ticket_code;
+                                             } else {
+                                                 // Legacy fallback
+                                                 qrContent = JSON.stringify({
+                                                     t: newParticipant.id,
+                                                     e: newParticipant.event_id,
+                                                     k: newParticipant.ticket_token
+                                                 });
+                                             }
+
+                                             const qrCodeDataUrl = await QRCode.toDataURL(qrContent, {
+                                                width: 300,
+                                                margin: 2,
+                                                color: {
+                                                  dark: '#000000',
+                                                  light: '#ffffff',
+                                                },
+                                                errorCorrectionLevel: 'M'
+                                             });
+
+                                             const { error: updateQrError } = await supabaseClient
+                                                .from('event_participants')
+                                                .update({ qr_code_data: qrCodeDataUrl })
+                                                .eq('id', newParticipant.id);
+
+                                             if (updateQrError) {
+                                                 console.error('Error updating QR code:', updateQrError);
+                                             } else {
+                                                 console.log('QR Code generated and saved.');
+                                             }
+                                         } catch (qrError) {
+                                             console.error('Error generating QR code:', qrError);
+                                         }
+                                     }
+                                 }
+                             }
+                        }
+                    }
                 }
 
                 // Update payment_splits if applicable
@@ -192,7 +287,7 @@ Deno.serve(async (req) => {
     } catch (processError: any) {
         processResultStatus = 'failed';
         processErrorMessage = processError.message;
-        // console.error('Processing Logic Error:', processError);
+        console.error('Processing Logic Error:', processError);
     }
 
     // 8. Update Event Log
@@ -204,21 +299,18 @@ Deno.serve(async (req) => {
                 processed_at: new Date().toISOString(),
                 error_message: processErrorMessage
             })
-            .eq('provider', 'asaas')
             .eq('external_event_id', eventId);
     }
 
-    // 9. Final Response
-    // Always return 200 OK to Asaas to confirm receipt
-    return ok();
-
-  } catch (error) {
-    // [CRITICAL] Global Catch-All
-    // Log the error but return 200 to Asaas to prevent penalties/retries for unrecoverable errors
-    // console.error('CRITICAL Webhook Error:', error);
-    return new Response(JSON.stringify({ error: 'Internal Server Error (Handled)', details: error.message }), {
-      status: 200, // Return 200 as requested by "Never crash/penalize" rule
+    return new Response(JSON.stringify({ received: true }), {
       headers: { 'Content-Type': 'application/json' },
     });
+
+  } catch (error) {
+    console.error('Webhook Global Error:', error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 });
