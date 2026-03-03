@@ -384,14 +384,14 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
           )}
 
           <NavLink 
-            to={ROUTE_PATHS.PROFILE} 
+            to={ROUTE_PATHS.MY_EVENTS} 
             className={({isActive}) => cn(
               "flex flex-col items-center gap-1 transition-colors",
               isActive ? "text-primary" : "text-gray-400 hover:text-gray-600"
             )}
           >
-            <User size={24} />
-            <span className="text-[10px] font-medium">Perfil</span>
+            <Ticket size={24} />
+            <span className="text-[10px] font-medium">Ingressos</span>
           </NavLink>
 
           {user ? (
