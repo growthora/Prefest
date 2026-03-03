@@ -322,7 +322,7 @@ export default function PublicProfile() {
                   )}
                   {profile.sexuality && (
                     <Badge variant="outline" className="bg-muted/50">
-                      🏳️‍🌈 {profile.sexuality}
+                      {profile.sexuality}
                     </Badge>
                   )}
                 </div>

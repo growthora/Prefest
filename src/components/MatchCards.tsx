@@ -50,15 +50,6 @@ export function MatchCard({ user, onLike, onSkip, onDetails, isTop = false }: Ma
     ? `${user.name.charAt(0)}.` 
     : user.name;
 
-  // Mapear sexualidade para emoji
-  const sexualityEmoji: Record<string, string> = {
-    'heterossexual': '🌈',
-    'homossexual': '🏳️‍🌈',
-    'bissexual': '💜',
-    'pansexual': '💗',
-    'outro': '✨'
-  };
-
   // Mapear intenção para emoji
   const intentionEmoji: Record<string, string> = {
     'paquera': '💕',

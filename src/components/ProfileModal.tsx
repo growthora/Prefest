@@ -101,7 +101,6 @@ export function ProfileModal({ isOpen, onClose, user, onLike, onSkip }: ProfileM
                   )}
                   {user.sexuality && (
                     <Badge variant="secondary" className="bg-zinc-800/50">
-                      <span className="mr-1">🏳️‍🌈</span>
                       {user.sexuality.charAt(0).toUpperCase() + user.sexuality.slice(1)}
                     </Badge>
                   )}
