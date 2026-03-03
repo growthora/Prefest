@@ -16,7 +16,8 @@ import {
   MessageCircle,
   Ticket,
   HeartHandshake,
-  Ban
+  Ban,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Layout } from '@/components/Layout';
@@ -635,6 +636,8 @@ export default function EventDetails() {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   };
+
+  const [showMatchUnlockPopup, setShowMatchUnlockPopup] = useState(true);
 
   if (loading || !event) {
     return (
@@ -1305,22 +1308,29 @@ export default function EventDetails() {
           </motion.div>
         )}
       </AnimatePresence>
-      {!isParticipating && (
-        <div className="fixed inset-x-0 bottom-0 z-40">
+      {!isParticipating && showMatchUnlockPopup && (
+        <div className="fixed inset-x-0 bottom-[90px] md:bottom-0 z-40">
           <div className="mx-auto max-w-6xl px-4 pb-4">
-            <div className="bg-background/95 border border-border/60 rounded-2xl shadow-lg shadow-primary/20 px-4 py-3 flex items-center justify-between gap-3">
-              <div className="flex-1">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-primary flex items-center gap-1">
+            <div className="relative bg-background/95 backdrop-blur-md border border-border/60 rounded-2xl shadow-lg shadow-primary/20 px-4 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+              <button 
+                onClick={() => setShowMatchUnlockPopup(false)}
+                className="absolute -top-2 -right-2 bg-background border border-border shadow-sm rounded-full p-1 text-muted-foreground hover:text-foreground transition-colors md:top-2 md:right-2 md:bg-transparent md:border-none md:shadow-none"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              
+              <div className="flex-1 text-center md:text-left space-y-1">
+                <p className="text-xs font-bold uppercase tracking-widest text-primary flex items-center justify-center md:justify-start gap-2">
                   <Flame className="w-4 h-4" />
-                  Comprar ingresso e desbloquear matches
+                  Desbloqueie os Matches
                 </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  Garanta seu ingresso para ver quem vai e liberar os matches deste evento.
+                <p className="text-xs text-muted-foreground">
+                  Garanta seu ingresso para ver quem vai e conectar-se com a galera!
                 </p>
               </div>
               <Button
                 size="sm"
-                className="shrink-0 rounded-full px-4 h-9 text-xs font-bold"
+                className="w-full md:w-auto h-auto py-3 px-6 rounded-full text-xs font-bold shadow-md hover:shadow-lg transition-all whitespace-normal"
                 onClick={scrollToTicketSection}
               >
                 Comprar ingresso e desbloquear matches
