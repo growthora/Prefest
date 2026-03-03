@@ -1,4 +1,4 @@
-﻿import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import type { Profile } from './auth.service';
 
 export interface UserWithStats extends Profile {
@@ -39,7 +39,7 @@ export interface UpdateUserData {
 }
 
 class UserService {
-  // Listar todos os usuÃ¡rios
+  // Listar todos os usuarios
   async getAllUsers(): Promise<Profile[]> {
     const { data, error } = await supabase
       .from('profiles')
@@ -50,7 +50,7 @@ class UserService {
     return data || [];
   }
 
-  // Listar usuÃ¡rios com estatÃ­sticas
+  // Listar usuarios com estatisticas
   async getUsersWithStats(): Promise<UserWithStats[]> {
     const { data, error } = await supabase
       .from('profiles')
@@ -66,7 +66,7 @@ class UserService {
       throw error;
     }
 
-    // Calcular estatÃ­sticas
+    // Calcular estatisticas
     return (data || []).map((user: any) => {
       const participants = user.event_participants || [];
       return {
@@ -77,7 +77,7 @@ class UserService {
     });
   }
 
-  // Buscar usuÃ¡rio por ID
+  // Buscar usuario por ID
   async getUserById(userId: string): Promise<Profile> {
     const { data, error } = await supabase
       .from('profiles')
@@ -89,7 +89,7 @@ class UserService {
     return data;
   }
 
-  // Buscar usuÃ¡rio por username (slug)
+  // Buscar usuario por username (slug)
   async getUserByUsername(username: string): Promise<Profile | null> {
     const { data, error } = await supabase
       .from('profiles')
@@ -131,7 +131,7 @@ class UserService {
     const user = await this.getUserById(userId);
     const currentRoles = user.roles || ['BUYER'];
     
-    // Adicionar ORGANIZER se nÃ£o existir
+    // Adicionar ORGANIZER se nao existir
     const newRoles = currentRoles.includes('ORGANIZER') 
       ? currentRoles 
       : [...currentRoles, 'ORGANIZER'];
@@ -147,9 +147,9 @@ class UserService {
     if (error) throw error;
   }
 
-  // Criar novo usuÃ¡rio (requer permissÃ£o admin)
+  // Criar novo usuario (requer permissao admin)
   async createUser(userData: CreateUserData): Promise<{ user: any; profile: Profile }> {
-    // Criar usuÃ¡rio no auth
+    // Criar usuario no auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: userData.email,
       password: userData.password,
@@ -162,10 +162,10 @@ class UserService {
 
     if (authError) throw authError;
 
-    // Aguardar criaÃ§Ã£o do perfil via trigger
+    // Aguardar criacao do perfil via trigger
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Atualizar roles se necessÃ¡rio
+    // Atualizar roles se necessario
     if (userData.roles && userData.roles.length > 0 && authData.user) {
       const { data: profile, error: updateError } = await supabase
         .from('profiles')
@@ -182,7 +182,7 @@ class UserService {
     return { user: authData.user, profile };
   }
 
-  // Atualizar usuÃ¡rio
+  // Atualizar usuario
   async updateUser(userId: string, updates: UpdateUserData): Promise<Profile> {
     const { data, error } = await supabase
       .from('profiles')
@@ -195,7 +195,7 @@ class UserService {
     return data;
   }
 
-  // Deletar usuÃ¡rio
+  // Deletar usuario
   async deleteUser(userId: string): Promise<void> {
     const { error } = await supabase
       .from('profiles')
@@ -205,7 +205,7 @@ class UserService {
     if (error) throw error;
   }
 
-  // Obter estatÃ­sticas gerais
+  // Obter estatisticas gerais
   async getStatistics() {
     const { count: totalUsers, error: usersError } = await supabase
       .from('profiles')

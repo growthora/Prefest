@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -137,7 +137,7 @@ export default function AdminSettings() {
 
           } catch (error) {
             // console.error('Error fetching settings:', error);
-            toast.error('Erro ao carregar configuraÃ§Ãµes');
+            toast.error('Erro ao carregar configuracoes');
           } finally {
       setIsLoading(false);
     }
@@ -193,7 +193,7 @@ export default function AdminSettings() {
       if (error) throw error;
       // if (data?.error) throw new Error(data.error);
 
-      toast.success('ConfiguraÃ§Ãµes salvas com sucesso!');
+      toast.success('Configuracoes salvas com sucesso!');
       fetchSettings(); 
       setSmtpPassword('');
 
@@ -210,7 +210,7 @@ export default function AdminSettings() {
   // Test SMTP
   const handleTestSmtp = async () => {
     try {
-      toast.loading('Testando conexÃ£o SMTP...');
+      toast.loading('Testando conexao SMTP...');
       const { data, error } = await invokeEdgeFunction('test-smtp-connection', {
         body: { 
             host: smtp.host, 
@@ -223,9 +223,9 @@ export default function AdminSettings() {
       
       toast.dismiss();
       if (error || data?.error) {
-        toast.error(`Falha na conexÃ£o: ${error?.message || data?.error}`);
+        toast.error(`Falha na conexao: ${error?.message || data?.error}`);
       } else {
-        toast.success('ConexÃ£o SMTP estabelecida com sucesso!');
+        toast.success('Conexao SMTP estabelecida com sucesso!');
       }
     } catch (error) {
         toast.dismiss();
@@ -245,7 +245,7 @@ export default function AdminSettings() {
       // But we can't send the stored one from client because we don't have it (it's encrypted).
       // So we need a way to tell the backend "use stored key".
       // Let's assume for now user must enter key to validate OR we need to update the edge function to handle "use stored" flag.
-      // The user prompt says "Validar ConexÃ£o".
+      // The user prompt says "Validar Conexao".
       
       // Let's update logic: if apiKey is empty, we check if we have stored key (secret_key_encrypted).
       // If yes, we call validate-asaas-credentials with { useStored: true, environment: env }.
@@ -272,11 +272,11 @@ export default function AdminSettings() {
 
         toast.dismiss();
         if (error || (data && !data.ok && !data.valid) || (data && data.error)) {
-            const errorMessage = error?.message || data?.error || data?.message || 'Erro desconhecido na validaÃ§Ã£o';
-            toast.error(`Erro na validaÃ§Ã£o: ${errorMessage}`);
+            const errorMessage = error?.message || data?.error || data?.message || 'Erro desconhecido na validacao';
+            toast.error(`Erro na validacao: ${errorMessage}`);
         } else {
             const accountName = data?.account?.name || data?.data?.name || 'Conta';
-            toast.success(`ConexÃ£o com Asaas vÃ¡lida! Conta: ${accountName}`);
+            toast.success(`Conexao com Asaas vlida! Conta: ${accountName}`);
             setIntegrations(prev => prev.map(i => i.provider === 'asaas' ? { ...i, is_enabled: true } : i));
         }
       } catch (error) {
@@ -309,15 +309,15 @@ export default function AdminSettings() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-            ConfiguraÃ§Ãµes
+            Configuracoes
           </h1>
           <p className="text-muted-foreground mt-1">
-            Gerencie as preferÃªncias e configuraÃ§Ãµes globais do sistema
+            Gerencie as preferencias e configuracoes globais do sistema
           </p>
         </div>
         <Button onClick={handleSave} disabled={isSaving} className="bg-primary hover:bg-primary/90 shadow-lg">
           <Save className="w-4 h-4 mr-2" />
-          {isSaving ? 'Salvando...' : 'Salvar AlteraÃ§Ãµes'}
+          {isSaving ? 'Salvando...' : 'Salvar Alteracoes'}
         </Button>
       </div>
 
@@ -325,11 +325,11 @@ export default function AdminSettings() {
         <TabsList className="grid w-full grid-cols-2 lg:grid-cols-2 h-auto p-1 bg-muted/50 rounded-xl">
           <TabsTrigger value="notifications" className="flex flex-col gap-2 py-3">
             <Bell className="w-5 h-5" />
-            <span className="text-xs font-medium">NotificaÃ§Ãµes</span>
+            <span className="text-xs font-medium">Notificacoes</span>
           </TabsTrigger>
           <TabsTrigger value="integrations" className="flex flex-col gap-2 py-3">
             <Globe className="w-5 h-5" />
-            <span className="text-xs font-medium">IntegraÃ§Ãµes</span>
+            <span className="text-xs font-medium">Integracoes</span>
           </TabsTrigger>
         </TabsList>
 
@@ -344,12 +344,12 @@ export default function AdminSettings() {
           <TabsContent value="notifications" className="space-y-6 mt-0">
             <Card>
               <CardHeader>
-                <CardTitle>PreferÃªncias de NotificaÃ§Ã£o</CardTitle>
+                <CardTitle>Preferncias de Notificao</CardTitle>
                 <CardDescription>Gerencie como o sistema envia alertas.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-4">
-                  <h3 className="text-sm font-medium">NotificaÃ§Ãµes por Email</h3>
+                  <h3 className="text-sm font-medium">Notificacoes por Email</h3>
                   <div className="grid gap-4">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="notify-sales" className="flex-1">Novas Vendas</Label>
@@ -380,8 +380,8 @@ export default function AdminSettings() {
                 <Separator />
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                     <h3 className="text-sm font-medium">ConfiguraÃ§Ã£o de SMTP</h3>
-                     <Button variant="outline" size="sm" onClick={handleTestSmtp}>Testar ConexÃ£o</Button>
+                     <h3 className="text-sm font-medium">Configurao de SMTP</h3>
+                     <Button variant="outline" size="sm" onClick={handleTestSmtp}>Testar Conexao</Button>
                   </div>
                   
                   <div className="grid gap-4 md:grid-cols-2">
@@ -403,7 +403,7 @@ export default function AdminSettings() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>UsuÃ¡rio</Label>
+                      <Label>Usuario</Label>
                       <Input 
                         placeholder="user@exemplo.com" 
                         value={smtp.username || ''}
@@ -443,8 +443,8 @@ export default function AdminSettings() {
           <TabsContent value="integrations" className="space-y-6 mt-0">
             <Card>
               <CardHeader>
-                <CardTitle>IntegraÃ§Ãµes Externas</CardTitle>
-                <CardDescription>Conecte o sistema a serviÃ§os de terceiros.</CardDescription>
+                <CardTitle>Integracoes Externas</CardTitle>
+                <CardDescription>Conecte o sistema a servicos de terceiros.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {integrations.map((integration) => (
@@ -457,7 +457,7 @@ export default function AdminSettings() {
                                     </div>
                                     <div>
                                     <p className="font-medium">Asaas / Pagamentos</p>
-                                    <p className="text-sm text-muted-foreground">Gateway de pagamentos (PIX, Boleto, CartÃ£o)</p>
+                                    <p className="text-sm text-muted-foreground">Gateway de pagamentos (PIX, Boleto, Carto)</p>
                                     </div>
                                 </div>
                                 <Switch 
@@ -484,7 +484,7 @@ export default function AdminSettings() {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="sandbox">Sandbox (Teste)</SelectItem>
-                                            <SelectItem value="production">ProduÃ§Ã£o</SelectItem>
+                                            <SelectItem value="production">Producao</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -497,7 +497,7 @@ export default function AdminSettings() {
                                             disabled
                                             readOnly
                                         />
-                                        <Button variant="secondary" onClick={handleValidateAsaas}>Validar ConexÃ£o</Button>
+                                        <Button variant="secondary" onClick={handleValidateAsaas}>Validar Conexao</Button>
                                     </div>
                                     <p className="text-xs text-muted-foreground">API Key bloqueada e gerenciada pelo sistema.</p>
                                 </div>
@@ -510,7 +510,7 @@ export default function AdminSettings() {
                                         readOnly
                                     />
                                     <p className="text-xs text-muted-foreground">Webhook Token bloqueado e gerenciado pelo sistema.</p>
-                                    <p className="text-xs text-muted-foreground">O token Ã© usado para validar as notificaÃ§Ãµes recebidas do Asaas.</p>
+                                    <p className="text-xs text-muted-foreground">O token  usado para validar as notificacoes recebidas do Asaas.</p>
                                     <div className="mt-2 p-3 bg-muted rounded-md text-xs font-mono break-all">
                                         <span className="font-bold block mb-1">URL para Webhook (Asaas):</span>
                                         {import.meta.env.VITE_SUPABASE_URL}/functions/v1/asaas-webhook-handler
@@ -522,7 +522,7 @@ export default function AdminSettings() {
                                 <div className="space-y-4">
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-0.5">
-                                            <Label>Habilitar Split AutomÃ¡tico</Label>
+                                            <Label>Habilitar Split Automatico</Label>
                                             <p className="text-xs text-muted-foreground">Dividir pagamentos automaticamente entre plataforma e organizador</p>
                                         </div>
                                         <Switch 
@@ -551,7 +551,7 @@ export default function AdminSettings() {
                                                     placeholder="Cole aqui o Wallet ID (opcional)"
                                                 />
                                                 <p className="text-xs text-muted-foreground">
-                                                    ID da carteira Asaas que receberÃ¡ a taxa da plataforma. Se vazio, o sistema usarÃ¡ a carteira padrÃ£o da conta principal.
+                                                    ID da carteira Asaas que recebera a taxa da plataforma. Se vazio, o sistema usara a carteira padrao da conta principal.
                                                 </p>
                                             </div>
 
@@ -592,7 +592,7 @@ export default function AdminSettings() {
                                                         </span>
                                                     </div>
                                                     <p className="text-[11px] text-muted-foreground">
-                                                        A taxa estÃ¡ configurada fixamente em 10% no cÃ³digo para garantir estabilidade.
+                                                        A taxa est configurada fixamente em 10% no cdigo para garantir estabilidade.
                                                     </p>
                                                 </div>
                                             </div>
