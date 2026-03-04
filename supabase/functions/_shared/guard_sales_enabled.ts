@@ -17,20 +17,20 @@ export async function guardSalesEnabled(
 }> {
   // console.log(`[guardSalesEnabled] Checking status for organizer:`, options)
   
-  let query = supabaseClient.from('organizer_asaas_accounts').select('*').single()
+  let query = supabaseClient.from('organizer_asaas_accounts').select('*').maybeSingle()
   
   if (options.organizerUserId) {
     query = supabaseClient
       .from('organizer_asaas_accounts')
       .select('*')
       .eq('organizer_user_id', options.organizerUserId)
-      .single()
+      .maybeSingle()
   } else if (options.walletId) {
     query = supabaseClient
       .from('organizer_asaas_accounts')
       .select('*')
       .or(`asaas_wallet_id.eq.${options.walletId},asaas_account_id.eq.${options.walletId},external_wallet_id.eq.${options.walletId}`)
-      .single()
+      .maybeSingle()
   } else {
     return { 
       isValid: false, 
@@ -43,13 +43,6 @@ export async function guardSalesEnabled(
 
   if (orgError) {
     // console.error(`[guardSalesEnabled] Error fetching account:`, orgError)
-    if (orgError.code === 'PGRST116') { // No rows found
-      return { 
-        isValid: false, 
-        error: 'Organizer not connected to Asaas', 
-        code: 'ASAAS_NOT_CONNECTED' 
-      }
-    }
     return { 
       isValid: false, 
       error: 'Error validating organizer status', 

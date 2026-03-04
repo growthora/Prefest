@@ -74,7 +74,7 @@ export function Sales() {
               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.totalNetRevenue)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Total recebido pelo organizador (sem taxa da plataforma)
+              Repasse estimado com base no split configurado no pagamento
             </p>
           </CardContent>
         </Card>
@@ -107,6 +107,15 @@ export function Sales() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="border-amber-200 bg-amber-50/60">
+        <CardContent className="pt-6">
+          <p className="text-sm text-amber-900">
+            O valor líquido do organizador é calculado pelo split aplicado na cobrança. Taxas operacionais do Asaas
+            podem reduzir o valor efetivamente creditado na carteira em relação ao valor bruto pago pelo cliente.
+          </p>
+        </CardContent>
+      </Card>
 
       <div className="rounded-md border bg-card p-8 text-center text-muted-foreground">
         {stats.totalTickets > 0 ? (

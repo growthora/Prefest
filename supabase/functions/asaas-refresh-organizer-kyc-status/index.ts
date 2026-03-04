@@ -26,10 +26,23 @@ serve(async (req) => {
         .from('organizer_asaas_accounts')
         .select('*')
         .eq('organizer_user_id', organizerId)
-        .single()
+        .maybeSingle()
 
-    if (accountError || !accountData) {
-        return new Response(JSON.stringify({ error: 'Asaas account not found for this organizer' }), { status: 404, headers: corsHeaders })
+    if (accountError) {
+      return new Response(
+        JSON.stringify({
+          error: 'Error loading organizer Asaas account',
+          details: accountError.message,
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' } }
+      )
+    }
+
+    if (!accountData) {
+        return new Response(
+          JSON.stringify({ error: 'Asaas account not found for this organizer' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' } }
+        )
     }
 
     const { data: config, error: configError } = await adminClient

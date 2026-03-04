@@ -298,6 +298,7 @@ Deno.serve(async (req) => {
     const totalPrice = recalculatedTotalPrice;
     const platformFee = netServiceFee;
     const organizerValue = organizerBaseValue;
+    const organizerSplitProjected = Number((totalPrice * 0.9).toFixed(2));
     
     // console.log(`V3 Financials: Base ${basePrice} | Fee ${serviceFee} | Discount ${discountAmount} | Total ${totalPrice} | Org ${organizerValue}`);
 
@@ -495,7 +496,7 @@ Deno.serve(async (req) => {
                 wallet_id: splitConfigForDb.walletId,
                 fee_type: 'percentage',
                 fee_value: 90,
-                value: organizerValue,
+                value: organizerSplitProjected,
                 status: 'pending',
                 split_rule: splitConfigForDb
             });

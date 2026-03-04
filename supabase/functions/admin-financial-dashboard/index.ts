@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
 
     // Parse URL params
     const url = new URL(req.url)
-    const type = url.searchParams.get('type') // 'overview' | 'payments' | 'reconcile'
+    const type = url.searchParams.get('type') // 'overview' | 'payments' | 'reconcile' | 'reconcile-all'
 
     let result;
 
@@ -178,6 +178,7 @@ Deno.serve(async (req) => {
                 .from('payments')
                 .update({ 
                     status: normalizedStatus,
+                    asaas_net_value: (asaasData?.netValue ?? asaasData?.net_value ?? null),
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', paymentId);
@@ -185,8 +186,95 @@ Deno.serve(async (req) => {
             if (updateError) throw updateError;
             result = { reconciled: true, oldStatus: payment.status, newStatus: normalizedStatus, asaasStatus: asaasData.status };
         } else {
+            await serviceClient
+                .from('payments')
+                .update({
+                    asaas_net_value: (asaasData?.netValue ?? asaasData?.net_value ?? null),
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', payment.id);
             result = { reconciled: true, status: payment.status, asaasStatus: asaasData.status, message: 'Status already up to date' };
         }
+    } else if (type === 'reconcile-all') {
+        const limit = Math.min(Number(url.searchParams.get('limit') || 200), 1000);
+
+        const serviceClient = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        );
+
+        const { data: config, error: configError } = await serviceClient.rpc('get_decrypted_asaas_config').single();
+        if (configError || !config) throw new Error('Failed to load Asaas config');
+
+        const apiKey = String(config.api_key || config.secret_key || '').trim();
+        const runtimeEnv = String(config.env || config.environment || 'sandbox').toLowerCase();
+        if (!apiKey) throw new Error('Missing Asaas API key in configuration');
+
+        const baseUrl = runtimeEnv === 'production' ? 'https://api.asaas.com/v3' : 'https://sandbox.asaas.com/api/v3';
+
+        const { data: dbPayments, error: dbPaymentsError } = await serviceClient
+          .from('payments')
+          .select('id, external_payment_id, status')
+          .eq('provider', 'asaas')
+          .not('external_payment_id', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(limit);
+
+        if (dbPaymentsError) throw dbPaymentsError;
+
+        let scanned = 0;
+        let updated = 0;
+        let failed = 0;
+        const errors: Array<{ payment_id: string; external_payment_id: string | null; error: string }> = [];
+
+        for (const payment of dbPayments || []) {
+          scanned += 1;
+          try {
+            const asaasRes = await fetch(`${baseUrl}/payments/${payment.external_payment_id}`, {
+              headers: { access_token: apiKey }
+            });
+
+            if (!asaasRes.ok) {
+              const errText = await asaasRes.text();
+              throw new Error(`Asaas API Error: ${errText}`);
+            }
+
+            const asaasData = await asaasRes.json();
+            const normalizedStatus = normalizeAsaasPaymentStatus(asaasData.status);
+
+            const updatePayload: Record<string, unknown> = {
+              updated_at: new Date().toISOString(),
+              asaas_net_value: (asaasData?.netValue ?? asaasData?.net_value ?? null),
+            };
+            if (normalizedStatus) {
+              updatePayload.status = normalizedStatus;
+            }
+
+            const { error: updErr } = await serviceClient
+              .from('payments')
+              .update(updatePayload)
+              .eq('id', payment.id);
+
+            if (updErr) throw updErr;
+            updated += 1;
+          } catch (e: any) {
+            failed += 1;
+            errors.push({
+              payment_id: payment.id,
+              external_payment_id: payment.external_payment_id ?? null,
+              error: e?.message || 'unknown error',
+            });
+          }
+        }
+
+        result = {
+          success: true,
+          scanned,
+          updated,
+          failed,
+          errors: errors.slice(0, 20),
+          message: 'Batch reconciliation finished',
+        };
     } else {
       throw new Error('Invalid type parameter')
     }

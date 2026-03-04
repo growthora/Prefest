@@ -21,9 +21,19 @@ serve(async (req) => {
       .from('organizer_asaas_accounts')
       .select('id, asaas_account_id, asaas_wallet_id, kyc_status, is_active, payment_method_type, external_wallet_id, external_wallet_email')
       .eq('organizer_user_id', user.id)
-      .single()
+      .maybeSingle()
 
-    if (accountError || !accountData) {
+    if (accountError) {
+      return new Response(
+        JSON.stringify({
+          error: 'Error loading organizer Asaas account',
+          details: accountError.message,
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' } }
+      )
+    }
+
+    if (!accountData) {
       return new Response(
         JSON.stringify({ error: 'Asaas account not found for this organizer' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' } }

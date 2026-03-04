@@ -167,7 +167,11 @@ Deno.serve(async (req) => {
                 // Update Payment Status
                 const { error: updateError } = await supabaseClient
                     .from('payments')
-                    .update({ status: newStatus, updated_at: new Date().toISOString() })
+                    .update({
+                      status: newStatus,
+                      asaas_net_value: (payment?.netValue ?? payment?.net_value ?? null),
+                      updated_at: new Date().toISOString()
+                    })
                     .eq('id', paymentRecord.id);
 
                 if (updateError) {

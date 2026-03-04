@@ -159,6 +159,7 @@ serve(async (req) => {
             .from('payments')
             .update({ 
                 status: newStatus, 
+                asaas_net_value: (payment?.netValue ?? payment?.net_value ?? null),
                 updated_at: new Date().toISOString() 
             })
             .eq('external_payment_id', payment.id)

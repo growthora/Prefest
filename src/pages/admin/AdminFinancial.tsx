@@ -178,6 +178,23 @@ export default function AdminFinancial() {
     }
   };
 
+  const handleReconcileAll = async () => {
+    try {
+      toast.loading('Conciliando pagamentos em lote...', { id: 'reconcile-all' });
+      const { data, error } = await invokeEdgeFunction('admin-financial-dashboard?type=reconcile-all&limit=500');
+      if (error) throw error;
+
+      toast.dismiss('reconcile-all');
+      toast.success(
+        `Lote concluído: ${data?.updated ?? 0} atualizados, ${data?.failed ?? 0} falhas (de ${data?.scanned ?? 0}).`
+      );
+      loadData();
+    } catch (err: any) {
+      toast.dismiss('reconcile-all');
+      toast.error('Falha na conciliação em lote: ' + err.message);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, string> = {
       'RECEIVED': 'bg-green-100 text-green-800',
@@ -514,6 +531,9 @@ export default function AdminFinancial() {
                 <Button onClick={() => handleReconcile(reconcileId)} disabled={!reconcileId}>
                   <Search className="mr-2 h-4 w-4" />
                   Investigar e Conciliar
+                </Button>
+                <Button variant="outline" onClick={handleReconcileAll}>
+                  Conciliar em Lote
                 </Button>
               </div>
             </CardContent>

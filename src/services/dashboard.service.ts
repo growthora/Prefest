@@ -62,6 +62,14 @@ type FinancialBreakdown = {
   quantity: number;
 };
 
+type PaymentSplitRow = {
+  recipient_type?: string | null;
+  fee_type?: string | null;
+  fee_value?: number | null;
+  value?: number | null;
+  status?: string | null;
+};
+
 const PLATFORM_FEE_RATE = 0.1;
 const CONFIRMED_PAYMENT_STATUSES = ['paid', 'received', 'confirmed'] as const;
 const VALID_TICKET_STATUSES = ['valid', 'used'] as const;
@@ -72,8 +80,36 @@ const SHOULD_LOG_FINANCE =
 function getFinancialBreakdown(
   totalPaid: number | null | undefined,
   ticket?: SaleTicket | null,
-  participantQuantity?: number | null
+  participantQuantity?: number | null,
+  organizerSplit?: PaymentSplitRow | null,
+  splitBaseValue?: number | null
 ): FinancialBreakdown {
+  const paid = Number(totalPaid) || 0;
+  const splitBase = Number(splitBaseValue) > 0 ? Number(splitBaseValue) : paid;
+
+  // Primary source: split configuration recorded for organizer in checkout.
+  if (organizerSplit && paid > 0) {
+    const feeType = String(organizerSplit.fee_type || '').toLowerCase();
+    const feeValue = Number(organizerSplit.fee_value) || 0;
+    const splitValue = Number(organizerSplit.value) || 0;
+
+    let organizerRevenue = 0;
+    if (feeType === 'percentage' && feeValue > 0) {
+      organizerRevenue = Number(((splitBase * feeValue) / 100).toFixed(2));
+    } else if (splitValue > 0) {
+      organizerRevenue = Number(splitValue.toFixed(2));
+    }
+
+    organizerRevenue = Math.min(Math.max(organizerRevenue, 0), paid);
+    const platformFee = Number((paid - organizerRevenue).toFixed(2));
+    return {
+      customerTotal: Number(paid.toFixed(2)),
+      organizerRevenue,
+      platformFee: Math.max(0, platformFee),
+      quantity: Number(participantQuantity) || Number(ticket?.quantity) || 1,
+    };
+  }
+
   if (ticket && typeof ticket.unit_price === 'number') {
     const quantity = Number(participantQuantity) || Number(ticket.quantity) || 1;
     const unitPrice = Number(ticket.unit_price) || 0;
@@ -84,7 +120,6 @@ function getFinancialBreakdown(
     return { customerTotal, organizerRevenue, platformFee, quantity };
   }
 
-  const paid = Number(totalPaid) || 0;
   if (paid <= 0) {
     return {
       customerTotal: 0,
@@ -195,11 +230,29 @@ export const dashboardService = {
 
       const { data: confirmedPayments, error: payError } = await supabase
         .from('payments')
-        .select('id, status, value, created_at, ticket_id, ticket:ticket_id(event_id, unit_price, quantity, discount_amount)')
+        .select('id, status, value, asaas_net_value, created_at, ticket_id, ticket:ticket_id(event_id, unit_price, quantity, discount_amount)')
         .eq('organizer_user_id', organizerId)
         .in('status', [...CONFIRMED_PAYMENT_STATUSES]);
 
       if (payError) throw payError;
+
+      const paymentIds = (confirmedPayments || []).map((p: any) => p.id).filter(Boolean);
+      const splitByPaymentId = new Map<string, PaymentSplitRow>();
+      if (paymentIds.length > 0) {
+        const { data: splitRows, error: splitError } = await supabase
+          .from('payment_splits')
+          .select('payment_id, recipient_type, fee_type, fee_value, value, status')
+          .in('payment_id', paymentIds)
+          .eq('recipient_type', 'organizer');
+
+        if (splitError) throw splitError;
+
+        (splitRows || []).forEach((row: any) => {
+          if (row?.payment_id && !splitByPaymentId.has(row.payment_id)) {
+            splitByPaymentId.set(row.payment_id, row);
+          }
+        });
+      }
 
       const nowDate = new Date();
       const startCurrentMonth = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1);
@@ -220,7 +273,9 @@ export const dashboardService = {
         const breakdown = getFinancialBreakdown(
           payment.value,
           ticket,
-          participant?.ticketQuantity ?? ticket?.quantity
+          participant?.ticketQuantity ?? ticket?.quantity,
+          splitByPaymentId.get(payment.id) || null,
+          payment.asaas_net_value
         );
         if (breakdown.customerTotal <= 0) return;
 

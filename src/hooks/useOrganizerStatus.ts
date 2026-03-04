@@ -25,10 +25,14 @@ export function useOrganizerStatus() {
         .from('organizer_asaas_accounts')
         .select('kyc_status, is_active, asaas_account_id')
         .eq('organizer_user_id', user?.id)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         // console.error('Error checking organizer status:', error);
+        setAsaasStatus('not_connected');
+        setIsActive(false);
+        setAccountId(null);
+        return;
       }
 
       if (data) {

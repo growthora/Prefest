@@ -30,6 +30,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/lib/index';
+import { invokeEdgeFunction } from '@/services/apiClient';
 
 function getTrend(current: number, previous: number): { value: number | null; isUp: boolean } {
   if (previous <= 0) {
@@ -62,19 +63,38 @@ export default function AdminOverview() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [statsRes, eventsRes, usersRes, couponsRes] = await Promise.allSettled([
+      const [overviewRes, statsRes, eventsRes, usersRes, couponsRes] = await Promise.allSettled([
+        invokeEdgeFunction('admin-financial-dashboard?type=overview'),
         userService.getStatistics(),
         eventService.getAllEvents(3, true),
         userService.getUsersWithStats(),
         couponService.getAllCoupons(),
       ]);
 
+      const overview =
+        overviewRes.status === 'fulfilled' && !overviewRes.value.error
+          ? (overviewRes.value.data as any)
+          : null;
       const statsData = statsRes.status === 'fulfilled' ? statsRes.value : null;
       const eventsData = eventsRes.status === 'fulfilled' ? eventsRes.value : [];
       const usersData = usersRes.status === 'fulfilled' ? usersRes.value : [];
       const couponsData = couponsRes.status === 'fulfilled' ? couponsRes.value : [];
 
-      setStatistics(statsData);
+      setStatistics({
+        ...(statsData || {}),
+        totalRevenue:
+          Number(overview?.total_gross_sales ?? overview?.total_sales ?? overview?.total_revenue) ||
+          Number(statsData?.totalRevenue) ||
+          0,
+        prefestRevenue:
+          Number(overview?.total_service_fees ?? overview?.platform_fees) ||
+          Number(statsData?.prefestRevenue ?? statsData?.profit) ||
+          0,
+        organizerRevenue:
+          Number(overview?.organizer_revenue ?? overview?.organizer_splits) ||
+          Number(statsData?.organizerRevenue ?? statsData?.estimatedCosts) ||
+          0,
+      });
       setEvents(eventsData);
       setUsers(usersData);
       setCounts({
