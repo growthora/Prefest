@@ -196,20 +196,27 @@ export default function AdminEvents() {
       toast.success('Evento deletado com sucesso!');
       await loadEvents();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao deletar evento');
+      const message =
+        err instanceof Error ? err.message : (err as any)?.message || 'Erro ao deletar evento';
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDeactivateEvent = async (event: Event) => {
+  const handleToggleEventActive = async (event: Event) => {
     try {
       setIsLoading(true);
-      await eventService.deactivateEvent(event.id);
-      toast.success(`Evento "${event.title}" desativado e offline com sucesso!`);
+      if (event.is_active === false) {
+        await eventService.reactivateEvent(event.id);
+        toast.success(`Evento "${event.title}" reativado com sucesso!`);
+      } else {
+        await eventService.deactivateEvent(event.id);
+        toast.success(`Evento "${event.title}" desativado e offline com sucesso!`);
+      }
       await loadEvents();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao desativar evento');
+      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar status do evento');
     } finally {
       setIsLoading(false);
     }
@@ -297,8 +304,8 @@ export default function AdminEvents() {
                         size="icon"
                         variant="outline"
                         className="h-8 w-8 rounded-full bg-background/80 backdrop-blur-sm"
-                        disabled={event.is_active === false}
-                        onClick={() => handleDeactivateEvent(event)}
+                        title={event.is_active === false ? 'Reativar evento' : 'Desativar evento'}
+                        onClick={() => handleToggleEventActive(event)}
                       >
                         <Power className="w-4 h-4" />
                       </Button>

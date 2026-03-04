@@ -188,6 +188,7 @@ export interface CreateEventData {
 }
 
 export class EventService {
+  private readonly SOLD_TICKET_STATUSES = ['paid', 'issued', 'used', 'valid', 'confirmed', 'received'];
   // Buscar todas as categorias
   async getCategories(): Promise<Category[]> {
     const { data, error } = await supabase
@@ -654,6 +655,76 @@ export class EventService {
   async deleteEvent(eventId: string): Promise<void> {
     // Buscar o evento para obter a URL da imagem
     const event = await this.getEventById(eventId);
+
+    // ADMIN: permitir exclusão apenas se não houver ingressos vendidos.
+    // Se existirem tickets pendentes/reservados, removemos em cadeia para evitar bloqueio de FK.
+    const { data: ticketRows, error: ticketRowsError } = await supabase
+      .from('tickets')
+      .select('id, status')
+      .eq('event_id', eventId);
+
+    if (ticketRowsError) throw ticketRowsError;
+    const soldStatuses = new Set(this.SOLD_TICKET_STATUSES.map((status) => status.toLowerCase()));
+    const soldTicketsCount = (ticketRows || []).filter((ticket: any) =>
+      soldStatuses.has(String(ticket?.status || '').toLowerCase())
+    ).length;
+    if (soldTicketsCount > 0) {
+      throw new Error(
+        'Não é possível excluir este evento porque já houve ingressos vendidos. ' +
+          'Use desativar para deixar o evento totalmente offline.'
+      );
+    }
+
+    const ticketIds = (ticketRows || []).map((t: any) => t.id);
+    if (ticketIds.length > 0) {
+      const { data: paymentRowsByTicket, error: paymentRowsByTicketError } = await supabase
+        .from('payments')
+        .select('id')
+        .in('ticket_id', ticketIds as any);
+
+      if (paymentRowsByTicketError) throw paymentRowsByTicketError;
+
+      const paymentIds = Array.from(
+        new Set((paymentRowsByTicket || []).map((p: any) => p.id))
+      );
+      if (paymentIds.length > 0) {
+        const { error: splitDeleteError } = await supabase
+          .from('payment_splits')
+          .delete()
+          .in('payment_id', paymentIds as any);
+        if (splitDeleteError) throw splitDeleteError;
+
+        const { error: paymentsDeleteError } = await supabase
+          .from('payments')
+          .delete()
+          .in('id', paymentIds as any);
+        if (paymentsDeleteError) throw paymentsDeleteError;
+      }
+
+      const { error: ticketsDeleteError } = await supabase
+        .from('tickets')
+        .delete()
+        .eq('event_id', eventId);
+      if (ticketsDeleteError) throw ticketsDeleteError;
+    }
+
+    const { error: participantsDeleteError } = await supabase
+      .from('event_participants')
+      .delete()
+      .eq('event_id', eventId);
+    if (participantsDeleteError) throw participantsDeleteError;
+
+    const { error: checkinDeleteError } = await supabase
+      .from('check_in_logs')
+      .delete()
+      .eq('event_id', eventId);
+    if (checkinDeleteError) throw checkinDeleteError;
+
+    const { error: ticketTypesDeleteError } = await supabase
+      .from('ticket_types')
+      .delete()
+      .eq('event_id', eventId);
+    if (ticketTypesDeleteError) throw ticketTypesDeleteError;
     
     // Deletar o evento do banco
     const { error } = await supabase
@@ -688,6 +759,22 @@ export class EventService {
         is_active: false,
         sales_enabled: false,
         status: 'draft',
+        updated_at: new Date().toISOString(),
+      } as any)
+      .eq('id', eventId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  async reactivateEvent(eventId: string): Promise<Event> {
+    const { data, error } = await supabase
+      .from('events')
+      .update({
+        is_active: true,
+        status: 'published',
         updated_at: new Date().toISOString(),
       } as any)
       .eq('id', eventId)
