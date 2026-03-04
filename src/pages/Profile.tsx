@@ -171,6 +171,10 @@ export default function Profile() {
         ...formData,
         username: formData.username.toLowerCase().trim(),
         birth_date: formData.birth_date === '' ? null : formData.birth_date,
+        relationship_status: formData.relationship_status === '' ? null : formData.relationship_status,
+        sexuality: formData.sexuality === '' ? null : formData.sexuality,
+        match_intention: formData.match_intention === '' ? null : formData.match_intention,
+        match_gender_preference: formData.match_gender_preference === '' ? null : formData.match_gender_preference,
         show_initials_only: showInitialsOnly,
         height: formData.height ? parseFloat(formData.height) : null,
       };
@@ -184,6 +188,8 @@ export default function Profile() {
       // Tratamento específico para erro de unicidade de username
       if (err?.code === '23505' || err?.message?.includes('profiles_username_key')) {
         toast.error('Este nome de usuário já está em uso. Por favor, escolha outro.');
+      } else if (err?.code === '23514' || err?.message?.includes('profiles_relationship_status_check')) {
+        toast.error('Status de relacionamento invalido. Selecione uma opcao valida ou deixe em branco.');
       } else {
         toast.error('Erro ao atualizar perfil');
       }

@@ -31,6 +31,7 @@ export interface Profile {
   organizer_status: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED';
   /** @deprecated Use roles[] instead. This field is legacy. */
   role?: string;
+  account_type?: 'comprador' | 'organizador' | 'comprador_organizador';
   single_mode: boolean;
   show_initials_only: boolean;
   match_intention: 'paquera' | 'amizade';

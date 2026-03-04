@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { userService, type UserWithStats, type CreateUserData, type UpdateUserData } from '@/services/user.service';
 import { type Profile } from '@/services/auth.service';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +16,7 @@ import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AdminUsers() {
+  const { isAdmin } = useAuth();
   const [users, setUsers] = useState<UserWithStats[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -24,14 +26,15 @@ export default function AdminUsers() {
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
   
-  const [newUser, setNewUser] = useState<CreateUserData & { role: 'user' | 'admin' | 'equipe' }>({
+  const [newUser, setNewUser] = useState<CreateUserData & { role: 'user' | 'admin'; account_type: 'comprador' | 'organizador' | 'comprador_organizador' }>({
     email: '',
     password: '',
     full_name: '',
     role: 'user',
+    account_type: 'comprador',
   });
 
-  const [userUpdate, setUserUpdate] = useState<UpdateUserData & { role?: 'user' | 'admin' | 'equipe' }>({});
+  const [userUpdate, setUserUpdate] = useState<UpdateUserData & { role?: 'user' | 'admin'; account_type?: 'comprador' | 'organizador' | 'comprador_organizador'; new_password?: string; confirm_password?: string }>({});
 
   useEffect(() => {
     loadUsers();
@@ -49,20 +52,33 @@ export default function AdminUsers() {
     }
   };
 
-  const getRolesFromRole = (role: 'user' | 'admin' | 'equipe'): string[] => {
-    switch (role) {
-      case 'admin': return ['BUYER', 'ADMIN'];
-      case 'equipe': return ['BUYER', 'FINANCEIRO'];
-      default: return ['BUYER'];
-    }
+  const getRolesFromPermissionAndAccountType = (
+    role: 'user' | 'admin',
+    accountType: 'comprador' | 'organizador' | 'comprador_organizador'
+  ): string[] => {
+    const result: string[] = [];
+    if (accountType === 'comprador' || accountType === 'comprador_organizador') result.push('BUYER');
+    if (accountType === 'organizador' || accountType === 'comprador_organizador') result.push('ORGANIZER');
+    if (role === 'admin') result.push('ADMIN');
+    return [...new Set(result)];
   };
 
-  const getRoleFromRoles = (roles: string[] | undefined): 'user' | 'admin' | 'equipe' => {
-    if (!roles) return 'user';
-    const upperRoles = roles.map(r => r.toUpperCase());
-    if (upperRoles.includes('ADMIN')) return 'admin';
-    if (upperRoles.includes('FINANCEIRO')) return 'equipe';
+  const getRoleFromUser = (user: Profile): 'user' | 'admin' => {
+    const upperRoles = (user.roles || []).map(r => r.toUpperCase());
+    if (upperRoles.includes('ADMIN') || user.role === 'admin') return 'admin';
     return 'user';
+  };
+
+  const getAccountTypeFromUser = (user: Profile): 'comprador' | 'organizador' | 'comprador_organizador' => {
+    if (user.account_type && ['comprador', 'organizador', 'comprador_organizador'].includes(user.account_type)) {
+      return user.account_type as 'comprador' | 'organizador' | 'comprador_organizador';
+    }
+    const upperRoles = (user.roles || []).map(r => r.toUpperCase());
+    const hasBuyer = upperRoles.includes('BUYER');
+    const hasOrganizer = upperRoles.includes('ORGANIZER');
+    if (hasBuyer && hasOrganizer) return 'comprador_organizador';
+    if (hasOrganizer) return 'organizador';
+    return 'comprador';
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -70,9 +86,12 @@ export default function AdminUsers() {
 
     try {
       setIsLoading(true);
+      if (newUser.password.length < 8) {
+        throw new Error('A senha deve ter no mínimo 8 caracteres.');
+      }
       await userService.createUser({
         ...newUser,
-        roles: getRolesFromRole(newUser.role)
+        roles: getRolesFromPermissionAndAccountType(newUser.role, newUser.account_type),
       });
       toast.success('Usuário criado com sucesso!');
       setIsCreateUserDialogOpen(false);
@@ -81,6 +100,7 @@ export default function AdminUsers() {
         password: '',
         full_name: '',
         role: 'user',
+        account_type: 'comprador',
       });
       await loadUsers();
     } catch (err) {
@@ -102,13 +122,30 @@ export default function AdminUsers() {
         bio: userUpdate.bio,
         avatar_url: userUpdate.avatar_url,
         single_mode: userUpdate.single_mode,
+        role: userUpdate.role,
+        account_type: userUpdate.account_type,
       };
 
-      if (userUpdate.role) {
-        updateData.roles = getRolesFromRole(userUpdate.role);
+      if (userUpdate.role && userUpdate.account_type) {
+        updateData.roles = getRolesFromPermissionAndAccountType(userUpdate.role, userUpdate.account_type);
+      }
+
+      if (userUpdate.new_password || userUpdate.confirm_password) {
+        if (!userUpdate.new_password || !userUpdate.confirm_password) {
+          throw new Error('Preencha nova senha e confirmação.');
+        }
+        if (userUpdate.new_password.length < 8) {
+          throw new Error('A nova senha deve ter no mínimo 8 caracteres.');
+        }
+        if (userUpdate.new_password !== userUpdate.confirm_password) {
+          throw new Error('A confirmação da senha não confere.');
+        }
       }
 
       await userService.updateUser(editingUser.id, updateData);
+      if (userUpdate.new_password) {
+        await userService.updateUserPasswordAsAdmin(editingUser.id, userUpdate.new_password);
+      }
       toast.success('Usuário atualizado! Se estiver logado, peça para relogar para aplicar as permissões.');
       setIsEditUserDialogOpen(false);
       setEditingUser(null);
@@ -147,9 +184,12 @@ export default function AdminUsers() {
       full_name: user.full_name || '',
       bio: user.bio || '',
       avatar_url: user.avatar_url || '',
-      role: getRoleFromRoles(user.roles),
+      role: getRoleFromUser(user),
+      account_type: getAccountTypeFromUser(user),
       single_mode: user.single_mode,
       show_initials_only: user.show_initials_only,
+      new_password: '',
+      confirm_password: '',
     });
     setIsEditUserDialogOpen(true);
   };
@@ -180,6 +220,19 @@ export default function AdminUsers() {
       }
     }
   };
+
+  if (!isAdmin) {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Acesso negado</CardTitle>
+            <CardDescription>Somente administradores podem gerenciar usuários.</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <motion.div 
@@ -233,7 +286,7 @@ export default function AdminUsers() {
                   value={newUser.password}
                   onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                   required
-                  minLength={6}
+                  minLength={8}
                   placeholder="******"
                 />
               </div>
@@ -248,10 +301,10 @@ export default function AdminUsers() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="new-user-role">Função</Label>
+                <Label htmlFor="new-user-role">Permissão</Label>
                 <Select
                   value={newUser.role}
-                  onValueChange={(value: 'user' | 'admin' | 'equipe') =>
+                  onValueChange={(value: 'user' | 'admin') =>
                     setNewUser({ ...newUser, role: value })
                   }
                 >
@@ -260,8 +313,25 @@ export default function AdminUsers() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="user">Usuário</SelectItem>
-                    <SelectItem value="equipe">Equipe</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-user-account-type">Tipo de Conta</Label>
+                <Select
+                  value={newUser.account_type}
+                  onValueChange={(value: 'comprador' | 'organizador' | 'comprador_organizador') =>
+                    setNewUser({ ...newUser, account_type: value })
+                  }
+                >
+                  <SelectTrigger id="new-user-account-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="comprador">Comprador</SelectItem>
+                    <SelectItem value="organizador">Organizador</SelectItem>
+                    <SelectItem value="comprador_organizador">Comprador e Organizador</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -332,11 +402,21 @@ export default function AdminUsers() {
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-start">
                     {(() => {
-                      const role = getRoleFromRoles(user.roles);
+                      const role = getRoleFromUser(user);
+                      const accountType = getAccountTypeFromUser(user);
                       return (
-                        <Badge variant={role === 'admin' ? 'default' : role === 'equipe' ? 'secondary' : 'outline'} className="mb-2">
-                          {role === 'admin' ? 'Administrador' : role === 'equipe' ? 'Equipe' : 'Usuário'}
-                        </Badge>
+                        <div className="mb-2 flex gap-2">
+                          <Badge variant={role === 'admin' ? 'default' : 'outline'}>
+                            {role === 'admin' ? 'Administrador' : 'Usuário'}
+                          </Badge>
+                          <Badge variant="secondary">
+                            {accountType === 'comprador'
+                              ? 'Comprador'
+                              : accountType === 'organizador'
+                              ? 'Organizador'
+                              : 'Comprador e Organizador'}
+                          </Badge>
+                        </div>
                       );
                     })()}
                     <div className="flex gap-1">
@@ -435,10 +515,10 @@ export default function AdminUsers() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-user-role">Função</Label>
+                <Label htmlFor="edit-user-role">Permissão</Label>
                 <Select
                   value={userUpdate.role}
-                  onValueChange={(value: 'user' | 'admin' | 'equipe') =>
+                  onValueChange={(value: 'user' | 'admin') =>
                     setUserUpdate({ ...userUpdate, role: value })
                   }
                 >
@@ -447,10 +527,55 @@ export default function AdminUsers() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="user">Usuário</SelectItem>
-                    <SelectItem value="equipe">Equipe</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-user-account-type">Tipo de Conta</Label>
+                <Select
+                  value={userUpdate.account_type}
+                  onValueChange={(value: 'comprador' | 'organizador' | 'comprador_organizador') =>
+                    setUserUpdate({ ...userUpdate, account_type: value })
+                  }
+                >
+                  <SelectTrigger id="edit-user-account-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="comprador">Comprador</SelectItem>
+                    <SelectItem value="organizador">Organizador</SelectItem>
+                    <SelectItem value="comprador_organizador">Comprador e Organizador</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="rounded-md border p-3 space-y-3">
+                <div>
+                  <h4 className="font-medium">Segurança da Conta</h4>
+                  <p className="text-sm text-muted-foreground">Defina uma nova senha para o usuário.</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-user-new-password">Nova senha</Label>
+                  <Input
+                    id="edit-user-new-password"
+                    type="password"
+                    minLength={8}
+                    value={userUpdate.new_password || ''}
+                    onChange={(e) => setUserUpdate({ ...userUpdate, new_password: e.target.value })}
+                    placeholder="Mínimo 8 caracteres"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-user-confirm-password">Confirmar senha</Label>
+                  <Input
+                    id="edit-user-confirm-password"
+                    type="password"
+                    minLength={8}
+                    value={userUpdate.confirm_password || ''}
+                    onChange={(e) => setUserUpdate({ ...userUpdate, confirm_password: e.target.value })}
+                    placeholder="Repita a nova senha"
+                  />
+                </div>
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={isLoading}>

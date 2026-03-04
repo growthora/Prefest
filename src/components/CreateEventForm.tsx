@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { eventService, type CreateEventData } from '@/services/event.service';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrganizerStatus } from '@/hooks/useOrganizerStatus';
@@ -8,9 +8,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/lib/index';
-import { Plus, Trash2, Calendar, MapPin, Image as ImageIcon, Ticket, Info, CheckCircle2, Save, ChevronLeft } from 'lucide-react';
+import { Plus, Trash2, Calendar, MapPin, Image as ImageIcon, Ticket, Info, CheckCircle2, ChevronLeft } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -33,7 +33,6 @@ export const CreateEventForm = () => {
   const { user } = useAuth();
   const { asaasStatus } = useOrganizerStatus();
   const navigate = useNavigate();
-  const location = useLocation();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +49,7 @@ export const CreateEventForm = () => {
     image_url: '',
     category: '',
     category_id: '',
-    status: 'draft',
+    status: 'published',
     price: 0,
     max_participants: undefined,
   });
@@ -63,30 +62,6 @@ export const CreateEventForm = () => {
       quantity_available: 100,
     }
   ]);
-
-  // Carregar rascunho do localStorage ao montar
-  useEffect(() => {
-    const draft = localStorage.getItem('prefest_event_draft');
-    if (draft) {
-       try {
-         const parsed = JSON.parse(draft);
-         if (parsed.formData) {
-            setFormData(prev => ({ ...prev, ...parsed.formData }));
-         }
-         if (parsed.ticketTypes) {
-            setTicketTypes(parsed.ticketTypes);
-         }
-       } catch (e) {
-         // console.error('Erro ao carregar rascunho', e);
-       }
-    }
-  }, []);
-
-  // Salvar rascunho automaticamente
-  useEffect(() => {
-    const draft = { formData, ticketTypes };
-    localStorage.setItem('prefest_event_draft', JSON.stringify(draft));
-  }, [formData, ticketTypes]);
 
   const validateForm = (isPublishing: boolean) => {
     if (!formData.title) return 'O título do evento é obrigatório.';
@@ -111,8 +86,9 @@ export const CreateEventForm = () => {
     return null;
   };
 
-  const handleSubmit = async (e: React.FormEvent, status: 'draft' | 'published' = 'published') => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const status: 'published' = 'published';
     // console.log(`🚀 [CreateEvent] Iniciando submissão. Status: ${status}`);
 
     if (status === 'published') {
@@ -151,7 +127,6 @@ export const CreateEventForm = () => {
 
     if (!user) {
       // console.log('👤 [CreateEvent] Usuário não logado. Redirecionando para login.');
-      localStorage.setItem('prefest_event_draft', JSON.stringify({ formData, ticketTypes }));
       toast({
         title: "Login necessário",
         description: "Faça login para salvar seu evento.",
@@ -172,7 +147,6 @@ export const CreateEventForm = () => {
         is_paid_event: isPaid,
         sales_enabled: status === 'published' ? isPaid : false, // Only enable sales if publishing
         asaas_required: true,
-        is_published: status === 'published' // Explicit flag helper
       };
       const event = await eventService.createEvent(dataToSubmit, user.id);
       // console.log('✅ [CreateEvent] Evento criado com sucesso:', event);
@@ -183,21 +157,13 @@ export const CreateEventForm = () => {
         await eventService.createTicketTypes(event.id, ticketTypes);
       }
       
-      localStorage.removeItem('prefest_event_draft');
 
       toast({
-        title: status === 'published' ? "Evento publicado!" : "Rascunho salvo!",
-        description: status === 'published' 
-          ? "Seu evento já está visível para todos." 
-          : "Você pode continuar editando depois em 'Meus Eventos'.",
+        title: "Evento publicado!",
+        description: "Seu evento já está visível para todos.",
       });
 
-      if (status === 'published') {
-        navigate('/my-events'); // Ou para a página do evento criado
-      } else {
-        // Se for rascunho, redireciona para meus eventos também para evitar duplicidade se clicar de novo
-        navigate('/my-events');
-      }
+      navigate(ROUTE_PATHS.ORGANIZER_EVENTS);
     } catch (err) {
       // console.error('❌ [CreateEvent] Erro ao criar evento:', err);
       const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido ao criar evento';
@@ -260,16 +226,7 @@ export const CreateEventForm = () => {
           </div>
           <div className="flex gap-3 w-full md:w-auto">
             <Button 
-              variant="outline" 
-              onClick={(e) => handleSubmit(e, 'draft')}
-              disabled={isLoading}
-              className="flex-1 md:flex-none"
-            >
-              <Save className="w-4 h-4 mr-2" />
-              Salvar Rascunho
-            </Button>
-            <Button 
-              onClick={(e) => handleSubmit(e, 'published')}
+              onClick={handleSubmit}
               disabled={isLoading}
               className="flex-1 md:flex-none"
             >

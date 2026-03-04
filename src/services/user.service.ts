@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { Profile } from './auth.service';
+import { invokeEdgeFunction } from './apiClient';
 
 export interface UserWithStats extends Profile {
   total_events: number;
@@ -11,6 +12,8 @@ export interface CreateUserData {
   password: string;
   full_name: string;
   roles?: string[];
+  role?: 'admin' | 'user';
+  account_type?: 'comprador' | 'organizador' | 'comprador_organizador';
 }
 
 export interface UpdateUserData {
@@ -19,6 +22,8 @@ export interface UpdateUserData {
   city?: string;
   avatar_url?: string;
   roles?: string[];
+  role?: 'admin' | 'user';
+  account_type?: 'comprador' | 'organizador' | 'comprador_organizador';
   single_mode?: boolean;
   match_enabled?: boolean;
   show_initials_only?: boolean;
@@ -166,16 +171,29 @@ class UserService {
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Atualizar roles se necessario
-    if (userData.roles && userData.roles.length > 0 && authData.user) {
+    if (authData.user) {
+      const updatePayload: Record<string, unknown> = {};
+      if (userData.roles && userData.roles.length > 0) {
+        updatePayload.roles = userData.roles;
+      }
+      if (userData.role) {
+        updatePayload.role = userData.role;
+      }
+      if (userData.account_type) {
+        updatePayload.account_type = userData.account_type;
+      }
+
+      if (Object.keys(updatePayload).length > 0) {
       const { data: profile, error: updateError } = await supabase
         .from('profiles')
-        .update({ roles: userData.roles })
+        .update(updatePayload)
         .eq('id', authData.user.id)
         .select()
         .single();
 
       if (updateError) throw updateError;
       return { user: authData.user, profile };
+      }
     }
 
     const profile = await this.getUserById(authData.user!.id);
@@ -193,6 +211,22 @@ class UserService {
 
     if (error) throw error;
     return data;
+  }
+
+  async updateUserPasswordAsAdmin(userId: string, newPassword: string): Promise<void> {
+    const { data, error } = await invokeEdgeFunction('admin-update-user-password', {
+      body: {
+        userId,
+        newPassword,
+      },
+      method: 'POST',
+      requiresAuth: true,
+    });
+
+    if (error) throw error;
+    if ((data as any)?.ok !== true) {
+      throw new Error((data as any)?.error || 'Falha ao atualizar senha do usuário');
+    }
   }
 
   // Deletar usuario

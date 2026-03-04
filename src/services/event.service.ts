@@ -66,6 +66,26 @@ export interface TicketTypeDB {
   updated_at: string;
 }
 
+export interface TicketTypeUpdateData {
+  name?: string;
+  description?: string | null;
+  price?: number;
+  quantity_available?: number;
+  sale_start_date?: string | null;
+  sale_end_date?: string | null;
+  is_active?: boolean;
+}
+
+export interface TicketTypeCreateData {
+  name: string;
+  description?: string | null;
+  price: number;
+  quantity_available: number;
+  sale_start_date?: string | null;
+  sale_end_date?: string | null;
+  is_active?: boolean;
+}
+
 // Helper to calculate display price
 export const calculateEventDisplayPrice = (tickets: TicketTypeDB[]) => {
   // 1. Filter visible tickets (valid for display)
@@ -302,6 +322,79 @@ export class EventService {
 
     if (error) throw error;
     return data || [];
+  }
+
+  // Criar um tipo de ingresso (lote) para um evento
+  async createTicketType(eventId: string, payload: TicketTypeCreateData): Promise<TicketTypeDB> {
+    const dataToInsert = {
+      event_id: eventId,
+      name: payload.name,
+      description: payload.description ?? null,
+      price: Number(payload.price) || 0,
+      quantity_available: Number(payload.quantity_available) || 0,
+      sale_start_date: payload.sale_start_date ?? null,
+      sale_end_date: payload.sale_end_date ?? null,
+      is_active: payload.is_active ?? true,
+    };
+
+    const { data, error } = await supabase
+      .from('ticket_types')
+      .insert(dataToInsert)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  // Atualizar um tipo de ingresso (lote)
+  async updateTicketType(ticketTypeId: string, payload: TicketTypeUpdateData): Promise<TicketTypeDB> {
+    const { data: existing, error: existingError } = await supabase
+      .from('ticket_types')
+      .select('id, quantity_sold')
+      .eq('id', ticketTypeId)
+      .single();
+
+    if (existingError) throw existingError;
+
+    if (
+      typeof payload.quantity_available === 'number' &&
+      payload.quantity_available < Number(existing.quantity_sold || 0)
+    ) {
+      throw new Error('A quantidade do lote nao pode ser menor que o total vendido.');
+    }
+
+    const { data, error } = await supabase
+      .from('ticket_types')
+      .update(payload as any)
+      .eq('id', ticketTypeId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+
+  // Excluir um tipo de ingresso (lote)
+  async deleteTicketType(ticketTypeId: string): Promise<void> {
+    const { data: existing, error: existingError } = await supabase
+      .from('ticket_types')
+      .select('id, quantity_sold')
+      .eq('id', ticketTypeId)
+      .single();
+
+    if (existingError) throw existingError;
+
+    if (Number(existing.quantity_sold || 0) > 0) {
+      throw new Error('Nao e possivel excluir lote com ingressos vendidos.');
+    }
+
+    const { error } = await supabase
+      .from('ticket_types')
+      .delete()
+      .eq('id', ticketTypeId);
+
+    if (error) throw error;
   }
 
   // Listar todos os eventos
