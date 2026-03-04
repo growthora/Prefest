@@ -4,6 +4,30 @@ import { getCorsHeaders, handleCors } from "../_shared/cors.ts"
 import { requireAuth } from "../_shared/requireAuth.ts"
 import { requireRole } from "../_shared/requireRole.ts"
 
+function normalizeAsaasPaymentStatus(rawStatus: string): string {
+  const status = String(rawStatus || '').trim().toUpperCase();
+  switch (status) {
+    case 'RECEIVED':
+      return 'received';
+    case 'CONFIRMED':
+      return 'confirmed';
+    case 'PENDING':
+      return 'pending';
+    case 'OVERDUE':
+      return 'overdue';
+    case 'REFUNDED':
+      return 'refunded';
+    case 'RECEIVED_IN_CASH':
+      return 'received';
+    case 'CANCELED':
+    case 'CANCELLED':
+    case 'DELETED':
+      return 'canceled';
+    default:
+      return String(rawStatus || '').toLowerCase();
+  }
+}
+
 Deno.serve(async (req) => {
   // FASE 1: PROVA DEFINITIVA - DIAGNÃ“STICO (Logo na entrada)
   const authProbe = req.headers.get("Authorization") ?? ""
@@ -148,19 +172,20 @@ Deno.serve(async (req) => {
         const asaasData = await asaasRes.json();
         
         // 4. Update local payment status if different
-        if (asaasData.status && asaasData.status !== payment.status) {
+        const normalizedStatus = normalizeAsaasPaymentStatus(asaasData.status);
+        if (normalizedStatus && normalizedStatus !== payment.status) {
             const { error: updateError } = await serviceClient
                 .from('payments')
                 .update({ 
-                    status: asaasData.status,
+                    status: normalizedStatus,
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', paymentId);
             
             if (updateError) throw updateError;
-            result = { reconciled: true, oldStatus: payment.status, newStatus: asaasData.status };
+            result = { reconciled: true, oldStatus: payment.status, newStatus: normalizedStatus, asaasStatus: asaasData.status };
         } else {
-            result = { reconciled: true, status: payment.status, message: 'Status already up to date' };
+            result = { reconciled: true, status: payment.status, asaasStatus: asaasData.status, message: 'Status already up to date' };
         }
     } else {
       throw new Error('Invalid type parameter')

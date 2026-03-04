@@ -31,7 +31,7 @@ type DashboardEvent = Event & {
 };
 
 type ModalMode = 'view' | 'edit';
-type UiStatus = 'ativo' | 'esgotado' | 'realizado';
+type UiStatus = 'ativo' | 'esgotado' | 'realizado' | 'inativo';
 type SaveState = 'idle' | 'loading' | 'success' | 'error';
 
 const formSchema = z
@@ -46,7 +46,7 @@ const formSchema = z
     image_url: z.string().optional(),
     price: z.coerce.number().min(0, 'O preço não pode ser negativo.'),
     max_participants: z.union([z.coerce.number().min(0), z.literal('')]).optional(),
-    ui_status: z.enum(['ativo', 'esgotado', 'realizado']),
+    ui_status: z.enum(['ativo', 'esgotado', 'realizado', 'inativo']),
     sales_enabled: z.boolean(),
   })
   .superRefine((value, ctx) => {
@@ -83,6 +83,7 @@ function toInputDate(value?: string | null) {
 }
 
 function fromEventToUiStatus(event: DashboardEvent): UiStatus {
+  if (event.is_active === false || event.status === 'draft') return 'inativo';
   if (event.status === 'realizado') return 'realizado';
   if (event.is_paid_event && !event.sales_enabled) return 'esgotado';
   return 'ativo';
@@ -453,7 +454,12 @@ export function EventDetailsEditorModal({
       }
 
       const isPaid = Number(form.price) > 0;
-      const mappedStatus: Event['status'] = form.ui_status === 'realizado' ? 'realizado' : 'published';
+      const mappedStatus: Event['status'] =
+        form.ui_status === 'realizado'
+          ? 'realizado'
+          : form.ui_status === 'inativo'
+          ? 'draft'
+          : 'published';
       const mappedSalesEnabled = form.ui_status === 'ativo' && isPaid && form.sales_enabled;
 
       const payload: Partial<Event> = {
@@ -468,6 +474,7 @@ export function EventDetailsEditorModal({
         price: Number(form.price),
         max_participants: form.max_participants === '' ? null : Number(form.max_participants),
         status: mappedStatus,
+        is_active: form.ui_status !== 'inativo',
         is_paid_event: isPaid,
         sales_enabled: isPaid ? mappedSalesEnabled : false,
       };
@@ -1028,6 +1035,7 @@ export function EventDetailsEditorModal({
                     <SelectContent>
                       <SelectItem value="ativo">Ativo</SelectItem>
                       <SelectItem value="esgotado">Esgotado</SelectItem>
+                      <SelectItem value="inativo">Inativo (offline)</SelectItem>
                       <SelectItem value="realizado">Realizado</SelectItem>
                     </SelectContent>
                   </Select>

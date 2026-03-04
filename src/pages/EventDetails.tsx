@@ -385,6 +385,9 @@ export default function EventDetails() {
 
       if (isUUID) {
         supabaseEvent = await eventService.getEventById(slug);
+        if (supabaseEvent && (supabaseEvent as any).is_active === false) {
+          throw new Error('EVENT_OFFLINE');
+        }
         // If we found the event and it has a slug, redirect to the slug URL
         if (supabaseEvent && supabaseEvent.slug) {
            navigate(ROUTE_PATHS.EVENT_DETAILS.replace(':slug', supabaseEvent.slug), { replace: true });
@@ -463,8 +466,12 @@ export default function EventDetails() {
         toast.error('Evento não encontrado');
         navigate(ROUTE_PATHS.HOME);
       }
-    } catch (err) {
-      toast.error('Erro ao carregar evento');
+    } catch (err: any) {
+      if (err?.message === 'EVENT_OFFLINE') {
+        toast.error('Este evento está desativado e offline.');
+      } else {
+        toast.error('Erro ao carregar evento');
+      }
       navigate(ROUTE_PATHS.HOME);
     } finally {
       setLoading(false);

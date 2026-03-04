@@ -30,20 +30,24 @@ export function DeleteEventDialog({ event, isOpen, onClose, onSuccess }: DeleteE
     try {
       setIsLoading(true);
       await eventService.deleteEvent(event.id);
-      
+
       toast({
-        title: "Evento excluído",
+        title: 'Evento excluído',
         description: `O evento "${event.title}" foi excluído com sucesso.`,
       });
-      
+
       onSuccess();
       onClose();
     } catch (error) {
-      // console.error('Failed to delete event:', error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível excluir o evento. Tente novamente.';
+
       toast({
-        title: "Erro ao excluir",
-        description: "Não foi possível excluir o evento. Tente novamente.",
-        variant: "destructive",
+        title: 'Erro ao excluir',
+        description: message,
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);

@@ -36,6 +36,7 @@ export interface Event {
   creator_id: string;
   created_at: string;
   updated_at: string;
+  is_active?: boolean;
   tickets_sold?: number | null;
   views?: number | null;
   is_published?: boolean;
@@ -251,6 +252,7 @@ export class EventService {
       is_paid_event: eventData.is_paid_event ?? false,
       sales_enabled: eventData.sales_enabled ?? false,
       asaas_required: eventData.asaas_required ?? true,
+      is_active: true,
     };
 
     const { data, error } = await supabase
@@ -409,6 +411,7 @@ export class EventService {
 
         if (!includeDrafts) {
           query = query.eq('status', 'published');
+          query = query.eq('is_active', true);
         }
 
         const { data, error } = await query;
@@ -446,6 +449,7 @@ export class EventService {
       .from('events')
       .select('*, ticket_types(*)')
       .eq('status', 'published') // Apenas eventos publicados
+      .eq('is_active', true)
       .gte('event_date', now)
       .order('event_date', { ascending: true });
 
@@ -470,6 +474,8 @@ export class EventService {
       .from('events')
       .select('*, ticket_types(*)')
       .eq('slug', slug)
+      .eq('status', 'published')
+      .eq('is_active', true)
       .single();
 
     if (error) throw error;
@@ -655,7 +661,15 @@ export class EventService {
       .delete()
       .eq('id', eventId);
 
-    if (error) throw error;
+    if (error) {
+      if ((error as any).code === '23503' && String((error as any).message || '').includes('tickets_event_id_fkey')) {
+        throw new Error(
+          'Não é possível excluir este evento porque já existem ingressos vinculados. ' +
+          'Desative o evento para deixá-lo totalmente offline (sem visualização pública e sem compras).'
+        );
+      }
+      throw error;
+    }
     
     // Se o evento tinha uma imagem no storage, deletá-la
     if (event.image_url && event.image_url.includes('supabase')) {
@@ -665,6 +679,23 @@ export class EventService {
         // Não falha a operação se a imagem não puder ser deletada
       }
     }
+  }
+
+  async deactivateEvent(eventId: string): Promise<Event> {
+    const { data, error } = await supabase
+      .from('events')
+      .update({
+        is_active: false,
+        sales_enabled: false,
+        status: 'draft',
+        updated_at: new Date().toISOString(),
+      } as any)
+      .eq('id', eventId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
   // Inscrever usuário em evento
@@ -785,6 +816,7 @@ export class EventService {
       .from('events')
       .select('*, ticket_types(*)')
       .eq('status', 'published')
+      .eq('is_active', true)
       .gte('event_date', now);
 
     if (error) throw error;
@@ -819,6 +851,7 @@ export class EventService {
       .from('events')
       .select('*, ticket_types(*)')
       .eq('status', 'published')
+      .eq('is_active', true)
       .gte('event_date', now.toISOString())
       .gte('created_at', fourteenDaysAgo.toISOString())
       .order('created_at', { ascending: false });
