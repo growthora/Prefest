@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Bell, Heart, Calendar, X, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -46,13 +46,13 @@ export function Notifications() {
       if (typeof likeService.getUnreadLikes === 'function') {
         likes = await likeService.getUnreadLikes(user.id);
       } else {
-        // console.warn('⚠️ [Notifications] likeService.getUnreadLikes is not a function. Skipping likes fetch.');
+        // console.warn('âš ï¸ [Notifications] likeService.getUnreadLikes is not a function. Skipping likes fetch.');
       }
 
       const likeNotifications: UINotification[] = likes.map(like => ({
         id: `like-${like.id}`,
         type: 'like',
-        title: like.is_match ? '💕 É um Match!' : '❤️ Alguém curtiu você',
+        title: like.is_match ? 'ðŸ’• Ã‰ um Match!' : '❤️ Alguém curtiu você',
         description: like.is_match 
           ? `Você e ${like.from_user?.full_name || 'alguém'} curtiram um ao outro!`
           : `${like.from_user?.full_name || 'Alguém'} te curtiu em um evento!`,
@@ -265,3 +265,5 @@ export function Notifications() {
     </Popover>
   );
 }
+
+

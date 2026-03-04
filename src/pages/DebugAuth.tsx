@@ -1,4 +1,4 @@
-
+﻿
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,7 +47,7 @@ export const DebugAuth = () => {
         <CardContent className="space-y-4">
           <div className="p-4 bg-muted rounded-md">
             <h3 className="font-bold mb-2">Status Local:</h3>
-            <p>Sessão Ativa: {currentSession ? '✅ Sim' : '❌ Não'}</p>
+            <p>Sessão Ativa: {currentSession ? 'âœ… Sim' : 'âŒ Não'}</p>
             <p className="text-xs text-muted-foreground break-all mt-1">
               User ID: {currentSession?.user?.id || 'N/A'}
             </p>
@@ -86,3 +86,4 @@ export const DebugAuth = () => {
 };
 
 export default DebugAuth;
+

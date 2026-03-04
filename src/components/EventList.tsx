@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { eventService, type Event } from '@/services/event.service';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -142,7 +142,7 @@ export const EventList = () => {
                 
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold">📍</span>
+                    <span className="font-semibold">ðŸ“</span>
                     <span>
                       {event.city && event.state 
                         ? `${event.city} - ${event.state}` 
@@ -158,19 +158,19 @@ export const EventList = () => {
                   
                   {event.display_price_label ? (
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold">💰</span>
+                      <span className="font-semibold">ðŸ’°</span>
                       <span>{event.display_price_label}</span>
                     </div>
                   ) : (
                     event.is_free_event ? (
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold">💰</span>
+                        <span className="font-semibold">ðŸ’°</span>
                         <span>Grátis</span>
                       </div>
                     ) : (
                       event.price > 0 && (
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold">💰</span>
+                          <span className="font-semibold">ðŸ’°</span>
                           <span>A partir de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(event.price)}</span>
                         </div>
                       )
@@ -180,7 +180,7 @@ export const EventList = () => {
                   {(typeof event.confirmed_users_count === 'number' ||
                     typeof event.current_participants === 'number') && (
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold">🔥</span>
+                      <span className="font-semibold">ðŸ”¥</span>
                       <span>
                         {event.confirmed_users_count ?? event.current_participants} pessoas confirmadas
                       </span>
@@ -189,7 +189,7 @@ export const EventList = () => {
 
                   {typeof event.available_for_match_count === 'number' && (
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold">💞</span>
+                      <span className="font-semibold">ðŸ’ž</span>
                       <span>
                         {event.available_for_match_count} disponíveis para match
                       </span>
@@ -198,7 +198,7 @@ export const EventList = () => {
 
                   {event.max_participants && (
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold">👥</span>
+                      <span className="font-semibold">ðŸ‘¥</span>
                       <span>
                         {event.current_participants} / {event.max_participants} inscritos
                       </span>
@@ -223,3 +223,4 @@ export const EventList = () => {
     </div>
   );
 };
+

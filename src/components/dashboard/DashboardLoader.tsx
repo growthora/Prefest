@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Loader2 } from 'lucide-react';
 
 export function DashboardLoader() {
@@ -13,3 +13,4 @@ export function DashboardLoader() {
     </div>
   );
 }
+

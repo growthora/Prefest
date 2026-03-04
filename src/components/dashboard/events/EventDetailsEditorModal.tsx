@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import * as z from 'zod';
 import {
   Dialog,
@@ -535,7 +535,7 @@ export function EventDetailsEditorModal({
             <div className="min-w-0">
               <DialogTitle className="truncate">{event.title}</DialogTitle>
               <DialogDescription id="event-editor-description">
-                {currentMode === 'view' ? 'Visualização do evento' : 'Edição do evento'} • ID: {event.id}
+                {currentMode === 'view' ? 'Visualização do evento' : 'Edição do evento'} â€¢ ID: {event.id}
               </DialogDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -1115,3 +1115,4 @@ export function EventDetailsEditorModal({
     </Dialog>
   );
 }
+

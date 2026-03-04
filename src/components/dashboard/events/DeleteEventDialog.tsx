@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -83,3 +83,4 @@ export function DeleteEventDialog({ event, isOpen, onClose, onSuccess }: DeleteE
     </AlertDialog>
   );
 }
+

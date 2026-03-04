@@ -68,8 +68,5 @@ verify_jwt = false
 [functions.asaas-refresh-organizer-kyc-status]
 verify_jwt = false
 
-[functions.asaas-get-organizer-balance]
-verify_jwt = false
-
 [functions.delete-user-account]
 verify_jwt = false

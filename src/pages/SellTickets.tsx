@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { motion } from 'framer-motion';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -66,7 +66,7 @@ const SellTickets = () => {
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">
                     <h3 className="font-bold text-lg">Dashboard de Vendas</h3>
-                    <div className="text-sm text-muted-foreground">Últimos 7 dias</div>
+                    <div className="text-sm text-muted-foreground">Ãšltimos 7 dias</div>
                   </div>
                   
                   <div className="grid grid-cols-3 gap-4">
@@ -185,3 +185,4 @@ const SellTickets = () => {
 };
 
 export default SellTickets;
+

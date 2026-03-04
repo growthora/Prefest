@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Link } from 'react-router-dom';
 import { Event, ROUTE_PATHS } from '@/lib/index';
 import { cn } from '@/lib/utils';
@@ -52,10 +52,11 @@ export function EventListItem({ event, className }: EventListItemProps) {
           
           {/* Data e Hora */}
           <span className="text-gray-500 font-medium capitalize flex items-center gap-1">
-             {event.date} • {event.time}
+             {event.date} â€¢ {event.time}
           </span>
         </div>
       </div>
     </Link>
   );
 }
+

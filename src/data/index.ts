@@ -1,4 +1,4 @@
-import { Event, User, VibeType } from '@/lib/index';
+﻿import { Event, User, VibeType } from '@/lib/index';
 import { IMAGES } from '@/assets/images';
 
 export const vibeTypes: VibeType[] = [
@@ -15,3 +15,4 @@ export const vibeTypes: VibeType[] = [
 export const mockEvents: Event[] = [];
 
 export const mockUsers: User[] = [];
+

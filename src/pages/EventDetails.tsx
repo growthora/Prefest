@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+﻿import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Calendar,
@@ -151,7 +151,7 @@ export default function EventDetails() {
       setReceivedLikes(prev => prev.filter(l => l.like_id !== likeId));
       
       if (result.status === 'match') {
-        toast.success("It's a Match! 🎉");
+        toast.success("It's a Match! ðŸŽ‰");
         
         // Play sound
         const audio = new Audio('/sounds/match.mp3');
@@ -296,7 +296,7 @@ export default function EventDetails() {
     
     try {
       await navigator.clipboard.writeText(shareUrl);
-      toast.success("Link copiado! 📎");
+      toast.success("Link copiado! ðŸ“Ž");
     } catch (err) {
       toast.error("Erro ao copiar link");
     }
@@ -360,7 +360,7 @@ export default function EventDetails() {
       };
 
       await updateProfile(updates);
-      toast.success(enable ? 'Você entrou no Match! 🔥' : 'Você ficou invisível. 👻');
+      toast.success(enable ? 'Você entrou no Match! ðŸ”¥' : 'Você ficou invisível. ðŸ‘»');
       
       // Se ativou, recarrega candidatos
       if (enable) {
@@ -497,7 +497,7 @@ export default function EventDetails() {
       }
 
       if (likeResult.status === 'match' || likeResult.is_match) {
-        // É um match!
+        // Ã‰ um match!
         
         // Disparar confetes
         const duration = 3000;
@@ -532,7 +532,7 @@ export default function EventDetails() {
         setLastMatchChatId(likeResult.match_id || null);
 
         setShowMatchOverlay(true);
-        toast.success('É um Match! 💕');
+        toast.success('Ã‰ um Match! ðŸ’•');
         
         // Tocar som de match se existir
         const audio = new Audio('/sounds/match.mp3');
@@ -822,7 +822,7 @@ export default function EventDetails() {
                   </div>
                   <div>
                     <p className="text-[10px] lg:text-xs text-muted-foreground uppercase tracking-wide">Horário</p>
-                    <p className="text-sm font-medium">Portões abrem às {event.time}</p>
+                    <p className="text-sm font-medium">Portões abrem Ã s {event.time}</p>
                   </div>
                 </div>
 
@@ -1215,7 +1215,7 @@ export default function EventDetails() {
                 transition={{ delay: 0.7 }}
                 className="text-muted-foreground mb-8 text-lg relative z-10"
               >
-                Você e <span className="text-foreground font-bold">{lastMatchedUserName}</span> curtiram um ao outro! 💕
+                Você e <span className="text-foreground font-bold">{lastMatchedUserName}</span> curtiram um ao outro! ðŸ’•
               </motion.p>
 
               <motion.div 
@@ -1352,4 +1352,6 @@ export default function EventDetails() {
     </Layout>
   );
 }
+
+
 

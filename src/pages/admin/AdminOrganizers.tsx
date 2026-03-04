@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { userService } from '@/services/user.service';
 import { type Profile } from '@/services/auth.service';
 import { Button } from '@/components/ui/button';
@@ -169,3 +169,4 @@ export default function AdminOrganizers() {
     </motion.div>
   );
 }
+

@@ -1,4 +1,4 @@
-import { 
+﻿import { 
   LayoutDashboard, 
   Calendar, 
   TrendingUp, 
@@ -46,3 +46,4 @@ export const dashboardNavItems = [
     icon: Settings,
   },
 ];
+

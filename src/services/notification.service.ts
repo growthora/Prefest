@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+﻿import { supabase } from '@/lib/supabase';
 
 export interface Notification {
   id: string;
@@ -15,7 +15,7 @@ export const notificationService = {
     const { data, error } = await supabase.rpc('list_notifications');
 
     if (error) {
-      // console.error('❌ [NotificationService] Erro ao buscar notificações:', error);
+      // console.error('âŒ [NotificationService] Erro ao buscar notificações:', error);
       throw error;
     }
     
@@ -56,3 +56,4 @@ export const notificationService = {
       .subscribe();
   }
 };
+

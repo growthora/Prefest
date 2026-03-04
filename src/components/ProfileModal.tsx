@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Button } from '@/components/ui/button';
@@ -189,3 +189,4 @@ export function ProfileModal({ isOpen, onClose, user, onLike, onSkip }: ProfileM
     </Sheet>
   );
 }
+

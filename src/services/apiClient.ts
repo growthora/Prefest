@@ -1,4 +1,4 @@
-
+﻿
 import { supabase } from '@/lib/supabase';
 import { AUTH_EMAIL_PROVIDER, EMAIL_CONTEXT } from '@/lib';
 
@@ -51,7 +51,7 @@ export async function invokeEdgeFunction<T = any>(
       token = session?.access_token;
 
       if (sessionError || !token) {
-        // console.warn(`[apiClient] Tentativa de chamada à função '${functionName}' sem sessão ativa.`);
+        // console.warn(`[apiClient] Tentativa de chamada Ã  função '${functionName}' sem sessão ativa.`);
         throw new Error('Usuário não autenticado');
       }
     }
@@ -160,4 +160,5 @@ export async function apiFetch(url: string, options: RequestInit = {}) {
     },
   });
 }
+
 

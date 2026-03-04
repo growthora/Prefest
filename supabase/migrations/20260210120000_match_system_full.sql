@@ -1,4 +1,4 @@
--- Enable UUID extension
+﻿-- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 0. Add Columns to Profiles (if not exist)
@@ -337,3 +337,4 @@ BEGIN
     RETURN v_chat_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+

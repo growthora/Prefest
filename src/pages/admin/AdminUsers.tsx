@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { userService, type UserWithStats, type CreateUserData, type UpdateUserData } from '@/services/user.service';
 import { type Profile } from '@/services/auth.service';
 import { useAuth } from '@/hooks/useAuth';
@@ -601,3 +601,4 @@ export default function AdminUsers() {
     </motion.div>
   );
 }
+

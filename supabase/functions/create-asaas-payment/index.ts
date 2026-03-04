@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           error: 'SALES_DISABLED',
-          message: 'As vendas para este evento ainda nÃ£o foram abertas.'
+          message: 'As vendas para este evento ainda não foram abertas.'
         }),
         {
           status: 403,
@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
     }
 
     if (!organizerAccount.is_active || organizerAccount.kyc_status !== 'approved') {
-        throw new Error('ORGANIZER_NOT_READY_FOR_PAYMENTS: Conta Asaas do organizador pendente de aprovaÃ§Ã£o');
+        throw new Error('ORGANIZER_NOT_READY_FOR_PAYMENTS: Conta Asaas do organizador pendente de aprovação');
     }
     const destinationWalletId =
         organizerAccount.payment_method_type === 'EXTERNAL_WALLET'
@@ -331,3 +331,4 @@ Deno.serve(async (req) => {
     });
   }
 });
+

@@ -1,4 +1,4 @@
--- Support organizer payment method:
+﻿-- Support organizer payment method:
 -- SUBACCOUNT (managed by platform) or EXTERNAL_WALLET (organizer-owned wallet).
 
 ALTER TABLE public.organizer_asaas_accounts
@@ -247,3 +247,4 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+

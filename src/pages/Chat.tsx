@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -53,9 +53,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
 const ICEBREAKERS = [
-  "Qual música você está mais ansioso para ouvir hoje? 🎶",
+  "Qual música você está mais ansioso para ouvir hoje? ðŸŽ¶",
   "Primeira vez nesse evento ou já é veterano?",
-  "O que você achou do line-up deste ano? 🔥",
+  "O que você achou do line-up deste ano? ðŸ”¥",
   "Qual sua 'vibe' preferida para eventos assim?"
 ];
 
@@ -703,3 +703,4 @@ export default function Chat() {
     </Layout>
   );
 }
+

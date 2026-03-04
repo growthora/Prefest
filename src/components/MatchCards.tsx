@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { Heart, X, Info, Sparkles, MapPin, Zap, Ruler, Users, Clock } from 'lucide-react';
 import { User, VibeType } from '@/lib/index';
@@ -54,8 +54,8 @@ export function MatchCard({ user, onLike, onSkip, onDetails, isTop = false }: Ma
 
   // Mapear intenção para emoji
   const intentionEmoji: Record<string, string> = {
-    'paquera': '💕',
-    'amizade': '🤝'
+    'paquera': 'ðŸ’•',
+    'amizade': 'ðŸ¤'
   };
 
   const intentionText: Record<string, string> = {
@@ -303,3 +303,4 @@ export function MatchInterface({ queue, onLike, onSkip }: MatchInterfaceProps) {
     </div>
   );
 }
+

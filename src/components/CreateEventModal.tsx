@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -202,3 +202,4 @@ export function CreateEventModal({ trigger }: CreateEventModalProps) {
     </Dialog>
   );
 }
+

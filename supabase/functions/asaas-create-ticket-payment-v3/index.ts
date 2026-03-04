@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           error: 'SALES_DISABLED',
-          message: 'As vendas para este evento ainda nÃ£o foram abertas.'
+          message: 'As vendas para este evento ainda não foram abertas.'
         }),
         {
           status: 403,
@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
     }
     let serviceFee = 0;
     
-    // Calculate Service Fee (Taxa de ServiÃ§o) - FIXED: 10% Hardcoded as requested
+    // Calculate Service Fee (Taxa de Serviço) - FIXED: 10% Hardcoded as requested
     // This overrides database configuration to ensure consistency with frontend
     serviceFee = (basePrice * 10) / 100;
     /*
@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
                 .single();
 
             if (couponFindError || !coupon) {
-                throw new Error('Cupom invÃ¡lido ou expirado');
+                throw new Error('Cupom inválido ou expirado');
             }
 
             // 2. Check usage limit
@@ -319,13 +319,13 @@ Deno.serve(async (req) => {
 
     // STRICT VALIDATION
     if (!buyerEmail) {
-        throw new Error('Email do comprador Ã© obrigatÃ³rio.');
+        throw new Error('Email do comprador é obrigatório.');
     }
     if (!buyerName) {
-        throw new Error('Nome completo do comprador Ã© obrigatÃ³rio.');
+        throw new Error('Nome completo do comprador é obrigatório.');
     }
     if (!buyerCpf || (buyerCpf.length !== 11 && buyerCpf.length !== 14)) {
-        throw new Error('CPF/CNPJ do comprador invÃ¡lido ou nÃ£o informado. Atualize seu perfil.');
+        throw new Error('CPF/CNPJ do comprador inválido ou não informado. Atualize seu perfil.');
     }
 
     // Check strict separation: Customer Email != Organizer Email
@@ -388,7 +388,7 @@ Deno.serve(async (req) => {
     // Format description to include fee breakdown
     let description = `Ingresso: ${ticket.events.title} (R$ ${basePrice.toFixed(2)})`;
     if (serviceFee > 0) {
-        description += ` + Taxa de serviÃ§o (R$ ${serviceFee.toFixed(2)})`;
+        description += ` + Taxa de serviço (R$ ${serviceFee.toFixed(2)})`;
     }
     if (discountAmount > 0) {
         description += ` - Desconto (R$ ${discountAmount.toFixed(2)})`;
@@ -503,7 +503,7 @@ Deno.serve(async (req) => {
             
         if (splitError) {
              // console.error('CRITICAL V3 ERROR: Failed to insert payment_splits', splitError);
-             throw new Error('Falha crÃ­tica ao registrar divisÃ£o de pagamento. Contacte o suporte.');
+             throw new Error('Falha crítica ao registrar divisão de pagamento. Contacte o suporte.');
         }
     }
 
@@ -565,3 +565,4 @@ Deno.serve(async (req) => {
     });
   }
 })
+

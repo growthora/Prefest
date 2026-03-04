@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, ChevronDown, Filter, ChevronRight } from 'lucide-react';
 import { Layout } from '@/components/Layout';
@@ -78,7 +78,7 @@ const ExploreEvents = () => {
       
       setEvents(convertedEvents);
     } catch (err) {
-      // console.error('❌ Erro ao carregar eventos:', err);
+      // console.error('âŒ Erro ao carregar eventos:', err);
       setEvents([]);
     } finally {
       setIsLoading(false);
@@ -395,3 +395,4 @@ const ExploreEvents = () => {
 };
 
 export default ExploreEvents;
+

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { eventService, type Event } from '@/services/event.service';
@@ -441,8 +441,8 @@ export default function AdminEvents() {
                     <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="festive">🎉 Festivo</SelectItem>
-                    <SelectItem value="formal">💼 Formal</SelectItem>
+                    <SelectItem value="festive">ðŸŽ‰ Festivo</SelectItem>
+                    <SelectItem value="formal">ðŸ’¼ Formal</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -743,3 +743,4 @@ export default function AdminEvents() {
     </motion.div>
   );
 }
+

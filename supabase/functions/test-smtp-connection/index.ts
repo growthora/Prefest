@@ -46,12 +46,12 @@ Deno.serve(async (req) => {
     await transporter.sendMail({
       from: from_email,
       to: test_email || from_email, // Send to self if no test email provided
-      subject: 'Teste de ConfiguraÃ§Ã£o SMTP - Prefest',
-      text: 'Se vocÃª recebeu este e-mail, as configuraÃ§Ãµes SMTP estÃ£o corretas!',
-      html: '<b>Se vocÃª recebeu este e-mail, as configuraÃ§Ãµes SMTP estÃ£o corretas!</b>',
+      subject: 'Teste de Configuração SMTP - Prefest',
+      text: 'Se você recebeu este e-mail, as configurações SMTP estão corretas!',
+      html: '<b>Se você recebeu este e-mail, as configurações SMTP estão corretas!</b>',
     });
 
-    return new Response(JSON.stringify({ success: true, message: 'ConexÃ£o SMTP verificada e e-mail de teste enviado!' }), {
+    return new Response(JSON.stringify({ success: true, message: 'Conexão SMTP verificada e e-mail de teste enviado!' }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
     });
 
@@ -63,3 +63,4 @@ Deno.serve(async (req) => {
     });
   }
 });
+

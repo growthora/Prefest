@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           error: 'SALES_DISABLED',
-          message: 'As vendas para este evento ainda nÃ£o foram abertas.'
+          message: 'As vendas para este evento ainda não foram abertas.'
         }),
         {
           status: 403,
@@ -141,3 +141,4 @@ Deno.serve(async (req) => {
     });
   }
 });
+

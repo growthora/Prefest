@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -86,3 +86,4 @@ export function AuthModal({ trigger, open, onOpenChange }: AuthModalProps) {
     </Dialog>
   );
 }
+

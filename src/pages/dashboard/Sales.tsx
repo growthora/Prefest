@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, Ticket, CreditCard } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -132,4 +132,5 @@ export function Sales() {
 }
 
 export default Sales;
+
 

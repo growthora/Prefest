@@ -1,4 +1,4 @@
-
+﻿
 export const translateAuthError = (message: string): string => {
   if (!message) return 'Ocorreu um erro desconhecido.';
 
@@ -34,3 +34,4 @@ export const translateAuthError = (message: string): string => {
   // Generic
   return message;
 };
+

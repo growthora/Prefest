@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { motion } from 'framer-motion';
 import { Layout } from '@/components/Layout';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -77,7 +77,7 @@ export const LegalLayout = ({ title, lastUpdated, sections }: LegalLayoutProps) 
             transition={{ delay: 0.2 }}
             className="text-muted-foreground"
           >
-            Última atualização: {lastUpdated}
+            Ãšltima atualização: {lastUpdated}
           </motion.p>
         </div>
       </div>
@@ -138,3 +138,4 @@ export const LegalLayout = ({ title, lastUpdated, sections }: LegalLayoutProps) 
     </Layout>
   );
 };
+

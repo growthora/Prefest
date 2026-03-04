@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
       .rpc('check_event_purchase_availability', { p_event_id: event_id });
 
     if (validationError || !isAvailable) {
-      throw new Error(validationError?.message || 'Este evento jÃ¡ foi realizado ou as vendas estÃ£o encerradas.');
+      throw new Error(validationError?.message || 'Este evento já foi realizado ou as vendas estão encerradas.');
     }
 
     const { data: event, error: eventError } = await adminClient
@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           error: 'SALES_DISABLED',
-          message: 'As vendas para este evento ainda nÃ£o foram abertas.'
+          message: 'As vendas para este evento ainda não foram abertas.'
         }),
         {
           status: 403,
@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
             .single();
 
         if (couponFindError || !coupon) {
-            throw new Error('Cupom invÃ¡lido ou expirado');
+            throw new Error('Cupom inválido ou expirado');
         }
 
         if (coupon.max_uses && coupon.current_uses >= coupon.max_uses) {
@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
         // Check if it covers the full price
         // We accept if final price is 0 or less
         if (finalPrice - calculatedDiscount > 0) {
-             throw new Error('Cupom nÃ£o cobre o valor total do ingresso. Use o fluxo de pagamento.');
+             throw new Error('Cupom não cobre o valor total do ingresso. Use o fluxo de pagamento.');
         }
 
         discountAmount = calculatedDiscount;
@@ -225,3 +225,4 @@ Deno.serve(async (req) => {
     });
   }
 });
+

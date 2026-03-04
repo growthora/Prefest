@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { eventService, type Event as SupabaseEvent } from '@/services/event.service';
 import { type Event as FrontendEvent, ROUTE_PATHS } from '@/lib/index';
@@ -158,7 +158,7 @@ const Novidades = () => {
               </span>
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                  <span>🆕 Novidades</span>
+                  <span>ðŸ†• Novidades</span>
                 </div>
                 <h1 className="mt-2 text-2xl md:text-3xl font-bold text-gray-900">Eventos recém-publicados</h1>
                 <p className="text-gray-500 text-sm md:text-base mt-1">
@@ -194,7 +194,7 @@ const Novidades = () => {
                   </div>
                   <div className="flex-1">
                     <div className="inline-flex items-center gap-2 mb-2 text-xs text-primary font-semibold bg-primary/5 px-2 py-1 rounded-full">
-                      <span>🆕 Novo</span>
+                      <span>ðŸ†• Novo</span>
                       <span>Publicado recentemente</span>
                     </div>
                     <EventCard event={event} />
@@ -210,4 +210,5 @@ const Novidades = () => {
 };
 
 export default Novidades;
+
 

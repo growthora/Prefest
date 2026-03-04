@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Check, Ticket, ShoppingCart } from 'lucide-react';
 import { eventService, type TicketTypeDB } from '@/services/event.service';
@@ -59,7 +59,7 @@ export function TicketSelector({
     const percentage = (available / ticket.quantity_available) * 100;
     
     if (percentage <= 10) {
-      return { text: `Últimas ${available} unidades!`, color: 'text-red-500', urgent: true };
+      return { text: `Ãšltimas ${available} unidades!`, color: 'text-red-500', urgent: true };
     } else if (percentage <= 30) {
       return { text: `${available} disponíveis`, color: 'text-orange-500', urgent: false };
     }
@@ -196,13 +196,13 @@ export function TicketSelector({
 
                     <div className="flex items-center justify-between text-sm">
                       <span className={cn("font-medium", availability.color)}>
-                        {availability.urgent && "🔥 "}
+                        {availability.urgent && "ðŸ”¥ "}
                         {availability.text}
                       </span>
                       
                       {availability.urgent && (
                         <Badge variant="destructive" className="animate-pulse">
-                          Últimas unidades
+                          Ãšltimas unidades
                         </Badge>
                       )}
                     </div>
@@ -216,3 +216,4 @@ export function TicketSelector({
     </Card>
   );
 }
+

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { EventService, Event } from '@/services/event.service';
 import { Button } from '@/components/ui/button';
@@ -329,7 +329,7 @@ export function Scanner() {
                            <p className="text-sm text-muted-foreground">{scanResult.message}</p>
                            {scanResult.used_at && (
                              <p className="text-xs text-yellow-600">
-                               Validado em: {format(new Date(scanResult.used_at), "dd/MM 'às' HH:mm", { locale: ptBR })}
+                               Validado em: {format(new Date(scanResult.used_at), "dd/MM 'Ã s' HH:mm", { locale: ptBR })}
                              </p>
                            )}
                          </div>
@@ -417,3 +417,4 @@ export function Scanner() {
 }
 
 export default Scanner;
+

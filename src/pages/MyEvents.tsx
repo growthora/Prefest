@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { eventService, EventParticipant, Event } from '@/services/event.service';
@@ -191,3 +191,4 @@ export default function MyEvents() {
     </div>
   );
 }
+

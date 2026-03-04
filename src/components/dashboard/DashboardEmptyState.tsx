@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Calendar, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CreateEventModal } from '@/components/CreateEventModal';
@@ -40,3 +40,4 @@ export function DashboardEmptyState({
     </div>
   );
 }
+

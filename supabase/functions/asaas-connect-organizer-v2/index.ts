@@ -14,7 +14,7 @@ serve(async (req) => {
   try {
     const { user } = await requireAuth(req);
 
-    // ðŸš¨ A PARTIR DAQUI O ORGANIZADOR ESTÃ AUTENTICADO
+    // ðŸš¨ A PARTIR DAQUI O ORGANIZADOR ESTÁ AUTENTICADO
     // console.log(`[asaas-connect-organizer-v2] User Authenticated: ${user.id}`);
 
     const adminClient = createClient(
@@ -25,7 +25,7 @@ serve(async (req) => {
     const body = await req.json();
     const { name, email, cpfCnpj, mobilePhone, address, addressNumber, complement, province, postalCode } = body;
 
-    // Validar payload mÃ­nimo
+    // Validar payload mínimo
     if (!name || !email || !cpfCnpj || !mobilePhone || !address || !postalCode) {
       return new Response(
         JSON.stringify({ error: "Missing required organizer data" }),
@@ -33,7 +33,7 @@ serve(async (req) => {
       );
     }
 
-    // 1) Buscar integraÃ§Ã£o ASAAS ativa (via Admin Client para seguranÃ§a)
+    // 1) Buscar integração ASAAS ativa (via Admin Client para segurança)
     const { data: config, error: configError } = await adminClient.rpc('get_decrypted_asaas_config');
 
     if (configError || !config || !config.api_key) {
@@ -48,7 +48,7 @@ serve(async (req) => {
         ? 'https://api.asaas.com/v3' 
         : 'https://sandbox.asaas.com/api/v3';
 
-    // 2) Verificar se conta jÃ¡ existe no BD
+    // 2) Verificar se conta já existe no BD
     const { data: existingAccount } = await adminClient
         .from('organizer_asaas_accounts')
         .select('*')
@@ -63,7 +63,7 @@ serve(async (req) => {
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' } });
     }
 
-    // 3) Verificar se conta jÃ¡ existe no ASAAS (CPF/CNPJ)
+    // 3) Verificar se conta já existe no ASAAS (CPF/CNPJ)
     let asaasAccountId = null;
     let asaasWalletId = null;
     let isNewAccount = false;
@@ -89,7 +89,7 @@ serve(async (req) => {
         // console.warn('[asaas-connect-organizer-v2] Error searching for existing account, proceeding to create.');
     }
 
-    // 4) Criar subconta ASAAS (se nÃ£o encontrada)
+    // 4) Criar subconta ASAAS (se não encontrada)
     if (!asaasAccountId) {
         // console.log(`[asaas-connect-organizer-v2] Creating new Asaas account...`);
         const accountPayload = {
@@ -171,3 +171,4 @@ serve(async (req) => {
     );
   }
 });
+

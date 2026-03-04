@@ -160,7 +160,7 @@ export function AsaasConnect() {
     const errorMessage = error.message || 'Erro desconhecido';
       
       if (errorMessage.toLowerCase().includes('email') && errorMessage.toLowerCase().includes('uso')) {
-          toast.error('Este e-mail jÃ¡ estÃ¡ cadastrado no Asaas. Por favor, use outro e-mail ou entre em contato com o suporte.');
+          toast.error('Este e-mail já está cadastrado no Asaas. Por favor, use outro e-mail ou entre em contato com o suporte.');
       } else {
           toast.error(errorMessage);
       }
@@ -204,7 +204,7 @@ export function AsaasConnect() {
       case 'PENDING':
       case 'awaiting_approval':
       case 'AWAITING_APPROVAL':
-        return <Badge variant="outline" className="text-yellow-600 border-yellow-600"><Loader2 className="w-3 h-3 mr-1 animate-spin"/> Em AnÃ¡lise</Badge>;
+        return <Badge variant="outline" className="text-yellow-600 border-yellow-600"><Loader2 className="w-3 h-3 mr-1 animate-spin"/> Em Análise</Badge>;
       case 'rejected':
       case 'REJECTED':
         return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1"/> Rejeitado</Badge>;
@@ -236,9 +236,9 @@ export function AsaasConnect() {
           {account.kyc_status !== 'approved' && (
             <Alert className="mb-4 bg-yellow-50 text-yellow-800 border-yellow-200">
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>VerificaÃ§Ã£o Pendente</AlertTitle>
+              <AlertTitle>Verificação Pendente</AlertTitle>
               <AlertDescription>
-                Sua conta estÃ¡ em anÃ¡lise pelo Asaas. VocÃª poderÃ¡ receber pagamentos assim que for aprovada.
+                Sua conta está em análise pelo Asaas. Você poderá receber pagamentos assim que for aprovada.
               </AlertDescription>
             </Alert>
           )}
@@ -275,7 +275,7 @@ export function AsaasConnect() {
                     size="sm"
                     onClick={() => setActiveTab('link')}
                 >
-                    JÃ¡ Tenho Conta
+                    Já Tenho Conta
                 </Button>
             </div>
         </div>
@@ -290,13 +290,13 @@ export function AsaasConnect() {
         <form onSubmit={handleConnect} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Nome Completo / RazÃ£o Social</Label>
+              <Label htmlFor="name">Nome Completo / Razão Social</Label>
               <Input 
                 id="name" 
                 required 
                 value={formData.name}
                 onChange={e => setFormData({...formData, name: e.target.value})}
-                placeholder="Ex: JoÃ£o Silva"
+                placeholder="Ex: João Silva"
               />
             </div>
             <div className="space-y-2">
@@ -317,7 +317,7 @@ export function AsaasConnect() {
                 required 
                 value={formData.cpfCnpj}
                 onChange={e => setFormData({...formData, cpfCnpj: e.target.value})}
-                placeholder="Apenas nÃºmeros"
+                placeholder="Apenas números"
               />
             </div>
             <div className="space-y-2">
@@ -354,7 +354,7 @@ export function AsaasConnect() {
               />
             </div>
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="address">EndereÃ§o Completo</Label>
+              <Label htmlFor="address">Endereço Completo</Label>
               <Input 
                 id="address" 
                 required 
@@ -364,7 +364,7 @@ export function AsaasConnect() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="addressNumber">NÃºmero</Label>
+              <Label htmlFor="addressNumber">Número</Label>
               <Input 
                 id="addressNumber" 
                 required 
@@ -454,4 +454,5 @@ export function AsaasConnect() {
     </Card>
   );
 }
+
 

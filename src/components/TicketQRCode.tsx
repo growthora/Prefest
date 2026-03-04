@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { Download, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -173,7 +173,7 @@ export default function TicketQRCode({
         
         <div className="text-center w-full space-y-4">
            <div className="text-xs text-muted-foreground font-mono">
-             <p>{ticketCode ? `CÓD: ${ticketCode}` : `ID: ${ticketId.slice(0, 8)}...`}</p>
+             <p>{ticketCode ? `CÃ“D: ${ticketCode}` : `ID: ${ticketId.slice(0, 8)}...`}</p>
            </div>
            
            {isEventRealized ? (
@@ -202,3 +202,4 @@ export default function TicketQRCode({
     </Card>
   );
 }
+

@@ -46,7 +46,7 @@ serve(async (req) => {
         // But for initial setup, maybe allow? No, strict is better.
         // Unless it's sandbox and user hasn't set it up yet.
         // Let's assume if it's missing in DB, we can't validate, so we proceed with caution or block.
-        // Given "Webhook como fonte Ãºnica de verdade", security is key.
+        // Given "Webhook como fonte única de verdade", security is key.
         if (config?.env === 'production') {
              // console.error('Webhook token not configured in production')
              return new Response(JSON.stringify({ error: 'Webhook configuration missing' }), { status: 500, headers: corsHeaders })
@@ -287,3 +287,4 @@ serve(async (req) => {
     );
   }
 })
+

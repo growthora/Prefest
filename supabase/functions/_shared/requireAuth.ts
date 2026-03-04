@@ -22,14 +22,14 @@ export async function requireAuth(req: Request): Promise<{ user: User; supabase:
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
 
-  // Criar client com o token no header global (Contexto do UsuÃ¡rio)
+  // Criar client com o token no header global (Contexto do Usuário)
   const userClient = createClient(
     supabaseUrl,
     supabaseAnonKey,
     { global: { headers: { Authorization: `Bearer ${jwt}` } } }
   )
 
-  // Validar usuÃ¡rio usando getUser() (sem passar token manualmente, usa o do client)
+  // Validar usuário usando getUser() (sem passar token manualmente, usa o do client)
   const { data: { user }, error } = await userClient.auth.getUser()
 
   if (error || !user) {
@@ -40,6 +40,7 @@ export async function requireAuth(req: Request): Promise<{ user: User; supabase:
     )
   }
 
-  // Retornar usuÃ¡rio validado e o client autenticado
+  // Retornar usuário validado e o client autenticado
   return { user, supabase: userClient }
 }
+

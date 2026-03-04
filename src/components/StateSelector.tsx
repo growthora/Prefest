@@ -1,4 +1,4 @@
-import * as React from "react"
+﻿import * as React from "react"
 import { Check, ChevronDown, MapPin } from "lucide-react"
 import { useSearchParams, useNavigate, useLocation } from "react-router-dom"
 import { ROUTE_PATHS } from "@/lib"
@@ -106,3 +106,4 @@ export function StateSelector() {
     </Popover>
   )
 }
+

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, MapPin, Ticket, Heart, Share2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -84,7 +84,7 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
     
     try {
       await navigator.clipboard.writeText(shareUrl);
-      toast.success("Link copiado! 📎");
+      toast.success("Link copiado! ðŸ“Ž");
     } catch (err) {
       // console.error("Failed to copy: ", err);
       toast.error("Erro ao copiar link");
@@ -135,7 +135,7 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
                   : "bg-pink-500/40 text-white"
               )}
             >
-              {event.event_type === 'formal' ? '💼 Networking' : '🎉 Match'}
+              {event.event_type === 'formal' ? 'ðŸ’¼ Networking' : 'ðŸŽ‰ Match'}
             </Badge>
           )}
           {event.tags.slice(0, 1).map((tag) => (
@@ -267,7 +267,7 @@ export function EventGrid({ events, className, onLikeToggle }: EventGridProps) {
 export function HorizontalEventCard({ event, className }: { event: Event; className?: string }) {
   const eventLink = ROUTE_PATHS.EVENT_DETAILS.replace(':slug', event.slug || event.id);
 
-  // Formatar data estilo Sympla: "Sábado, 28 de Mar às 17:00"
+  // Formatar data estilo Sympla: "Sábado, 28 de Mar Ã s 17:00"
   const dateObj = new Date(event.date || Date.now());
   // Se a data vier como string "DD/MM/YYYY", precisamos tratar, mas assumindo ISO ou Date object
   // O frontend mock converte para string "DD/MM/YYYY", então vamos tentar parsear ou usar o que tem
@@ -314,10 +314,12 @@ export function HorizontalEventCard({ event, className }: { event: Event; classN
           </span>
           <span className="text-gray-500 font-medium capitalize flex items-center gap-1">
              {/* Ícone opcional, Sympla usa texto puro ou ícones muito discretos */}
-             {event.date} • {event.time}
+             {event.date} â€¢ {event.time}
           </span>
         </div>
       </div>
     </Link>
   );
 }
+
+

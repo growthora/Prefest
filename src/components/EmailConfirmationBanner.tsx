@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Mail, RefreshCw, CheckCircle } from 'lucide-react';
@@ -98,3 +98,4 @@ export function EmailConfirmationBanner() {
     </div>
   );
 }
+

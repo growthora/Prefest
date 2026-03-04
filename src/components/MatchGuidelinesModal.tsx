@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -116,3 +116,4 @@ export function MatchGuidelinesModal({ isOpen, onClose, onAccept }: MatchGuideli
     </Dialog>
   );
 }
+

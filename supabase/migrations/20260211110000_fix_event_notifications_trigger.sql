@@ -1,4 +1,4 @@
--- Drop old triggers and function to clean up legacy logic
+﻿-- Drop old triggers and function to clean up legacy logic
 DROP TRIGGER IF EXISTS on_event_created ON events;
 DROP TRIGGER IF EXISTS on_event_published ON events;
 DROP FUNCTION IF EXISTS handle_new_event_notification();
@@ -36,3 +36,4 @@ CREATE TRIGGER on_event_published_v2
     AFTER INSERT OR UPDATE ON events
     FOR EACH ROW
     EXECUTE FUNCTION handle_new_event_notification_v2();
+

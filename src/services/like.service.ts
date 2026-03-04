@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+﻿import { supabase } from '@/lib/supabase';
 
 export interface LikeResult {
   status: 'liked' | 'match' | 'already_liked' | 'error';
@@ -176,3 +176,4 @@ class LikeService {
 }
 
 export const likeService = new LikeService();
+

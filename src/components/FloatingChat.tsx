@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MessageCircle, X, Send, ChevronLeft, MoreVertical, Search, Check, CheckCheck, Trash2, Ticket } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -485,7 +485,7 @@ export function FloatingChat() {
                       </div>
                     ) : messages.length === 0 ? (
                       <div className="text-center text-muted-foreground text-sm pt-8">
-                        Comece a conversa com {activeChat.partner_name}! 👋
+                        Comece a conversa com {activeChat.partner_name}! ðŸ‘‹
                       </div>
                     ) : (
                       messages.map((msg) => {
@@ -628,3 +628,4 @@ export function FloatingChat() {
     </>
   );
 }
+

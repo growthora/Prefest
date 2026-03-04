@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { EventListItem } from '@/components/EventListItem';
@@ -150,7 +150,7 @@ const Collection = () => {
       
       setEvents(convertedEvents);
     } catch (err) {
-      // console.error('❌ Erro ao carregar coleção:', err);
+      // console.error('âŒ Erro ao carregar coleção:', err);
       setEvents([]);
     } finally {
       setIsLoading(false);
@@ -257,3 +257,4 @@ const Collection = () => {
 };
 
 export default Collection;
+

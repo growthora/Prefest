@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Ticket, 
@@ -58,7 +58,7 @@ export const ProfileMenu = () => {
   // Determine header role text
   let roleText = 'Comprador';
   if (isApproved) {
-    roleText = 'Organizador • Comprador';
+    roleText = 'Organizador â€¢ Comprador';
   } else if (isPending) {
     roleText = 'Organizador (em análise)';
   }
@@ -257,3 +257,4 @@ export const ProfileMenu = () => {
     </>
   );
 };
+

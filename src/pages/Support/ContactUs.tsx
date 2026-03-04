@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronLeft, Send, CheckCircle, AlertCircle } from 'lucide-react';
 import { ROUTE_PATHS } from '@/lib';
@@ -170,7 +170,7 @@ export function ContactUs() {
                 <SelectContent>
                   <SelectItem value="tickets">Ingressos / Compras</SelectItem>
                   <SelectItem value="financial">Pagamentos / Reembolsos</SelectItem>
-                  <SelectItem value="account">Acesso à conta</SelectItem>
+                  <SelectItem value="account">Acesso Ã  conta</SelectItem>
                   <SelectItem value="event_creation">Criação de eventos</SelectItem>
                   <SelectItem value="bug">Relatar um erro</SelectItem>
                   <SelectItem value="other">Outros</SelectItem>
@@ -214,3 +214,4 @@ export function ContactUs() {
 }
 
 export default ContactUs;
+

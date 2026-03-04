@@ -1,4 +1,4 @@
--- Enforce mandatory and valid Asaas organizer account before event creation.
+﻿-- Enforce mandatory and valid Asaas organizer account before event creation.
 -- Rules:
 -- 1) Non-admin creators must have organizer_asaas_accounts row.
 -- 2) Account must be active and approved.
@@ -63,3 +63,4 @@ CREATE TRIGGER trg_enforce_valid_asaas_for_event_creation
 BEFORE INSERT ON public.events
 FOR EACH ROW
 EXECUTE FUNCTION public.enforce_valid_asaas_for_event_creation();
+

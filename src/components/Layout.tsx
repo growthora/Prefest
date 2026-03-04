@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate, NavLink, Link, useLocation, useSearchParams } from 'react-router-dom';
 import { 
   Menu, 
@@ -98,7 +98,7 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
       {showTopBanner && (
         <div className="bg-[#1F222A] text-white py-2 px-4 flex md:hidden justify-between items-center text-sm z-50 relative">
           <div className="flex items-center gap-4">
-            <span className="font-bold">É Produtor?</span>
+            <span className="font-bold">Ã‰ Produtor?</span>
             <CreateEventModal 
               trigger={
                 <button className="border border-white rounded px-4 py-1 hover:bg-white/10 transition-colors font-medium text-xs uppercase tracking-wide">
@@ -428,3 +428,4 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-export const formatCPF = (value: string) => {
+﻿export const formatCPF = (value: string) => {
   return value
     .replace(/\D/g, '') // Remove tudo o que não é dígito
     .replace(/(\d{3})(\d)/, '$1.$2') // Coloca um ponto entre o terceiro e o quarto dígitos
@@ -66,3 +66,4 @@ export const validateBirthDate = (dateString: string) => {
   
   return date <= today;
 };
+

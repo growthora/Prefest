@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { eventService, type Category } from '@/services/event.service';
 import { ROUTE_PATHS } from '@/lib/index';
@@ -213,4 +213,5 @@ const Categorias = () => {
 };
 
 export default Categorias;
+
 

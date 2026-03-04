@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { CreditCard, Calendar, User, Lock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -92,7 +92,7 @@ export function CreditCardForm({ onChange, className }: CreditCardFormProps) {
           Nome do Titular
         </Label>
         <Input
-          placeholder="COMO ESTÁ NO CARTÃO"
+          placeholder="COMO ESTÁ NO CARTÃƒO"
           value={data.holderName}
           onChange={(e) => handleChange('holderName', e.target.value)}
           className={cn(errors.holderName && "border-red-500 focus-visible:ring-red-500")}
@@ -161,3 +161,4 @@ export function CreditCardForm({ onChange, className }: CreditCardFormProps) {
     </div>
   );
 }
+

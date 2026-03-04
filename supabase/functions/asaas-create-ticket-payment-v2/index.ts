@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           error: 'SALES_DISABLED',
-          message: 'As vendas para este evento ainda nÃ£o foram abertas.'
+          message: 'As vendas para este evento ainda não foram abertas.'
         }),
         {
           status: 403,
@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
       .rpc('check_event_purchase_availability', { p_event_id: ticket.events.id });
     
     if (validationError || !isAvailable) {
-      throw new Error(validationError?.message || 'Este evento jÃ¡ foi realizado ou as vendas estÃ£o encerradas.');
+      throw new Error(validationError?.message || 'Este evento já foi realizado ou as vendas estão encerradas.');
     }
 
     // Verify status
@@ -152,10 +152,10 @@ Deno.serve(async (req) => {
     const buyerCpf = rawCpf ? rawCpf.replace(/\D/g, '') : '';
 
     // STRICT VALIDATION
-    if (!buyerEmail) throw new Error('Email do comprador Ã© obrigatÃ³rio.');
-    if (!buyerName) throw new Error('Nome completo do comprador Ã© obrigatÃ³rio.');
+    if (!buyerEmail) throw new Error('Email do comprador é obrigatório.');
+    if (!buyerName) throw new Error('Nome completo do comprador é obrigatório.');
     if (!buyerCpf || (buyerCpf.length !== 11 && buyerCpf.length !== 14)) {
-        throw new Error('CPF/CNPJ do comprador invÃ¡lido ou nÃ£o informado.');
+        throw new Error('CPF/CNPJ do comprador inválido ou não informado.');
     }
 
     // Check strict separation
@@ -300,3 +300,4 @@ Deno.serve(async (req) => {
     });
   }
 });
+

@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+﻿import { supabase } from '../lib/supabase';
 
 class StorageService {
   private bucketName = 'event-images';
@@ -113,11 +113,11 @@ class StorageService {
     // Tentar comprimir se for imagem
     if (file.type.startsWith('image/')) {
       try {
-        // console.log('🔄 [StorageService] Comprimindo imagem...', file.size);
+        // console.log('ðŸ”„ [StorageService] Comprimindo imagem...', file.size);
         fileToUpload = await this.compressImage(file);
-        // console.log('✅ [StorageService] Imagem comprimida:', fileToUpload.size);
+        // console.log('âœ… [StorageService] Imagem comprimida:', fileToUpload.size);
       } catch (err) {
-        // console.warn('⚠️ [StorageService] Erro ao comprimir imagem, usando original:', err);
+        // console.warn('âš ï¸ [StorageService] Erro ao comprimir imagem, usando original:', err);
       }
     }
 
@@ -126,7 +126,7 @@ class StorageService {
       ? `${folder}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
       : `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-    // console.log('📤 [StorageService] Fazendo upload de imagem:', fileName, 'Bucket:', bucket);
+    // console.log('ðŸ“¤ [StorageService] Fazendo upload de imagem:', fileName, 'Bucket:', bucket);
 
     const { data, error } = await supabase.storage
       .from(bucket)
@@ -136,7 +136,7 @@ class StorageService {
       });
 
     if (error) {
-      // console.error('❌ [StorageService] Erro no upload:', error);
+      // console.error('âŒ [StorageService] Erro no upload:', error);
       throw error;
     }
 
@@ -145,7 +145,7 @@ class StorageService {
       .from(bucket)
       .getPublicUrl(fileName);
 
-    // console.log('✅ [StorageService] Upload concluído:', publicUrl);
+    // console.log('âœ… [StorageService] Upload concluído:', publicUrl);
     return publicUrl;
   }
 
@@ -165,23 +165,24 @@ class StorageService {
 
       const filePath = urlParts[1];
       
-      // console.log('🗑️ [StorageService] Deletando imagem:', filePath);
+      // console.log('ðŸ—‘ï¸ [StorageService] Deletando imagem:', filePath);
 
       const { error } = await supabase.storage
         .from(bucket)
         .remove([filePath]);
 
       if (error) {
-        // console.error('❌ [StorageService] Erro ao deletar:', error);
+        // console.error('âŒ [StorageService] Erro ao deletar:', error);
         throw error;
       }
 
-      // console.log('✅ [StorageService] Imagem deletada');
+      // console.log('âœ… [StorageService] Imagem deletada');
     } catch (err) {
-      // console.error('❌ [StorageService] Erro ao deletar imagem:', err);
+      // console.error('âŒ [StorageService] Erro ao deletar imagem:', err);
       // Não lançar erro para não bloquear outras operações
     }
   }
 }
 
 export const storageService = new StorageService();
+

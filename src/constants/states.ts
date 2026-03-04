@@ -1,4 +1,4 @@
-export interface State {
+﻿export interface State {
   value: string;
   label: string;
 }
@@ -32,3 +32,4 @@ export const BRAZIL_STATES: State[] = [
   { value: "SE", label: "Sergipe" },
   { value: "TO", label: "Tocantins" },
 ];
+

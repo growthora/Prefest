@@ -1,4 +1,4 @@
-import { useAuth } from './useAuth';
+﻿import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
 export const useFeatureAccess = () => {
@@ -28,3 +28,4 @@ export const useFeatureAccess = () => {
 
   return { checkAccess };
 };
+

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { userService } from '@/services/user.service';
@@ -184,7 +184,7 @@ export default function PublicProfile() {
     if (!profile || !currentUser) return;
     
     if (!eventContext) {
-      toast.error('É necessário acessar através de um evento para dar match');
+      toast.error('Ã‰ necessário acessar através de um evento para dar match');
       return;
     }
 
@@ -227,7 +227,7 @@ export default function PublicProfile() {
     : profile.name;
     
   // If show_initials_only is true, we might want to blur or use placeholder?
-  // User prompt: "Campos ocultos NÃO deixam espaço em branco."
+  // User prompt: "Campos ocultos NÃƒO deixam espaço em branco."
   // Usually initials only implies hiding identity, but photo might still be there.
   // We'll show photo if available.
   const displayPhoto = profile.photo;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Flame, Ticket, CreditCard, ShieldCheck, Info, Tag, X, Ban } from 'lucide-react';
 import { Event } from '@/lib/index';
@@ -48,7 +48,7 @@ export function SingleModeToggle({ enabled, onToggle, isLocked = false }: Single
     >
       {isLocked && (
         <div className="absolute top-3 right-3 z-10 px-2 py-1 rounded-full bg-muted text-[10px] font-bold uppercase tracking-wider text-muted-foreground border border-border">
-          🔒 Bloqueado
+          ðŸ”’ Bloqueado
         </div>
       )}
       
@@ -56,13 +56,13 @@ export function SingleModeToggle({ enabled, onToggle, isLocked = false }: Single
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <Flame className={cn("w-5 h-5 transition-colors", enabled && !isLocked ? "text-primary animate-pulse" : "text-muted-foreground")} />
-            <h3 className="font-bold text-lg tracking-tight">Conheça a Galera!! 🔥</h3>
+            <h3 className="font-bold text-lg tracking-tight">Conheça a Galera!! ðŸ”¥</h3>
           </div>
           <p className="text-sm text-muted-foreground leading-relaxed">
             {isLocked ? (
               <>
                 Complete sua inscrição no evento para liberar a aba <span className="text-foreground font-medium">"Match do Evento"</span>. 
-                Conecte-se com outros solteiros confirmados após garantir seu ingresso! 🎟️
+                Conecte-se com outros solteiros confirmados após garantir seu ingresso! ðŸŽŸï¸
               </>
             ) : (
               <>
@@ -218,7 +218,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   const handleToggleSingleMode = (val: boolean) => {
     if (val) {
       if (age && parseInt(age) < 18) {
-        toast.error("É necessário ter mais de 18 anos para ativar o modo Match");
+        toast.error("Ã‰ necessário ter mais de 18 anos para ativar o modo Match");
         return;
       }
       setShowMatchGuidelines(true);
@@ -429,7 +429,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
       
       if (coupon) {
         setAppliedCoupon(coupon);
-        toast.success(`Cupom "${coupon.code}" aplicado com sucesso! 🎉`);
+        toast.success(`Cupom "${coupon.code}" aplicado com sucesso! ðŸŽ‰`);
       } else {
         toast.error('Cupom inválido ou expirado');
       }
@@ -483,7 +483,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
 
         if (ticketError) throw ticketError;
 
-        toast.success('Ingresso gratuito confirmado! Você já pode conhecer quem vai à festa.');
+        toast.success('Ingresso gratuito confirmado! Você já pode conhecer quem vai Ã  festa.');
         await onPurchase(singleMode, selectedTicketTypeId, 0);
 
       } else {
@@ -964,7 +964,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
               </div>
 
               <p className="text-[11px] text-muted-foreground">
-                Após a compra, você já poderá conhecer quem vai à festa.
+                Após a compra, você já poderá conhecer quem vai Ã  festa.
               </p>
             </div>
 
@@ -1163,3 +1163,5 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     </div>
   );
 }
+
+

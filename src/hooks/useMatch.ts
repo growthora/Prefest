@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+﻿import { useState, useEffect, useCallback, useMemo } from 'react';
 import { User, Match, Message, APP_CONFIG } from '@/lib/index';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -131,7 +131,7 @@ export function useMatch(eventId?: string) {
       const result = await likeService.likeUser(targetUserId, eventId);
       
       if (result.is_match) {
-        toast.success('Deu Match! 🎉');
+        toast.success('Deu Match! ðŸŽ‰');
         loadMatches(); // Recarregar matches
         return true;
       }
@@ -194,3 +194,4 @@ export function useMatch(eventId?: string) {
     loading
   };
 }
+

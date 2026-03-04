@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { eventService, type Event } from '@/services/event.service';
 
@@ -323,7 +323,7 @@ export function OrganizerEvents() {
                     )}
                 </TableCell>
                 <TableCell>
-                  {event.current_participants} / {event.totalTicketsConfigured ?? event.max_participants ?? '∞'}
+                  {event.current_participants} / {event.totalTicketsConfigured ?? event.max_participants ?? 'âˆž'}
                 </TableCell>
                 <TableCell className="text-right">
                   <DropdownMenu>
@@ -418,7 +418,7 @@ export function OrganizerEvents() {
                        <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground/80">Participantes</span>
                        <span className="flex items-center justify-end gap-1.5 font-medium text-foreground">
                           <Users className="h-3.5 w-3.5 text-primary" />
-                          {event.current_participants} / {event.totalTicketsConfigured ?? event.max_participants ?? '∞'}
+                          {event.current_participants} / {event.totalTicketsConfigured ?? event.max_participants ?? 'âˆž'}
                        </span>
                     </div>
                  </div>
@@ -487,3 +487,4 @@ export function OrganizerEvents() {
 }
 
 export default OrganizerEvents;
+

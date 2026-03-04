@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -550,7 +550,7 @@ export default function TicketScanner() {
                          'Inválido'}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {format(item.timestamp, "HH:mm:ss")} • ID: {item.ticketId.substring(0, 6)}...
+                        {format(item.timestamp, "HH:mm:ss")} â€¢ ID: {item.ticketId.substring(0, 6)}...
                       </p>
                     </div>
                   </div>

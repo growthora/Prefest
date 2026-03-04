@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { eventService, type CreateEventData } from '@/services/event.service';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrganizerStatus } from '@/hooks/useOrganizerStatus';
@@ -93,7 +93,7 @@ export const CreateEventForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const status: 'published' = 'published';
-    // console.log(`🚀 [CreateEvent] Iniciando submissão. Status: ${status}`);
+    // console.log(`ðŸš€ [CreateEvent] Iniciando submissão. Status: ${status}`);
 
     if (status === 'published') {
       const isPaid = formData.price > 0 || ticketTypes.some(t => t.price > 0);
@@ -119,7 +119,7 @@ export const CreateEventForm = () => {
     
     const validationError = validateForm(status === 'published');
     if (validationError) {
-      // console.warn('⚠️ [CreateEvent] Erro de validação:', validationError);
+      // console.warn('âš ï¸ [CreateEvent] Erro de validação:', validationError);
       setError(validationError);
       toast({
         variant: "destructive",
@@ -130,7 +130,7 @@ export const CreateEventForm = () => {
     }
 
     if (!user) {
-      // console.log('👤 [CreateEvent] Usuário não logado. Redirecionando para login.');
+      // console.log('ðŸ‘¤ [CreateEvent] Usuário não logado. Redirecionando para login.');
       toast({
         title: "Login necessário",
         description: "Faça login para salvar seu evento.",
@@ -142,7 +142,7 @@ export const CreateEventForm = () => {
     try {
       setIsLoading(true);
       setError(null);
-      // console.log('💾 [CreateEvent] Enviando dados para o backend:', { formData, ticketTypes, status });
+      // console.log('ðŸ’¾ [CreateEvent] Enviando dados para o backend:', { formData, ticketTypes, status });
 
       const isPaid = formData.price > 0 || ticketTypes.some(t => t.price > 0);
       const dataToSubmit = { 
@@ -153,11 +153,11 @@ export const CreateEventForm = () => {
         asaas_required: true,
       };
       const event = await eventService.createEvent(dataToSubmit, user.id);
-      // console.log('✅ [CreateEvent] Evento criado com sucesso:', event);
+      // console.log('âœ… [CreateEvent] Evento criado com sucesso:', event);
 
       // Criar tipos de ingressos
       if (ticketTypes.length > 0) {
-        // console.log('🎫 [CreateEvent] Criando tipos de ingressos...');
+        // console.log('ðŸŽ« [CreateEvent] Criando tipos de ingressos...');
         await eventService.createTicketTypes(event.id, ticketTypes);
       }
       
@@ -169,7 +169,7 @@ export const CreateEventForm = () => {
 
       navigate(ROUTE_PATHS.ORGANIZER_EVENTS);
     } catch (err) {
-      // console.error('❌ [CreateEvent] Erro ao criar evento:', err);
+      // console.error('âŒ [CreateEvent] Erro ao criar evento:', err);
       const rawMessage = err instanceof Error ? err.message : (err as any)?.message || 'Erro desconhecido ao criar evento';
       const isAsaasBlockingError =
         rawMessage.includes('ORGANIZER_ASAAS_REQUIRED') ||
@@ -448,3 +448,5 @@ export const CreateEventForm = () => {
     </div>
   );
 };
+
+

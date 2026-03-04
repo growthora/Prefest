@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Copy, Check, X, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -128,3 +128,4 @@ export function PixPaymentModal({ isOpen, onClose, qrCodeImage, copyPasteCode, a
     </AnimatePresence>
   );
 }
+

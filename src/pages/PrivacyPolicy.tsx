@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { LegalLayout } from '@/components/LegalLayout';
 
 const PrivacyPolicy = () => {
@@ -146,3 +146,4 @@ const PrivacyPolicy = () => {
 };
 
 export default PrivacyPolicy;
+

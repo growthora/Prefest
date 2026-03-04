@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { motion } from 'framer-motion';
 import { 
   MapPin, 
@@ -242,3 +242,4 @@ export function UserProfile({ user, isEditable = false }: UserProfileProps) {
     </div>
   );
 }
+

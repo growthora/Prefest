@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+﻿import { supabase } from '../lib/supabase';
 import type { Profile } from './auth.service';
 import { invokeEdgeFunction } from './apiClient';
 
@@ -464,4 +464,5 @@ class UserService {
 }
 
 export const userService = new UserService();
+
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { couponService, type Coupon } from '@/services/coupon.service';
@@ -359,3 +359,4 @@ export default function AdminCoupons() {
     </motion.div>
   );
 }
+

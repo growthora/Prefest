@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { authService } from '@/services/auth.service';
@@ -87,7 +87,7 @@ export default function CompleteProfile() {
         birth_date: formData.birth_date
       });
 
-      toast.success('Cadastro atualizado com sucesso! 🎉');
+      toast.success('Cadastro atualizado com sucesso! ðŸŽ‰');
       
       // Pequeno delay para garantir propagação
       setTimeout(() => {
@@ -215,3 +215,4 @@ export default function CompleteProfile() {
     </Layout>
   );
 }
+

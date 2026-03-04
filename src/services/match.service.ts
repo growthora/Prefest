@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+﻿import { supabase } from '../lib/supabase';
 
 export interface Match {
   match_id: string;
@@ -53,3 +53,4 @@ class MatchService {
 }
 
 export const matchService = new MatchService();
+

@@ -48,8 +48,9 @@ Deno.serve(async (req) => {
   } catch (error: any) {
     // console.error('Unexpected error:', error)
     return new Response(JSON.stringify({ error: error.message }), {
-      status: 500, // Retornar 500 para erro interno, mas com JSON vÃ¡lido
+      status: 500, // Retornar 500 para erro interno, mas com JSON válido
       headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
     })
   }
 })
+
