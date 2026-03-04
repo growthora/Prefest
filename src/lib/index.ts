@@ -112,6 +112,8 @@ export interface Event {
   };
   description: string;
   attendeesCount: number;
+  status?: 'draft' | 'published' | 'realizado';
+  sales_enabled?: boolean;
   isLiked?: boolean;
 }
 

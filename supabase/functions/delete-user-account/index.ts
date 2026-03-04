@@ -1,4 +1,4 @@
-
+﻿
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts'
 import { requireAuth } from "../_shared/requireAuth.ts"
@@ -19,9 +19,9 @@ Deno.serve(async (req) => {
     const { confirmationText } = await req.json()
 
     if (confirmationText !== 'EXCLUIR MINHA CONTA') {
-      return new Response(JSON.stringify({ error: 'Texto de confirmação incorreto.' }), {
+      return new Response(JSON.stringify({ error: 'Texto de confirmaÃ§Ã£o incorreto.' }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
       })
     }
 
@@ -43,10 +43,10 @@ Deno.serve(async (req) => {
 
     if (pendingPaymentsCount && pendingPaymentsCount > 0) {
       return new Response(JSON.stringify({ 
-        error: 'Você possui pagamentos pendentes. Resolva-os antes de excluir a conta.' 
+        error: 'VocÃª possui pagamentos pendentes. Resolva-os antes de excluir a conta.' 
       }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
       })
     }
 
@@ -64,10 +64,10 @@ Deno.serve(async (req) => {
 
     if (pendingPayoutsCount && pendingPayoutsCount > 0) {
       return new Response(JSON.stringify({ 
-        error: 'Você possui saques em processamento. Aguarde a conclusão antes de excluir a conta.' 
+        error: 'VocÃª possui saques em processamento. Aguarde a conclusÃ£o antes de excluir a conta.' 
       }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
       })
     }
 
@@ -104,10 +104,10 @@ Deno.serve(async (req) => {
             const balanceData = await balanceRes.json()
             if (balanceData.balance > 0) {
                  return new Response(JSON.stringify({ 
-                    error: 'Você possui saldo na conta Asaas. Realize o saque total antes de excluir.' 
+                    error: 'VocÃª possui saldo na conta Asaas. Realize o saque total antes de excluir.' 
                   }), {
                     status: 400,
-                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
                   })
             }
         }
@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
           // but since we can't easily force disable via API without success, we mark as 'failed' 
           // or 'disabled' if we implement a custom disable logic. 
           // For now, we log 'failed' to be honest about the API result.)
-          // However, prompt says: "usar desativação + bloqueio".
+          // However, prompt says: "usar desativaÃ§Ã£o + bloqueio".
           // If delete fails, it's usually because of history. 
           // We can't strictly "disable" it easily via API v3 Standard.
           // We will proceed with local deletion, effectively cutting access.
@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
     const { error: deleteUserError } = await adminClient.auth.admin.deleteUser(user.id)
     
     if (deleteUserError) {
-      throw new Error('Erro ao excluir usuário da autenticação: ' + deleteUserError.message)
+      throw new Error('Erro ao excluir usuÃ¡rio da autenticaÃ§Ã£o: ' + deleteUserError.message)
     }
 
     // 7. Log Audit
@@ -179,7 +179,7 @@ Deno.serve(async (req) => {
     })
 
     return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
     })
 
   } catch (error: any) {
@@ -191,7 +191,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
     })
   }
 })

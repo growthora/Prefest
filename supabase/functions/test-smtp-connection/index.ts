@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+﻿import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import nodemailer from "https://esm.sh/nodemailer@6.9.13";
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { requireAuth } from '../_shared/requireAuth.ts';
@@ -46,20 +46,20 @@ Deno.serve(async (req) => {
     await transporter.sendMail({
       from: from_email,
       to: test_email || from_email, // Send to self if no test email provided
-      subject: 'Teste de Configuração SMTP - Prefest',
-      text: 'Se você recebeu este e-mail, as configurações SMTP estão corretas!',
-      html: '<b>Se você recebeu este e-mail, as configurações SMTP estão corretas!</b>',
+      subject: 'Teste de ConfiguraÃ§Ã£o SMTP - Prefest',
+      text: 'Se vocÃª recebeu este e-mail, as configuraÃ§Ãµes SMTP estÃ£o corretas!',
+      html: '<b>Se vocÃª recebeu este e-mail, as configuraÃ§Ãµes SMTP estÃ£o corretas!</b>',
     });
 
-    return new Response(JSON.stringify({ success: true, message: 'Conexão SMTP verificada e e-mail de teste enviado!' }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    return new Response(JSON.stringify({ success: true, message: 'ConexÃ£o SMTP verificada e e-mail de teste enviado!' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
     });
 
   } catch (error) {
     // console.error('SMTP Error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
     });
   }
 });

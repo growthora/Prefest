@@ -1,4 +1,4 @@
-
+﻿
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts'
@@ -51,7 +51,7 @@ serve(async (req) => {
             success: true, 
             message: 'Account already connected',
             account: existingAccount
-        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' } })
     }
 
     // 4. Check if account already exists in Asaas (by CPF/CNPJ)
@@ -65,7 +65,7 @@ serve(async (req) => {
     const searchResponse = await fetch(`${API_URL}/accounts?cpfCnpj=${cpfCnpj}`, {
         method: 'GET',
         headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/json; charset=utf-8',
             'access_token': config.api_key
         }
     });
@@ -99,7 +99,7 @@ serve(async (req) => {
         const createResponse = await fetch(`${API_URL}/accounts`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json; charset=utf-8',
                 'access_token': config.api_key
             },
             body: JSON.stringify(accountPayload)
@@ -115,7 +115,7 @@ serve(async (req) => {
             
             return new Response(JSON.stringify({ error: 'Error creating account at Asaas', details: createData }), {
                 status: 400,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
             })
         }
 
@@ -143,7 +143,7 @@ serve(async (req) => {
         // console.error('[asaas-create-or-connect-organizer] DB Error:', dbError);
         return new Response(JSON.stringify({ error: 'Error saving account to database', details: dbError }), {
             status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
         })
     }
 
@@ -156,14 +156,14 @@ serve(async (req) => {
         message: isNewAccount ? 'Account created successfully' : 'Existing Asaas account connected',
         account: newAccount
     }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
     })
 
   } catch (error) {
     // console.error('[asaas-create-or-connect-organizer] Unexpected error:', error)
     return new Response(JSON.stringify({ error: 'Internal Server Error', details: error.message }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
     })
   }
 })

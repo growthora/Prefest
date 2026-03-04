@@ -3,6 +3,26 @@ import { supabase } from '../lib/supabase';
 class StorageService {
   private bucketName = 'event-images';
 
+  async uploadEventImage(file: File, eventId: string): Promise<string> {
+    const fileExt = file.name.split('.').pop() || 'jpg';
+    const fileName = `events/${eventId}-${Date.now()}.${fileExt}`;
+
+    const { error } = await supabase.storage
+      .from('event-images')
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: true
+      });
+
+    if (error) throw error;
+
+    const { data: publicUrl } = supabase.storage
+      .from('event-images')
+      .getPublicUrl(fileName);
+
+    return publicUrl.publicUrl;
+  }
+
   // Compressão de imagem
   private async compressImage(file: File): Promise<File> {
     return new Promise((resolve, reject) => {
@@ -78,7 +98,7 @@ class StorageService {
       .from(bucket)
       .upload(fileName, fileToUpload, {
         cacheControl: '3600',
-        upsert: false
+        upsert: true
       });
 
     if (error) {
@@ -101,7 +121,7 @@ class StorageService {
       // Tenta identificar o bucket pela URL ou usa o padrão
       let bucket = this.bucketName;
       if (imageUrl.includes('/profiles/')) bucket = 'profiles';
-      else if (imageUrl.includes('/events/')) bucket = 'events';
+      else if (imageUrl.includes('/events/')) bucket = 'event-images';
       else if (imageUrl.includes('/event-images/')) bucket = 'event-images';
 
       // Extrair o caminho do arquivo da URL
@@ -113,7 +133,7 @@ class StorageService {
       // console.log('🗑️ [StorageService] Deletando imagem:', filePath);
 
       const { error } = await supabase.storage
-        .from(this.bucketName)
+        .from(bucket)
         .remove([filePath]);
 
       if (error) {

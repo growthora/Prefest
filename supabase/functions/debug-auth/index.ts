@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+﻿import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts'
 
 Deno.serve(async (req) => {
@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
           }
         }),
         { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
           status: 200 // Return 200 to show the result clearly instead of 401
         }
       )
@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
         error: error ? error.message : null
       }),
       { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
         status: 200 
       }
     )
@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
         status: 500
       }
     )

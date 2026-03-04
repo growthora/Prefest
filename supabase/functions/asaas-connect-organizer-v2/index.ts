@@ -1,4 +1,4 @@
-
+﻿
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
@@ -14,7 +14,7 @@ serve(async (req) => {
   try {
     const { user } = await requireAuth(req);
 
-    // 🚨 A PARTIR DAQUI O ORGANIZADOR ESTÁ AUTENTICADO
+    // ðŸš¨ A PARTIR DAQUI O ORGANIZADOR ESTÃ AUTENTICADO
     // console.log(`[asaas-connect-organizer-v2] User Authenticated: ${user.id}`);
 
     const adminClient = createClient(
@@ -25,22 +25,22 @@ serve(async (req) => {
     const body = await req.json();
     const { name, email, cpfCnpj, mobilePhone, address, addressNumber, complement, province, postalCode } = body;
 
-    // Validar payload mínimo
+    // Validar payload mÃ­nimo
     if (!name || !email || !cpfCnpj || !mobilePhone || !address || !postalCode) {
       return new Response(
         JSON.stringify({ error: "Missing required organizer data" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" } }
       );
     }
 
-    // 1) Buscar integração ASAAS ativa (via Admin Client para segurança)
+    // 1) Buscar integraÃ§Ã£o ASAAS ativa (via Admin Client para seguranÃ§a)
     const { data: config, error: configError } = await adminClient.rpc('get_decrypted_asaas_config');
 
     if (configError || !config || !config.api_key) {
       // console.error("[asaas-connect-organizer-v2] Asaas config error:", configError);
       return new Response(
         JSON.stringify({ error: "Asaas configuration error" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" } }
       );
     }
 
@@ -48,7 +48,7 @@ serve(async (req) => {
         ? 'https://api.asaas.com/v3' 
         : 'https://sandbox.asaas.com/api/v3';
 
-    // 2) Verificar se conta já existe no BD
+    // 2) Verificar se conta jÃ¡ existe no BD
     const { data: existingAccount } = await adminClient
         .from('organizer_asaas_accounts')
         .select('*')
@@ -60,10 +60,10 @@ serve(async (req) => {
             success: true, 
             message: 'Account already connected',
             account: existingAccount
-        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' } });
     }
 
-    // 3) Verificar se conta já existe no ASAAS (CPF/CNPJ)
+    // 3) Verificar se conta jÃ¡ existe no ASAAS (CPF/CNPJ)
     let asaasAccountId = null;
     let isNewAccount = false;
 
@@ -72,7 +72,7 @@ serve(async (req) => {
     const searchResponse = await fetch(`${API_URL}/accounts?cpfCnpj=${cpfCnpj}`, {
         method: 'GET',
         headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/json; charset=utf-8',
             'access_token': config.api_key
         }
     });
@@ -87,7 +87,7 @@ serve(async (req) => {
         // console.warn('[asaas-connect-organizer-v2] Error searching for existing account, proceeding to create.');
     }
 
-    // 4) Criar subconta ASAAS (se não encontrada)
+    // 4) Criar subconta ASAAS (se nÃ£o encontrada)
     if (!asaasAccountId) {
         // console.log(`[asaas-connect-organizer-v2] Creating new Asaas account...`);
         const accountPayload = {
@@ -105,7 +105,7 @@ serve(async (req) => {
         const createResponse = await fetch(`${API_URL}/accounts`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json; charset=utf-8',
                 'access_token': config.api_key
             },
             body: JSON.stringify(accountPayload)
@@ -117,7 +117,7 @@ serve(async (req) => {
             // console.error('Asaas API Error:', createData);
             return new Response(JSON.stringify({ error: 'Error creating account at Asaas', details: createData }), {
                 status: 400,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
             });
         }
 
@@ -143,7 +143,7 @@ serve(async (req) => {
         // console.error('[asaas-connect-organizer-v2] DB Error:', dbError);
         return new Response(JSON.stringify({ error: 'Error saving account to database', details: dbError }), {
             status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
         });
     }
 
@@ -153,7 +153,7 @@ serve(async (req) => {
           message: isNewAccount ? 'Account created successfully' : 'Existing Asaas account connected',
           account: newAccount
       }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" } }
     );
 
   } catch (err) {
@@ -163,7 +163,7 @@ serve(async (req) => {
         error: "Internal error while creating ASAAS account",
         detail: String(err),
       }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" } }
     );
   }
 });

@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+﻿import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import QRCode from "npm:qrcode";
 
 Deno.serve(async (req) => {
@@ -8,13 +8,13 @@ Deno.serve(async (req) => {
   // [SECURITY] Helper to handle unauthorized responses
   const unauthorized = () => new Response(JSON.stringify({ error: 'Unauthorized' }), { 
     status: 401, 
-    headers: { 'Content-Type': 'application/json' } 
+    headers: { 'Content-Type': 'application/json; charset=utf-8' } 
   });
 
   // [SUCCESS] Helper to handle success/ignored responses (ALWAYS 200 to avoid penalties)
   const ok = (msg = 'received') => new Response(JSON.stringify({ [msg]: true }), { 
     status: 200, 
-    headers: { 'Content-Type': 'application/json' } 
+    headers: { 'Content-Type': 'application/json; charset=utf-8' } 
   });
 
   try {
@@ -303,14 +303,14 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ received: true }), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
     });
 
   } catch (error) {
     console.error('Webhook Global Error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      { status: 500, headers: { 'Content-Type': 'application/json; charset=utf-8' } }
     );
   }
 });

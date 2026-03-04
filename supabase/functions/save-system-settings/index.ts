@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+﻿import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { requireAuth } from '../_shared/requireAuth.ts';
 import { requireRole } from '../_shared/requireRole.ts';
@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
             error: 'Invalid JSON body' 
         }), {
             status: 400, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
         });
     }
     
@@ -54,8 +54,8 @@ Deno.serve(async (req) => {
             error: `Database Error: ${rpcError.message}`,
             detail: rpcError
         }), {
-            status: 200,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
         });
     }
 
@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
         success: true 
     }), {
       status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
     });
 
   } catch (error) {
@@ -74,8 +74,8 @@ Deno.serve(async (req) => {
         error: `Internal Error: ${error.message}`,
         detail: String(error)
     }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
     });
   }
 });

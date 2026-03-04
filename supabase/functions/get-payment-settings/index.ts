@@ -1,8 +1,8 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+﻿import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts"
 
 Deno.serve(async (req) => {
-  // FASE 1: PROVA DEFINITIVA - DIAGNÓSTICO (Logo na entrada)
+  // FASE 1: PROVA DEFINITIVA - DIAGNÃ“STICO (Logo na entrada)
   const authProbe = req.headers.get("Authorization") ?? ""
   // console.log("[ENTRY-PROBE] Auth present:", Boolean(authProbe))
   // console.log("[ENTRY-PROBE] Auth prefix:", authProbe.slice(0, 18)) 
@@ -35,21 +35,21 @@ Deno.serve(async (req) => {
         platform_fee_type: 'percentage', 
         platform_fee_value: 10 
       }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
         status: 200
       })
     }
 
     return new Response(JSON.stringify(config), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
       status: 200
     })
 
   } catch (error: any) {
     // console.error('Unexpected error:', error)
     return new Response(JSON.stringify({ error: error.message }), {
-      status: 500, // Retornar 500 para erro interno, mas com JSON válido
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      status: 500, // Retornar 500 para erro interno, mas com JSON vÃ¡lido
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
     })
   }
 })

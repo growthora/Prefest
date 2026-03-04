@@ -1,4 +1,4 @@
-
+﻿
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { requireAuth } from '../_shared/requireAuth.ts';
@@ -46,15 +46,19 @@ Deno.serve(async (req) => {
       throw new Error('Asaas configuration not found or invalid');
     }
 
-    const { api_key: apiKey, wallet_id: platformWalletId, split_enabled, platform_fee_type, platform_fee_value } = config;
-    const env = config.env || config.environment;
+    const { api_key: rawApiKey, wallet_id: platformWalletId, split_enabled, platform_fee_type, platform_fee_value } = config;
+    const apiKey = String(rawApiKey || '').trim();
+    const env = String(config.env || config.environment || 'sandbox').toLowerCase();
+    if (!apiKey) {
+      throw new Error('Asaas API key is empty');
+    }
     const baseUrl = env === 'production' 
       ? 'https://api.asaas.com/v3' 
       : 'https://sandbox.asaas.com/api/v3';
 
     const headers = {
         'access_token': apiKey,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json; charset=utf-8'
     };
 
     // 4. Fetch Event & Organizer
@@ -65,6 +69,19 @@ Deno.serve(async (req) => {
         .single();
 
     if (eventError || !event) throw new Error('Event not found');
+
+    if (event.sales_enabled === false) {
+      return new Response(
+        JSON.stringify({
+          error: 'SALES_DISABLED',
+          message: 'As vendas para este evento ainda nÃ£o foram abertas.'
+        }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
+        }
+      );
+    }
 
     // 5. Fetch Ticket Type
     const { data: ticketType, error: ticketError } = await adminClient
@@ -84,7 +101,7 @@ Deno.serve(async (req) => {
     const { data: organizerAccount, error: orgAccountError } = await adminClient
         .from('organizer_asaas_accounts')
         .select('*')
-        .eq('user_id', event.creator_id)
+        .eq('organizer_user_id', event.creator_id)
         .single();
 
     if (orgAccountError || !organizerAccount) {
@@ -92,7 +109,7 @@ Deno.serve(async (req) => {
     }
 
     if (!organizerAccount.is_active || organizerAccount.kyc_status !== 'approved') {
-        throw new Error('ORGANIZER_NOT_READY_FOR_PAYMENTS: Conta Asaas do organizador pendente de aprovação');
+        throw new Error('ORGANIZER_NOT_READY_FOR_PAYMENTS: Conta Asaas do organizador pendente de aprovaÃ§Ã£o');
     }
 
     // Check strict separation
@@ -250,13 +267,14 @@ Deno.serve(async (req) => {
         .from('payments')
         .insert({
             ticket_id: ticket.id,
+            user_id: user.id,
             organizer_user_id: event.creator_id,
             provider: 'asaas',
             external_payment_id: paymentData.id,
-            billing_type: billing_type.toLowerCase(),
-            value_total: totalPrice,
+            payment_method: billing_type.toLowerCase(),
+            value: totalPrice,
             status: 'pending',
-            invoice_url: paymentData.invoiceUrl,
+            payment_url: paymentData.invoiceUrl,
             // We'll fill PIX data later if applicable
         })
         .select()
@@ -308,7 +326,7 @@ Deno.serve(async (req) => {
         if (paymentRecord) {
             await adminClient
                 .from('payments')
-                .update({ pix_qr_code: pixQrCode, pix_copy_paste: pixQrCodeText })
+                .update({ pix_qr_code: pixQrCodeText || pixQrCode })
                 .eq('id', paymentRecord.id);
         }
     }
@@ -322,14 +340,17 @@ Deno.serve(async (req) => {
         pixQrCodeText,
         status: paymentData.status
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
     });
 
-  } catch (error) {
+  } catch (error: any) {
+    if (error instanceof Response) {
+      return error;
+    }
     // console.error('Function Error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
     });
   }
 });

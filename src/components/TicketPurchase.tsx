@@ -298,6 +298,11 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   };
 
   const handleNextStep = async () => {
+    if (isSalesDisabled) {
+      toast.error('As vendas para este evento ainda não foram abertas.');
+      return;
+    }
+
     if (step === 'select_ticket_type') {
       if (!selectedTicketTypeId) {
         toast.error('Selecione um tipo de ingresso');
@@ -349,10 +354,14 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
       } catch (error: any) {
         console.error('Checkout init error:', error);
         let errorMessage = error.message || 'Erro ao iniciar checkout';
-        
-        // Extract error from response if available
-        if (error.context && error.context.status) {
-             errorMessage = `Erro no servidor (${error.context.status}): Tente novamente mais tarde.`;
+
+        if (
+          errorMessage.includes('SALES_DISABLED') ||
+          error.context?.status === 403
+        ) {
+          errorMessage = 'As vendas para este evento ainda não foram abertas.';
+        } else if (error.context && error.context.status) {
+          errorMessage = `Erro no servidor (${error.context.status}): Tente novamente mais tarde.`;
         }
 
         if (errorMessage && (errorMessage.includes('Invalid JWT') || errorMessage.includes('401'))) {
@@ -438,6 +447,11 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   };
 
   const handlePurchase = async () => {
+    if (isSalesDisabled) {
+      toast.error('As vendas para este evento ainda não foram abertas.');
+      return;
+    }
+
     if (isParticipating) return;
     
     try {
@@ -527,7 +541,9 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     let errorMessage = error.message || 'Erro inesperado ao processar o pagamento';
     const errorStr = errorMessage.toLowerCase();
       
-      if (errorStr.includes('invalid jwt') || errorStr.includes('401') || errorStr.includes('unauthorized')) {
+      if (errorMessage.includes('SALES_DISABLED') || error.context?.status === 403) {
+          errorMessage = 'As vendas para este evento ainda não foram abertas.';
+      } else if (errorStr.includes('invalid jwt') || errorStr.includes('401') || errorStr.includes('unauthorized')) {
           errorMessage = 'Sessão inválida. Tente fazer login novamente.';
       } else if (errorMessage.includes('menor que R$ 5,00') || errorMessage.includes('valor da cobrança')) {
           errorMessage = 'O valor mínimo para pagamento é de R$ 5,00. Por favor, escolha outro ingresso.';
@@ -564,6 +580,8 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   const total = Math.max(0, basePrice + serviceFee - discount);
 
   const isEventRealized = event.status === 'realizado';
+  const isSalesDisabled = event.sales_enabled === false;
+  const isCheckoutBlocked = isEventRealized || isSalesDisabled;
 
   const handlePaymentSuccess = React.useCallback(() => {
     setPixModalOpen(false);
@@ -743,6 +761,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
                 selectedTicketTypeId={selectedTicketTypeId}
                 onLoaded={handleTicketsLoaded}
                 isEventRealized={isEventRealized}
+                isSalesDisabled={isSalesDisabled}
               />
               {hasAvailableTicketTypes === false && (
                 <p className="text-xs text-red-500 font-medium">
@@ -899,6 +918,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
                 eventId={event.id} 
                 onSelect={handleTicketSelect} 
                 selectedTicketTypeId={selectedTicketTypeId}
+                isSalesDisabled={isSalesDisabled}
               />
             </div>
 
@@ -1056,14 +1076,14 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
             "h-14 rounded-2xl font-bold text-lg transition-all",
             isParticipating 
               ? "bg-green-600 hover:bg-green-600 cursor-not-allowed" 
-              : isEventRealized
+              : isCheckoutBlocked
                 ? "bg-muted text-muted-foreground cursor-not-allowed hover:bg-muted"
                 : "bg-primary hover:bg-primary/90 shadow-[0_10px_20px_-5px_rgba(255,0,127,0.4)] hover:scale-[1.02] active:scale-[0.98]"
           )}
           disabled={
             isProcessing ||
             isParticipating ||
-            isEventRealized ||
+            isCheckoutBlocked ||
             (step === 'select_ticket_type' && !selectedTicketTypeId) ||
             (step === 'payment' && !selectedTicketTypeId)
           }
@@ -1072,6 +1092,11 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
             <>
                 <Ban className="w-5 h-5 mr-2" />
                 Evento realizado
+            </>
+          ) : isSalesDisabled ? (
+            <>
+              <Ban className="w-5 h-5 mr-2" />
+              Vendas fechadas
             </>
           ) : isParticipating ? (
             <>
@@ -1101,6 +1126,17 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         <p className="text-center text-sm font-medium text-destructive mt-2">
             Este evento já foi realizado e não aceita novos ingressos.
         </p>
+      )}
+
+      {isSalesDisabled && !isEventRealized && (
+        <Card className="border-amber-200 bg-amber-50/70 mt-2">
+          <div className="p-4 text-sm">
+            <p className="font-semibold text-amber-800">Vendas ainda não abertas</p>
+            <p className="text-amber-700">
+              As vendas para este evento ainda não foram liberadas pelo organizador. Fique atento, em breve os ingressos estarão disponíveis.
+            </p>
+          </div>
+        </Card>
       )}
 
       <p className="text-center text-[10px] text-muted-foreground uppercase tracking-[0.15em] opacity-50">

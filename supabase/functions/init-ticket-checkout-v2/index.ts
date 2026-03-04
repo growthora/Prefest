@@ -1,10 +1,10 @@
-
+﻿
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { requireAuth } from "../_shared/requireAuth.ts";
 
 Deno.serve(async (req) => {
-  // FASE 1: PROVA DEFINITIVA - DIAGNÓSTICO (Logo na entrada)
+  // FASE 1: PROVA DEFINITIVA - DIAGNÃ“STICO (Logo na entrada)
   const authProbe = req.headers.get("Authorization") ?? ""
   // console.log("[ENTRY-PROBE] Auth present:", Boolean(authProbe))
   // console.log("[ENTRY-PROBE] Auth prefix:", authProbe.slice(0, 18)) 
@@ -58,6 +58,19 @@ Deno.serve(async (req) => {
 
     if (eventError || !event) throw new Error('Event not found');
 
+    if (event.sales_enabled === false) {
+      return new Response(
+        JSON.stringify({
+          error: 'SALES_DISABLED',
+          message: 'As vendas para este evento ainda nÃ£o foram abertas.'
+        }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
+        }
+      );
+    }
+
     const { data: ticketType, error: ticketError } = await adminClient
       .from('ticket_types')
       .select('*')
@@ -104,7 +117,7 @@ Deno.serve(async (req) => {
         ticket_id: ticket.id,
         amount: totalPrice
       }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
       });
 
     } else {
@@ -114,7 +127,7 @@ Deno.serve(async (req) => {
         nextStep: "personal_data", // Force data verification step
         amount: 0
       }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
       });
     }
 
@@ -124,7 +137,7 @@ Deno.serve(async (req) => {
     }
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
     });
   }
 });

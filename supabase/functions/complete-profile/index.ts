@@ -1,9 +1,9 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+﻿import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts"
 import { requireAuth } from "../_shared/requireAuth.ts"
 
 Deno.serve(async (req) => {
-  // FASE 1: PROVA DEFINITIVA - DIAGNÓSTICO (Logo na entrada)
+  // FASE 1: PROVA DEFINITIVA - DIAGNÃ“STICO (Logo na entrada)
   const authProbe = req.headers.get("Authorization") ?? ""
   // console.log("[ENTRY-PROBE] Auth present:", Boolean(authProbe))
   // console.log("[ENTRY-PROBE] Auth prefix:", authProbe.slice(0, 18)) 
@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
     if (!cpf || !phone || !birth_date) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
       })
     }
 
@@ -47,13 +47,13 @@ Deno.serve(async (req) => {
       // console.error('Error updating profile:', error)
       return new Response(JSON.stringify({ error: 'Failed to update profile', details: error }), {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
       })
     }
 
     return new Response(JSON.stringify(data), {
       status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
     })
 
   } catch (error: any) {
@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({ error: error.message || 'Internal Server Error' }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
     })
   }
 })

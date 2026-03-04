@@ -1,9 +1,9 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+﻿import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts"
 import { requireAuth } from "../_shared/requireAuth.ts"
 
 Deno.serve(async (req) => {
-  // FASE 1: PROVA DEFINITIVA - DIAGNÓSTICO (Logo na entrada)
+  // FASE 1: PROVA DEFINITIVA - DIAGNÃ“STICO (Logo na entrada)
   const authProbe = req.headers.get("Authorization") ?? ""
   // console.log("[ENTRY-PROBE] Auth present:", Boolean(authProbe))
   // console.log("[ENTRY-PROBE] Auth prefix:", authProbe.slice(0, 18)) 
@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
     if (isAllowed === false) {
         return new Response(
             JSON.stringify({ error: 'Too many requests. Please wait a moment.' }),
-            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' } }
         );
     }
 
@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
             // console.log(`V3: Idempotency Key Hit: ${idempotencyKey}`);
             return new Response(JSON.stringify(existingKey.response_body), {
                 status: existingKey.response_status,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
             });
         }
     }
@@ -84,6 +84,19 @@ Deno.serve(async (req) => {
     if (ticketError || !ticket) {
       // console.error('Ticket fetch error:', ticketError);
       throw new Error('Ticket not found or invalid');
+    }
+
+    if (ticket.events?.sales_enabled === false) {
+      return new Response(
+        JSON.stringify({
+          error: 'SALES_DISABLED',
+          message: 'As vendas para este evento ainda nÃ£o foram abertas.'
+        }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
+        }
+      );
     }
 
     // Verify status
@@ -119,7 +132,7 @@ Deno.serve(async (req) => {
     const basePrice = Number(ticket.unit_price) * Number(ticket.quantity);
     let serviceFee = 0;
     
-    // Calculate Service Fee (Taxa de Serviço) - FIXED: 10% Hardcoded as requested
+    // Calculate Service Fee (Taxa de ServiÃ§o) - FIXED: 10% Hardcoded as requested
     // This overrides database configuration to ensure consistency with frontend
     serviceFee = (basePrice * 10) / 100;
     /*
@@ -153,7 +166,7 @@ Deno.serve(async (req) => {
                 .single();
 
             if (couponFindError || !coupon) {
-                throw new Error('Cupom inválido ou expirado');
+                throw new Error('Cupom invÃ¡lido ou expirado');
             }
 
             // 2. Check usage limit
@@ -207,7 +220,7 @@ Deno.serve(async (req) => {
 
         } catch (couponErr: any) {
             // console.warn(`V3: Coupon Error: ${couponErr.message}`);
-            return new Response(JSON.stringify({ error: `Coupon Error: ${couponErr.message}` }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            return new Response(JSON.stringify({ error: `Coupon Error: ${couponErr.message}` }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' } });
         }
     }
     
@@ -254,7 +267,7 @@ Deno.serve(async (req) => {
     const baseUrl = runtimeEnv === 'production'
       ? 'https://api.asaas.com/v3'
       : 'https://sandbox.asaas.com/api/v3';
-    const headers = { 'access_token': apiKey, 'Content-Type': 'application/json' };
+    const headers = { 'access_token': apiKey, 'Content-Type': 'application/json; charset=utf-8' };
     
     // 10. Validate Organizer Account
     const { data: organizerAccount, error: orgAccountError } = await adminClient
@@ -271,7 +284,7 @@ Deno.serve(async (req) => {
     const totalPrice = Number(ticket.total_price);
     
     // Platform Fee is the Service Fee calculated earlier
-    let platformFee = serviceFee;
+    const platformFee = serviceFee;
 
     // Organizer Value = Total - Platform Fee
     // Which equals: (Base + Fee - Discount) - Fee = Base - Discount
@@ -296,13 +309,13 @@ Deno.serve(async (req) => {
 
     // STRICT VALIDATION
     if (!buyerEmail) {
-        throw new Error('Email do comprador é obrigatório.');
+        throw new Error('Email do comprador Ã© obrigatÃ³rio.');
     }
     if (!buyerName) {
-        throw new Error('Nome completo do comprador é obrigatório.');
+        throw new Error('Nome completo do comprador Ã© obrigatÃ³rio.');
     }
     if (!buyerCpf || (buyerCpf.length !== 11 && buyerCpf.length !== 14)) {
-        throw new Error('CPF/CNPJ do comprador inválido ou não informado. Atualize seu perfil.');
+        throw new Error('CPF/CNPJ do comprador invÃ¡lido ou nÃ£o informado. Atualize seu perfil.');
     }
 
     // Check strict separation: Customer Email != Organizer Email
@@ -365,7 +378,7 @@ Deno.serve(async (req) => {
     // Format description to include fee breakdown
     let description = `Ingresso: ${ticket.events.title} (R$ ${basePrice.toFixed(2)})`;
     if (serviceFee > 0) {
-        description += ` + Taxa de serviço (R$ ${serviceFee.toFixed(2)})`;
+        description += ` + Taxa de serviÃ§o (R$ ${serviceFee.toFixed(2)})`;
     }
     if (discountAmount > 0) {
         description += ` - Desconto (R$ ${discountAmount.toFixed(2)})`;
@@ -404,7 +417,7 @@ Deno.serve(async (req) => {
             }
             
             if (split.length > 0) {
-                // @ts-ignore: dynamic property
+                // @ts-expect-error: split is optional and only sent when applicable
                 paymentBody.split = split;
                 // console.log(`V3 Split Configured: Total ${totalPrice} -> Organizer ${organizerValue}`);
             }
@@ -470,7 +483,7 @@ Deno.serve(async (req) => {
             
         if (splitError) {
              // console.error('CRITICAL V3 ERROR: Failed to insert payment_splits', splitError);
-             throw new Error('Falha crítica ao registrar divisão de pagamento. Contacte o suporte.');
+             throw new Error('Falha crÃ­tica ao registrar divisÃ£o de pagamento. Contacte o suporte.');
         }
     }
 
@@ -510,7 +523,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify(responseBody), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
         status: 200
     });
 
@@ -527,7 +540,7 @@ Deno.serve(async (req) => {
                  : 400;
 
     return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
       status: status
     });
   }

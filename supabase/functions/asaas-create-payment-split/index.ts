@@ -1,4 +1,4 @@
-
+﻿
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { guardSalesEnabled } from '../_shared/guard_sales_enabled.ts'
@@ -35,7 +35,7 @@ serve(async (req) => {
     if (!amount || !customer_id || !payment_method || !due_date) {
         return new Response(JSON.stringify({ error: 'Missing required fields' }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
         })
     }
 
@@ -71,16 +71,17 @@ serve(async (req) => {
     if (configError || !config || !config.api_key) {
         return new Response(JSON.stringify({ error: 'Asaas configuration not found or invalid' }), {
             status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
         })
     }
 
-    const API_URL = config.environment === 'production' 
+    const runtimeEnv = String(config.env || config.environment || 'sandbox').toLowerCase();
+    const API_URL = runtimeEnv === 'production' 
         ? 'https://api.asaas.com/v3' 
         : 'https://sandbox.asaas.com/api/v3'
 
     // 4. Calculate Split
-    let split = []
+    const split = []
     let platformFee = 0
 
     if (config.split_enabled) {
@@ -126,7 +127,7 @@ serve(async (req) => {
     const response = await fetch(`${API_URL}/payments`, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/json; charset=utf-8',
             'access_token': config.api_key
         },
         body: JSON.stringify(payload)
@@ -137,7 +138,7 @@ serve(async (req) => {
     if (!response.ok) {
         return new Response(JSON.stringify({ error: 'Error creating payment at Asaas', details: data }), {
             status: response.status, // Pass through status (e.g. 400)
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
         })
     }
 
@@ -149,36 +150,60 @@ serve(async (req) => {
         value: amount,
         provider: 'asaas',
         external_payment_id: data.id,
-        status: 'PENDING',
-        payment_method: payment_method,
+        status: 'pending',
+        payment_method: payment_method.toLowerCase(),
         payment_url: data.bankSlipUrl || data.invoiceUrl || null,
-        pix_qr_code: data.pixQrCode || null
+        pix_qr_code: data.pixQrCode || data.pixCopyPaste || null
     }).select().single()
 
     if (paymentError) {
         // console.error('Error creating payment record:', paymentError)
     } else if (split.length > 0) {
-        // Save Split
-        await adminClient.from('payment_splits').insert({
-            payment_id: payment.id,
-            total_amount: amount, // Assuming column exists or is 'value'
-            fee_value: platformFee, // Assuming column exists or is 'fee_value'
-            organizer_amount: amount - platformFee, // Assuming column exists or derived
-            split_rule: split,
-            status: 'PENDING',
-            wallet_id: validWalletId
-        })
+        const splitRows: any[] = [];
+
+        if (validWalletId) {
+            splitRows.push({
+                payment_id: payment.id,
+                recipient_type: 'organizer',
+                recipient_user_id: organizer_user_id || null,
+                asaas_account_id: validWalletId,
+                wallet_id: validWalletId,
+                fee_type: 'fixed',
+                fee_value: amount - platformFee,
+                value: amount - platformFee,
+                status: 'pending',
+                split_rule: split
+            });
+        }
+
+        if (config.wallet_id && platformFee > 0) {
+            splitRows.push({
+                payment_id: payment.id,
+                recipient_type: 'platform',
+                asaas_account_id: config.wallet_id,
+                wallet_id: config.wallet_id,
+                fee_type: config.platform_fee_type || 'fixed',
+                fee_value: platformFee,
+                value: platformFee,
+                status: 'pending',
+                split_rule: split
+            });
+        }
+
+        if (splitRows.length > 0) {
+            await adminClient.from('payment_splits').insert(splitRows);
+        }
     }
 
     return new Response(JSON.stringify({ success: true, payment: data, local_payment_id: payment?.id }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
     })
 
   } catch (error: any) {
     // console.error('Unexpected error:', error)
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
     })
   }
 })

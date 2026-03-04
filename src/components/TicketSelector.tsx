@@ -16,9 +16,17 @@ interface TicketSelectorProps {
   selectedTicketTypeId?: string;
   onLoaded?: (ticketTypes: TicketTypeDB[]) => void;
   isEventRealized?: boolean;
+  isSalesDisabled?: boolean;
 }
 
-export function TicketSelector({ eventId, onSelect, selectedTicketTypeId, onLoaded, isEventRealized = false }: TicketSelectorProps) {
+export function TicketSelector({
+  eventId,
+  onSelect,
+  selectedTicketTypeId,
+  onLoaded,
+  isEventRealized = false,
+  isSalesDisabled = false
+}: TicketSelectorProps) {
   const [ticketTypes, setTicketTypes] = useState<TicketTypeDB[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -36,7 +44,7 @@ export function TicketSelector({ eventId, onSelect, selectedTicketTypeId, onLoad
       }
       
       // Auto-selecionar se houver apenas um tipo
-      if (types.length === 1 && !selectedTicketTypeId && !isEventRealized) {
+      if (types.length === 1 && !selectedTicketTypeId && !isEventRealized && !isSalesDisabled) {
         onSelect(types[0].id, types[0]);
       }
     } catch (error) {
@@ -81,6 +89,22 @@ export function TicketSelector({ eventId, onSelect, selectedTicketTypeId, onLoad
           </CardTitle>
           <CardDescription className="text-red-600/80">
             Este evento já foi realizado e não aceita mais compras de ingressos.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  if (isSalesDisabled) {
+    return (
+      <Card className="border-amber-200 bg-amber-50/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-amber-700">
+            <Ticket className="w-5 h-5" />
+            Vendas ainda não abertas
+          </CardTitle>
+          <CardDescription className="text-amber-700/90">
+            As vendas para este evento ainda não foram liberadas pelo organizador.
           </CardDescription>
         </CardHeader>
       </Card>

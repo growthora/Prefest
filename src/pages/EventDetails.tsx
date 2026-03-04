@@ -446,6 +446,7 @@ export default function EventDetails() {
           attendeesCount: supabaseEvent.current_participants,
           tags: supabaseEvent.category ? [supabaseEvent.category] : [],
           status: supabaseEvent.status, // Add status mapping
+          sales_enabled: supabaseEvent.sales_enabled ?? true,
         };
         setEvent(convertedEvent);
         
@@ -582,6 +583,11 @@ export default function EventDetails() {
 
     if (isParticipating) {
       toast.info('Você já está inscrito neste evento!');
+      return;
+    }
+
+    if (event.sales_enabled === false) {
+      toast.error('As vendas para este evento ainda não foram abertas.');
       return;
     }
 
@@ -1339,3 +1345,4 @@ export default function EventDetails() {
     </Layout>
   );
 }
+

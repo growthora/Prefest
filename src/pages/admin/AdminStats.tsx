@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { userService } from '@/services/user.service';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -130,13 +130,13 @@ export default function AdminStats() {
         <motion.div variants={itemVariants}>
           <Card className="border-l-4 border-l-blue-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Lucro Estimado</CardTitle>
+              <CardTitle className="text-sm font-medium">Receita Prefest</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">R$ {statistics?.profit?.toFixed(2) || '0.00'}</div>
+              <div className="text-2xl font-bold text-green-600">R$ {statistics?.prefestRevenue?.toFixed(2) || statistics?.profit?.toFixed(2) || '0.00'}</div>
               <p className="text-xs text-muted-foreground">
-                Após dedução de custos
+                Soma das taxas da plataforma
               </p>
             </CardContent>
           </Card>
@@ -145,13 +145,13 @@ export default function AdminStats() {
         <motion.div variants={itemVariants}>
           <Card className="border-l-4 border-l-purple-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Margem de Lucro</CardTitle>
+              <CardTitle className="text-sm font-medium">Margem Prefest</CardTitle>
               <Percent className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{statistics?.profitMargin?.toFixed(1) || '0.0'}%</div>
               <p className="text-xs text-muted-foreground">
-                Rentabilidade média
+                Receita Prefest / GMV
               </p>
             </CardContent>
           </Card>
@@ -304,3 +304,4 @@ export default function AdminStats() {
     </motion.div>
   );
 }
+

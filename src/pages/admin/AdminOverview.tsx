@@ -248,15 +248,15 @@ export default function AdminOverview() {
         <motion.div variants={itemVariants}>
           <Card className="hover:shadow-lg transition-all duration-300 border-l-4 border-l-blue-500 bg-gradient-to-br from-background to-blue-500/5">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Lucro Estimado</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Receita Prefest</CardTitle>
               <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center shadow-sm">
                 <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">R$ {statistics?.profit?.toFixed(2) || '0.00'}</div>
+              <div className="text-2xl font-bold text-blue-600">R$ {statistics?.prefestRevenue?.toFixed(2) || statistics?.profit?.toFixed(2) || '0.00'}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                Custos: R$ {statistics?.estimatedCosts?.toFixed(2) || '0.00'}
+                Repasse Organizadores: R$ {statistics?.organizerRevenue?.toFixed(2) || statistics?.estimatedCosts?.toFixed(2) || '0.00'}
               </p>
             </CardContent>
           </Card>

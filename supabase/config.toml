@@ -1,6 +1,6 @@
 
 [functions.debug-auth]
-enabled = true
+enabled = false
 verify_jwt = true
 import_map = "./functions/debug-auth/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.

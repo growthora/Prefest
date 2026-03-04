@@ -223,51 +223,89 @@ class UserService {
       // Silently ignore error
     }
 
-    const { data: revenue, error: revenueError } = await supabase
-      .from('event_participants')
-      .select('total_paid, event_id, joined_at, status, events(title, price)')
-      .in('status', ['valid', 'used']);
+    const { data: confirmedPayments, error: revenueError } = await supabase
+      .from('payments')
+      .select(`
+        value,
+        created_at,
+        ticket:ticket_id(
+          event_id,
+          unit_price,
+          quantity,
+          discount_amount,
+          events(title)
+        )
+      `)
+      .in('status', ['paid', 'received', 'confirmed']);
 
     if (revenueError) {
       // Silently ignore error
     }
 
-    const totalRevenue = (revenue || []).reduce((sum: number, item: any) => sum + (item.total_paid || 0), 0);
+    const paymentRows = confirmedPayments || [];
+
+    const toOrganizerRevenue = (row: any) => {
+      const unitPrice = Number(row?.ticket?.unit_price) || 0;
+      const quantity = Number(row?.ticket?.quantity) || 1;
+      const discount = Number(row?.ticket?.discount_amount) || 0;
+      return Math.max(0, Number((unitPrice * quantity - discount).toFixed(2)));
+    };
+
+    const totalRevenue = paymentRows.reduce((sum: number, row: any) => {
+      const organizerRevenue = toOrganizerRevenue(row);
+      const platformFee = Number((organizerRevenue * 0.1).toFixed(2));
+      const customerTotal = Number((organizerRevenue + platformFee).toFixed(2));
+      return sum + customerTotal;
+    }, 0);
 
     const now = new Date();
     const startCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const startPreviousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-    const currentMonthRevenue = (revenue || []).reduce((sum: number, item: any) => {
-      const joinedAt = item.joined_at ? new Date(item.joined_at) : null;
-      if (joinedAt && joinedAt >= startCurrentMonth && joinedAt < startNextMonth) {
-        return sum + (item.total_paid || 0);
+    const currentMonthRevenue = paymentRows.reduce((sum: number, row: any) => {
+      const createdAt = row.created_at ? new Date(row.created_at) : null;
+      if (createdAt && createdAt >= startCurrentMonth && createdAt < startNextMonth) {
+        const organizerRevenue = toOrganizerRevenue(row);
+        const platformFee = Number((organizerRevenue * 0.1).toFixed(2));
+        return sum + organizerRevenue + platformFee;
       }
       return sum;
     }, 0);
 
-    const previousMonthRevenue = (revenue || []).reduce((sum: number, item: any) => {
-      const joinedAt = item.joined_at ? new Date(item.joined_at) : null;
-      if (joinedAt && joinedAt >= startPreviousMonth && joinedAt < startCurrentMonth) {
-        return sum + (item.total_paid || 0);
+    const previousMonthRevenue = paymentRows.reduce((sum: number, row: any) => {
+      const createdAt = row.created_at ? new Date(row.created_at) : null;
+      if (createdAt && createdAt >= startPreviousMonth && createdAt < startCurrentMonth) {
+        const organizerRevenue = toOrganizerRevenue(row);
+        const platformFee = Number((organizerRevenue * 0.1).toFixed(2));
+        return sum + organizerRevenue + platformFee;
       }
       return sum;
     }, 0);
 
-    const revenueByEvent = (revenue || []).reduce((acc: any, item: any) => {
-      const eventId = item.event_id;
+    const revenueByEvent = paymentRows.reduce((acc: any, row: any) => {
+      const eventId = row?.ticket?.event_id;
+      if (!eventId) return acc;
+      const organizerRevenue = toOrganizerRevenue(row);
+      const platformFee = Number((organizerRevenue * 0.1).toFixed(2));
+      const customerTotal = Number((organizerRevenue + platformFee).toFixed(2));
+      const quantity = Number(row?.ticket?.quantity) || 1;
+
       if (!acc[eventId]) {
         acc[eventId] = {
           event_id: eventId,
-          event_title: item.events?.title || 'Sem titulo',
-          event_price: item.events?.price || 0,
+          event_title: row?.ticket?.events?.title || 'Sem titulo',
+          event_price: Number(row?.ticket?.unit_price) || 0,
           revenue: 0,
+          organizer_revenue: 0,
+          platform_revenue: 0,
           tickets_sold: 0,
         };
       }
-      acc[eventId].revenue += item.total_paid || 0;
-      acc[eventId].tickets_sold += 1;
+      acc[eventId].revenue += customerTotal;
+      acc[eventId].organizer_revenue += organizerRevenue;
+      acc[eventId].platform_revenue += platformFee;
+      acc[eventId].tickets_sold += quantity;
       return acc;
     }, {});
 
@@ -312,15 +350,21 @@ class UserService {
       return sum;
     }, 0);
 
-    const estimatedCosts = totalRevenue * 0.3;
-    const profit = totalRevenue - estimatedCosts;
-    const profitMargin = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
+    const organizerRevenueTotal = paymentRows.reduce((sum: number, row: any) => {
+      return sum + toOrganizerRevenue(row);
+    }, 0);
+
+    const prefestRevenue = Number((totalRevenue - organizerRevenueTotal).toFixed(2));
+    const profit = prefestRevenue;
+    const profitMargin = totalRevenue > 0 ? (prefestRevenue / totalRevenue) * 100 : 0;
 
     const stats = {
       totalUsers: totalUsers || 0,
       totalEvents: totalEvents || 0,
       totalRevenue,
-      estimatedCosts,
+      estimatedCosts: organizerRevenueTotal,
+      organizerRevenue: organizerRevenueTotal,
+      prefestRevenue,
       profit,
       profitMargin,
       eventStats,

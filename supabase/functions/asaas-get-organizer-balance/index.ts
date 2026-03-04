@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+﻿import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts'
 import { requireAuth } from '../_shared/requireAuth.ts'
@@ -26,7 +26,7 @@ serve(async (req) => {
     if (accountError || !accountData) {
       return new Response(
         JSON.stringify({ error: 'Asaas account not found for this organizer' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' } }
       )
     }
 
@@ -40,7 +40,7 @@ serve(async (req) => {
           error: 'Asaas configuration error',
           details: configError?.message || 'Asaas integration not configured',
         }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' } }
       )
     }
 
@@ -53,7 +53,7 @@ serve(async (req) => {
           error: 'Asaas configuration error',
           details: 'Missing Asaas API key (secret_key_encrypted is empty or invalid)',
         }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' } }
       )
     }
 
@@ -74,7 +74,7 @@ serve(async (req) => {
           error: 'Error fetching balance from Asaas',
           details: balanceData,
         }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' } }
       )
     }
 
@@ -85,12 +85,12 @@ serve(async (req) => {
         balance: Number(balanceData.balance || 0),
         account: accountData,
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' } }
     )
   } catch (error: any) {
     return new Response(
       JSON.stringify({ error: error.message || 'Internal error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' } }
     )
   }
 })

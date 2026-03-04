@@ -25,7 +25,7 @@ export function Sales() {
         const totalGrossRevenue = dashboardStats.totalGrossRevenue;
         const totalNetRevenue = dashboardStats.totalNetRevenue;
         const totalTickets = dashboardStats.totalTicketsSold;
-        const averageTicketPrice = totalTickets > 0 ? totalNetRevenue / totalTickets : 0;
+        const averageTicketPrice = totalTickets > 0 ? totalGrossRevenue / totalTickets : 0;
 
         setStats({
           totalGrossRevenue,
@@ -59,7 +59,7 @@ export function Sales() {
               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.totalGrossRevenue)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Soma bruta dos ingressos vendidos
+              Total pago pelos clientes (ingresso + taxa)
             </p>
           </CardContent>
         </Card>
@@ -74,7 +74,7 @@ export function Sales() {
               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.totalNetRevenue)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Bruto menos taxa de plataforma (10%)
+              Total recebido pelo organizador (sem taxa da plataforma)
             </p>
           </CardContent>
         </Card>
@@ -102,7 +102,7 @@ export function Sales() {
               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.averageTicketPrice)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Ticket médio líquido por ingresso válido
+              Ticket medio pago pelo cliente por ingresso valido
             </p>
           </CardContent>
         </Card>
@@ -123,3 +123,4 @@ export function Sales() {
 }
 
 export default Sales;
+

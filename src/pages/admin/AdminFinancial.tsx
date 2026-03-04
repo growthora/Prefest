@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+ï»¿import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -29,6 +29,7 @@ interface FinancialOverview {
   total_gross_sales: number;
   total_service_fees: number;
   platform_profit: number;
+  platform_margin_percent?: number;
   organizer_revenue: number;
   organizer_splits: number;
   pending_balance: number;
@@ -94,6 +95,7 @@ export default function AdminFinancial() {
           total_gross_sales: data.total_gross_sales ?? data.total_sales ?? data.total_revenue ?? 0,
           total_service_fees: data.total_service_fees ?? data.platform_fees ?? 0,
           platform_profit: data.platform_profit ?? 0,
+          platform_margin_percent: data.platform_margin_percent ?? ((data.total_gross_sales ?? data.total_sales ?? data.total_revenue ?? 0) > 0 ? (((data.total_service_fees ?? data.platform_fees ?? 0) / (data.total_gross_sales ?? data.total_sales ?? data.total_revenue ?? 0)) * 100) : 0),
           organizer_revenue: data.organizer_revenue ?? data.organizer_splits ?? 0,
           organizer_splits: data.organizer_splits ?? data.organizer_revenue ?? 0,
           pending_balance: data.pending_balance ?? 0,
@@ -247,52 +249,52 @@ export default function AdminFinancial() {
         <TabsContent value="overview" className="space-y-6">
           {overview ? (
             <>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                 <motion.div variants={itemVariants}>
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Total Vendido</CardTitle>
+                      <CardTitle className="text-sm font-medium">GMV Total</CardTitle>
                       <DollarSign className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">{formatCurrency(overview.total_gross_sales)}</div>
-                      <p className="text-xs text-muted-foreground">Volume total bruto</p>
+                      <p className="text-xs text-muted-foreground">Total pago pelos clientes</p>
                     </CardContent>
                   </Card>
                 </motion.div>
                 <motion.div variants={itemVariants}>
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Total em Taxas de Serviço</CardTitle>
+                      <CardTitle className="text-sm font-medium">Receita Prefest</CardTitle>
                       <Wallet className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold text-green-600">{formatCurrency(overview.total_service_fees)}</div>
-                      <p className="text-xs text-muted-foreground">Arrecadado somente em taxas</p>
+                      <p className="text-xs text-muted-foreground">Soma das taxas da plataforma</p>
                     </CardContent>
                   </Card>
                 </motion.div>
                 <motion.div variants={itemVariants}>
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Repasse Líquido Organizadores</CardTitle>
+                      <CardTitle className="text-sm font-medium">Repasse LÃ­quido Organizadores</CardTitle>
                       <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold text-yellow-600">{formatCurrency(overview.organizer_revenue)}</div>
-                      <p className="text-xs text-muted-foreground">Total líquido devido aos organizadores</p>
+                      <p className="text-xs text-muted-foreground">Total lÃ­quido devido aos organizadores</p>
                     </CardContent>
                   </Card>
                 </motion.div>
                 <motion.div variants={itemVariants}>
                   <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Total Estornado</CardTitle>
+                      <CardTitle className="text-sm font-medium">Margem Prefest</CardTitle>
                       <ArrowDownLeft className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-2xl font-bold text-red-600">{formatCurrency(overview.total_refunded || 0)}</div>
-                      <p className="text-xs text-muted-foreground">DevoluÃ§Ãµes processadas</p>
+                      <div className="text-2xl font-bold text-red-600">{(overview.platform_margin_percent ?? 0).toFixed(2) + "%"}</div>
+                      <p className="text-xs text-muted-foreground">Receita Prefest / GMV</p>
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -506,6 +508,8 @@ export default function AdminFinancial() {
     </motion.div>
   );
 }
+
+
 
 
 

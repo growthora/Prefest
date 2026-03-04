@@ -1,4 +1,4 @@
-
+﻿
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
@@ -68,7 +68,7 @@ serve(async (req) => {
     const response = await fetch(`${API_URL}/accounts/${accountData.asaas_account_id}`, {
         method: 'GET',
         headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/json; charset=utf-8',
             'access_token': apiKey
         }
     })
@@ -79,7 +79,7 @@ serve(async (req) => {
         // console.error('Asaas API Error:', data);
         return new Response(JSON.stringify({ error: 'Error fetching account from Asaas', details: data }), {
             status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
         })
     }
 
@@ -124,7 +124,7 @@ serve(async (req) => {
         // console.error('DB Update Error:', updateError);
         return new Response(JSON.stringify({ error: 'Error updating account status in database', details: updateError }), {
             status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
         })
     }
 
@@ -134,13 +134,13 @@ serve(async (req) => {
         is_active: isActive,
         account: updatedAccount
     }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
     })
 
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
     })
   }
 })

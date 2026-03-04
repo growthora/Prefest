@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+﻿import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { requireAuth } from '../_shared/requireAuth.ts';
 import { requireRole } from '../_shared/requireRole.ts';
@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
       method: 'GET',
       headers: {
         'access_token': keyToValidate,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json; charset=utf-8'
       }
     });
 
@@ -69,13 +69,13 @@ Deno.serve(async (req) => {
     const data = await response.json();
 
     return new Response(JSON.stringify({ valid: true, data }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
     });
 
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
     });
   }
 });

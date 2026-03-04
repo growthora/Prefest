@@ -1,10 +1,10 @@
-
+﻿
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { requireAuth } from "../_shared/requireAuth.ts";
 
 Deno.serve(async (req) => {
-  // FASE 1: PROVA DEFINITIVA - DIAGNÓSTICO (Logo na entrada)
+  // FASE 1: PROVA DEFINITIVA - DIAGNÃ“STICO (Logo na entrada)
   const authProbe = req.headers.get("Authorization") ?? ""
   // console.log("[ENTRY-PROBE] Auth present:", Boolean(authProbe))
   // console.log("[ENTRY-PROBE] Auth prefix:", authProbe.slice(0, 18)) 
@@ -35,7 +35,30 @@ Deno.serve(async (req) => {
       .rpc('check_event_purchase_availability', { p_event_id: event_id });
 
     if (validationError || !isAvailable) {
-      throw new Error(validationError?.message || 'Este evento já foi realizado ou as vendas estão encerradas.');
+      throw new Error(validationError?.message || 'Este evento jÃ¡ foi realizado ou as vendas estÃ£o encerradas.');
+    }
+
+    const { data: event, error: eventError } = await adminClient
+      .from('events')
+      .select('id, sales_enabled')
+      .eq('id', event_id)
+      .single();
+
+    if (eventError || !event) {
+      throw new Error('Event not found');
+    }
+
+    if (event.sales_enabled === false) {
+      return new Response(
+        JSON.stringify({
+          error: 'SALES_DISABLED',
+          message: 'As vendas para este evento ainda nÃ£o foram abertas.'
+        }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
+        }
+      );
     }
 
     // 1. Verify Profile Exists
@@ -59,7 +82,7 @@ Deno.serve(async (req) => {
     if (ticketError || !ticketType) throw new Error('Ticket type not found');
 
     // 3. Verify Price (Must be 0 OR discounted to 0)
-    let finalPrice = Number(ticketType.price);
+    const finalPrice = Number(ticketType.price);
     let appliedCouponId = null;
     let discountAmount = 0;
 
@@ -81,7 +104,7 @@ Deno.serve(async (req) => {
             .single();
 
         if (couponFindError || !coupon) {
-            throw new Error('Cupom inválido ou expirado');
+            throw new Error('Cupom invÃ¡lido ou expirado');
         }
 
         if (coupon.max_uses && coupon.current_uses >= coupon.max_uses) {
@@ -99,7 +122,7 @@ Deno.serve(async (req) => {
         // Check if it covers the full price
         // We accept if final price is 0 or less
         if (finalPrice - calculatedDiscount > 0) {
-             throw new Error('Cupom não cobre o valor total do ingresso. Use o fluxo de pagamento.');
+             throw new Error('Cupom nÃ£o cobre o valor total do ingresso. Use o fluxo de pagamento.');
         }
 
         discountAmount = calculatedDiscount;
@@ -189,7 +212,7 @@ Deno.serve(async (req) => {
       success: true,
       ticket_id: ticket.id
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
     });
 
   } catch (error: any) {
@@ -198,7 +221,7 @@ Deno.serve(async (req) => {
     }
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
     });
   }
 });

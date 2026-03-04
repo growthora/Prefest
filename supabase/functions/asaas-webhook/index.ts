@@ -1,4 +1,4 @@
-
+﻿
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts'
@@ -46,7 +46,7 @@ serve(async (req) => {
         // But for initial setup, maybe allow? No, strict is better.
         // Unless it's sandbox and user hasn't set it up yet.
         // Let's assume if it's missing in DB, we can't validate, so we proceed with caution or block.
-        // Given "Webhook como fonte única de verdade", security is key.
+        // Given "Webhook como fonte Ãºnica de verdade", security is key.
         if (config?.env === 'production') {
              // console.error('Webhook token not configured in production')
              return new Response(JSON.stringify({ error: 'Webhook configuration missing' }), { status: 500, headers: corsHeaders })
@@ -275,14 +275,14 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ received: true }), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
     });
 
   } catch (error) {
     // console.error('Webhook Error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
+      { status: 400, headers: { 'Content-Type': 'application/json; charset=utf-8' } }
     );
   }
 })

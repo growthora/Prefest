@@ -33,7 +33,7 @@ const CONFIG = {
     aspect: 16 / 9,
     cropShape: 'rect' as const,
     resize: { width: 1280, height: 720 },
-    bucket: 'events'
+    bucket: 'event-images'
   }
 };
 
@@ -107,7 +107,8 @@ export function ImageCropUploader({
       const file = new File([croppedBlob], filename, { type: 'image/jpeg' });
 
       // 3. Upload
-      const url = await storageService.uploadImage(file, config.bucket);
+      const uploadFolder = type === 'event' ? 'events' : '';
+      const url = await storageService.uploadImage(file, config.bucket, uploadFolder);
       
       // 4. Update parent
       onChange(url);

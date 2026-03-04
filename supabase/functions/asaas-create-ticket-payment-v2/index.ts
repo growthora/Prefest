@@ -1,4 +1,4 @@
-
+﻿
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { requireAuth } from '../_shared/requireAuth.ts';
@@ -37,12 +37,25 @@ Deno.serve(async (req) => {
       throw new Error('Ticket not found or invalid');
     }
 
+    if (ticket.events?.sales_enabled === false) {
+      return new Response(
+        JSON.stringify({
+          error: 'SALES_DISABLED',
+          message: 'As vendas para este evento ainda nÃ£o foram abertas.'
+        }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
+        }
+      );
+    }
+
     // NEW: Check Event Purchase Availability (Global Blockade)
     const { data: isAvailable, error: validationError } = await adminClient
       .rpc('check_event_purchase_availability', { p_event_id: ticket.events.id });
     
     if (validationError || !isAvailable) {
-      throw new Error(validationError?.message || 'Este evento já foi realizado ou as vendas estão encerradas.');
+      throw new Error(validationError?.message || 'Este evento jÃ¡ foi realizado ou as vendas estÃ£o encerradas.');
     }
 
     // Verify status
@@ -70,9 +83,18 @@ Deno.serve(async (req) => {
       throw new Error('Asaas configuration not found');
     }
 
-    const { api_key: apiKey, environment: env, wallet_id: platformWalletId, split_enabled, platform_fee_type, platform_fee_value } = config;
+    const {
+      api_key: rawApiKey,
+      wallet_id: platformWalletId,
+      split_enabled,
+      platform_fee_type,
+      platform_fee_value
+    } = config;
+    const apiKey = String(rawApiKey || '').trim();
+    const env = String(config.env || config.environment || 'sandbox').toLowerCase();
+    if (!apiKey) throw new Error('Asaas API key is empty');
     const baseUrl = env === 'production' ? 'https://api.asaas.com/v3' : 'https://sandbox.asaas.com/api/v3';
-    const headers = { 'access_token': apiKey, 'Content-Type': 'application/json' };
+    const headers = { 'access_token': apiKey, 'Content-Type': 'application/json; charset=utf-8' };
 
     // 3. Validate Organizer Account
     const { data: organizerAccount, error: orgAccountError } = await adminClient
@@ -119,10 +141,10 @@ Deno.serve(async (req) => {
     const buyerCpf = rawCpf ? rawCpf.replace(/\D/g, '') : '';
 
     // STRICT VALIDATION
-    if (!buyerEmail) throw new Error('Email do comprador é obrigatório.');
-    if (!buyerName) throw new Error('Nome completo do comprador é obrigatório.');
+    if (!buyerEmail) throw new Error('Email do comprador Ã© obrigatÃ³rio.');
+    if (!buyerName) throw new Error('Nome completo do comprador Ã© obrigatÃ³rio.');
     if (!buyerCpf || (buyerCpf.length !== 11 && buyerCpf.length !== 14)) {
-        throw new Error('CPF/CNPJ do comprador inválido ou não informado.');
+        throw new Error('CPF/CNPJ do comprador invÃ¡lido ou nÃ£o informado.');
     }
 
     // Check strict separation
@@ -223,13 +245,14 @@ Deno.serve(async (req) => {
         .from('payments')
         .insert({
             ticket_id: ticket.id,
+            user_id: user.id,
             organizer_user_id: ticket.events.creator_id,
             provider: 'asaas',
             external_payment_id: paymentData.id,
-            billing_type: billing_type.toLowerCase(),
-            value_total: totalPrice,
+            payment_method: billing_type.toLowerCase(),
+            value: totalPrice,
             status: 'pending',
-            invoice_url: paymentData.invoiceUrl,
+            payment_url: paymentData.invoiceUrl,
         })
         .select()
         .single();
@@ -246,7 +269,7 @@ Deno.serve(async (req) => {
         if (paymentRecord) {
             await adminClient
                 .from('payments')
-                .update({ pix_qr_code: pixQrCode, pix_copy_paste: pixQrCodeText })
+                .update({ pix_qr_code: pixQrCodeText || pixQrCode })
                 .eq('id', paymentRecord.id);
         }
     }
@@ -259,14 +282,14 @@ Deno.serve(async (req) => {
         pixQrCodeText,
         status: paymentData.status
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
     });
 
   } catch (error) {
     // console.error('Function error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
     });
   }
 });

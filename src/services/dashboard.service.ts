@@ -56,9 +56,9 @@ type SaleTicket = {
 };
 
 type FinancialBreakdown = {
-  gross: number;
+  customerTotal: number;
+  organizerRevenue: number;
   platformFee: number;
-  organizerNet: number;
   quantity: number;
 };
 
@@ -78,21 +78,27 @@ function getFinancialBreakdown(
     const quantity = Number(participantQuantity) || Number(ticket.quantity) || 1;
     const unitPrice = Number(ticket.unit_price) || 0;
     const discount = Number(ticket.discount_amount) || 0;
-    const gross = Math.max(0, Number((unitPrice * quantity - discount).toFixed(2)));
-    const platformFee = Number((gross * PLATFORM_FEE_RATE).toFixed(2));
-    const organizerNet = Number((gross - platformFee).toFixed(2));
-    return { gross, platformFee, organizerNet, quantity };
+    const organizerRevenue = Math.max(0, Number((unitPrice * quantity - discount).toFixed(2)));
+    const platformFee = Number((organizerRevenue * PLATFORM_FEE_RATE).toFixed(2));
+    const customerTotal = Number((organizerRevenue + platformFee).toFixed(2));
+    return { customerTotal, organizerRevenue, platformFee, quantity };
   }
 
   const paid = Number(totalPaid) || 0;
-  if (paid <= 0) return { gross: 0, platformFee: 0, organizerNet: 0, quantity: Number(participantQuantity) || 0 };
+  if (paid <= 0) {
+    return {
+      customerTotal: 0,
+      organizerRevenue: 0,
+      platformFee: 0,
+      quantity: Number(participantQuantity) || 0,
+    };
+  }
 
-  // Legacy fallback (without linked ticket): assume total_paid includes +10% service fee.
-  // So ticket gross is totalPaid / 1.1 and organizer net is 90% of gross.
-  const gross = Number((paid / (1 + PLATFORM_FEE_RATE)).toFixed(2));
-  const platformFee = Number((gross * PLATFORM_FEE_RATE).toFixed(2));
-  const organizerNet = Number((gross - platformFee).toFixed(2));
-  return { gross, platformFee, organizerNet, quantity: Number(participantQuantity) || 1 };
+  // Legacy fallback (without linked ticket): assume paid already represents customer total (GMV).
+  const organizerRevenue = Number((paid / (1 + PLATFORM_FEE_RATE)).toFixed(2));
+  const platformFee = Number((organizerRevenue * PLATFORM_FEE_RATE).toFixed(2));
+  const customerTotal = Number((organizerRevenue + platformFee).toFixed(2));
+  return { customerTotal, organizerRevenue, platformFee, quantity: Number(participantQuantity) || 1 };
 }
 
 export const dashboardService = {
@@ -129,7 +135,7 @@ export const dashboardService = {
       date: item.joined_at,
       eventName: item.event?.title || 'Unknown event',
       ticketType: item.ticket_type?.name || 'Default ticket',
-      amount: getFinancialBreakdown(item.total_paid, item.ticket, item.ticket_quantity).organizerNet,
+      amount: getFinancialBreakdown(item.total_paid, item.ticket, item.ticket_quantity).organizerRevenue,
       status: item.status || 'pending',
       buyerName: item.user?.full_name || 'User',
       buyerEmail: item.user?.email || '-'
@@ -216,13 +222,13 @@ export const dashboardService = {
           ticket,
           participant?.ticketQuantity ?? ticket?.quantity
         );
-        if (breakdown.gross <= 0) return;
+        if (breakdown.customerTotal <= 0) return;
 
         totalSales += 1;
         totalTicketsSold += participant?.ticketQuantity ?? breakdown.quantity;
-        totalGross += breakdown.gross;
+        totalGross += breakdown.customerTotal;
         totalPlatformFees += breakdown.platformFee;
-        totalNet += breakdown.organizerNet;
+        totalNet += breakdown.organizerRevenue;
 
         const referenceDate =
           participant?.joinedAt && participant.joinedAt.length > 0
@@ -232,11 +238,11 @@ export const dashboardService = {
         if (!paymentDate) return;
 
         if (paymentDate >= startCurrentMonth && paymentDate < startNextMonth) {
-          currentMonthRevenue += breakdown.gross;
+          currentMonthRevenue += breakdown.customerTotal;
           currentMonthTickets += participant?.ticketQuantity ?? breakdown.quantity;
           currentMonthParticipants += participant?.ticketQuantity ?? breakdown.quantity;
         } else if (paymentDate >= startPreviousMonth && paymentDate < startCurrentMonth) {
-          previousMonthRevenue += breakdown.gross;
+          previousMonthRevenue += breakdown.customerTotal;
           previousMonthTickets += participant?.ticketQuantity ?? breakdown.quantity;
           previousMonthParticipants += participant?.ticketQuantity ?? breakdown.quantity;
         }
@@ -341,9 +347,9 @@ export const dashboardService = {
       if (salesMap.has(key)) {
         const current = salesMap.get(key)!;
         const breakdown = getFinancialBreakdown(sale.total_paid, sale.ticket, sale.ticket_quantity);
-        if (breakdown.gross <= 0) return;
+        if (breakdown.customerTotal <= 0) return;
         salesMap.set(key, {
-          amount: current.amount + breakdown.gross,
+          amount: current.amount + breakdown.customerTotal,
           count: current.count + 1,
         });
       }

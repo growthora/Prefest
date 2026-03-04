@@ -1,4 +1,4 @@
-
+﻿
 import { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 export async function requireRole(
@@ -17,7 +17,7 @@ export async function requireRole(
   if (error || !data || !data.roles || !allowedRoles.some(r => data.roles.includes(r))) {
     throw new Response(
       JSON.stringify({ error: 'Access denied: Insufficient permissions' }),
-      { status: 403, headers: { 'Content-Type': 'application/json' } }
+      { status: 403, headers: { 'Content-Type': 'application/json; charset=utf-8' } }
     )
   }
 }
