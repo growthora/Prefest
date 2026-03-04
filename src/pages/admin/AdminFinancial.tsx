@@ -20,6 +20,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { formatCurrency } from '@/utils/format';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -63,6 +70,7 @@ export default function AdminFinancial() {
   const [dateEnd, setDateEnd] = useState<string>('');
   const [activeTab, setActiveTab] = useState('overview');
   const [reconcileId, setReconcileId] = useState('');
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -157,8 +165,9 @@ export default function AdminFinancial() {
         if (error) throw error;
         
         toast.dismiss('reconcile');
-        if (data.success) {
-            toast.success(`Pagamento conciliado! Status: ${data.new_status} (Asaas: ${data.asaas_status})`);
+        if (data?.reconciled || data?.success) {
+            const statusInfo = data?.newStatus || data?.status || '-';
+            toast.success(`Pagamento conciliado! Status: ${statusInfo}`);
             loadData(); // Refresh list
         } else {
             toast.error('Erro na conciliação');
@@ -428,7 +437,13 @@ export default function AdminFinancial() {
                         <TableCell>{getStatusBadge(payment.status)}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
-                            <Button variant="ghost" size="sm">Detalhes</Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setSelectedPayment(payment)}
+                            >
+                              Detalhes
+                            </Button>
                             <Button 
                               variant="outline" 
                               size="sm"
@@ -505,6 +520,28 @@ export default function AdminFinancial() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={Boolean(selectedPayment)} onOpenChange={(open) => !open && setSelectedPayment(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Detalhes da Transação</DialogTitle>
+            <DialogDescription>Informações completas do pagamento selecionado.</DialogDescription>
+          </DialogHeader>
+          {selectedPayment && (
+            <div className="space-y-2 text-sm">
+              <p><strong>ID interno:</strong> {selectedPayment.id}</p>
+              <p><strong>ID externo:</strong> {selectedPayment.external_payment_id || '-'}</p>
+              <p><strong>Data:</strong> {format(new Date(selectedPayment.created_at), 'dd/MM/yyyy HH:mm')}</p>
+              <p><strong>Cliente:</strong> {selectedPayment.buyer_name || 'N/A'} ({selectedPayment.buyer_email || '-'})</p>
+              <p><strong>Organizador:</strong> {selectedPayment.organizer_name || 'N/A'}</p>
+              <p><strong>Evento:</strong> {selectedPayment.event_title || 'N/A'}</p>
+              <p><strong>Método:</strong> {selectedPayment.payment_method || '-'}</p>
+              <p><strong>Status:</strong> {selectedPayment.status}</p>
+              <p><strong>Valor:</strong> {formatCurrency(selectedPayment.value)}</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }

@@ -98,13 +98,29 @@ Deno.serve(async (req) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         );
 
-        // 1. Get Payment from DB
-        const { data: payment, error: fetchError } = await serviceClient
+        // 1. Get Payment from DB (accept internal ID or external Asaas ID)
+        let payment: any = null;
+        let fetchError: any = null;
+
+        const byInternal = await serviceClient
             .from('payments')
             .select('*')
             .eq('id', paymentId)
-            .single();
-        
+            .maybeSingle();
+
+        payment = byInternal.data;
+        fetchError = byInternal.error;
+
+        if (!payment && !fetchError) {
+          const byExternal = await serviceClient
+              .from('payments')
+              .select('*')
+              .eq('external_payment_id', paymentId)
+              .maybeSingle();
+          payment = byExternal.data;
+          fetchError = byExternal.error;
+        }
+
         if (fetchError || !payment) throw new Error('Payment not found');
         if (!payment.external_payment_id) throw new Error('Payment has no external ID');
 
@@ -112,9 +128,12 @@ Deno.serve(async (req) => {
         const { data: config, error: configError } = await serviceClient.rpc('get_decrypted_asaas_config').single();
         if (configError || !config) throw new Error('Failed to load Asaas config');
 
-        const { secret_key, env } = config;
-        const apiKey = secret_key;
-        const baseUrl = env === 'production' ? 'https://api.asaas.com/v3' : 'https://sandbox.asaas.com/api/v3';
+        const apiKey = String(config.api_key || config.secret_key || '').trim();
+        const runtimeEnv = String(config.env || config.environment || 'sandbox').toLowerCase();
+        if (!apiKey) {
+          throw new Error('Missing Asaas API key in configuration');
+        }
+        const baseUrl = runtimeEnv === 'production' ? 'https://api.asaas.com/v3' : 'https://sandbox.asaas.com/api/v3';
 
         // 3. Call Asaas
         const asaasRes = await fetch(`${baseUrl}/payments/${payment.external_payment_id}`, {
