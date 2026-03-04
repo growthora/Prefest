@@ -10,12 +10,6 @@ import { ConfirmProvider } from "@/contexts/ConfirmContext";
 import { useAuth } from "@/hooks/useAuth";
 import { GlobalLoader } from "@/components/GlobalLoader";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { LoginForm } from "@/components/LoginForm";
-import { ForgotPassword } from "@/pages/Auth/ForgotPassword";
-import { ResetPassword } from "@/pages/Auth/ResetPassword";
-import { AuthError } from "@/pages/Auth/AuthError";
-import { CreateEventForm } from "@/components/CreateEventForm";
-import { EventList } from "@/components/EventList";
 const Home = lazy(() => import("./pages/Home"));
 const ExploreEvents = lazy(() => import("./pages/ExploreEvents"));
 const Collection = lazy(() => import("./pages/Collection"));
@@ -50,6 +44,24 @@ const SupportHub = lazy(() => import("./pages/Support/SupportHub"));
 const HelpCenter = lazy(() => import("./pages/Support/HelpCenter"));
 const ContactUs = lazy(() => import("./pages/Support/ContactUs"));
 const FAQ = lazy(() => import("./pages/Support/FAQ"));
+const LoginForm = lazy(() =>
+  import("@/components/LoginForm").then((module) => ({ default: module.LoginForm })),
+);
+const ForgotPassword = lazy(() =>
+  import("@/pages/Auth/ForgotPassword").then((module) => ({ default: module.ForgotPassword })),
+);
+const ResetPassword = lazy(() =>
+  import("@/pages/Auth/ResetPassword").then((module) => ({ default: module.ResetPassword })),
+);
+const AuthError = lazy(() =>
+  import("@/pages/Auth/AuthError").then((module) => ({ default: module.AuthError })),
+);
+const CreateEventForm = lazy(() =>
+  import("@/components/CreateEventForm").then((module) => ({ default: module.CreateEventForm })),
+);
+const EventList = lazy(() =>
+  import("@/components/EventList").then((module) => ({ default: module.EventList })),
+);
 // const OrganizerRoute = lazy(() => import("@/components/OrganizerRoute")); // Replaced by ProtectedRoute
 const ProtectedRoute = lazy(() => import("@/components/ProtectedRoute"));
 const DashboardLayout = lazy(() => import("@/components/dashboard/DashboardLayout"));
@@ -65,14 +77,18 @@ const NotFound = lazy(() => import("./pages/not-found/Index"));
 import { NotificationManager } from "@/components/NotificationManager";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { useIsMobile } from "@/hooks/use-mobile";
-import EmAlta from "./pages/EmAlta";
-import Categorias from "./pages/Categorias";
-import Novidades from "./pages/Novidades";
+const EmAlta = lazy(() => import("./pages/EmAlta"));
+const Categorias = lazy(() => import("./pages/Categorias"));
+const Novidades = lazy(() => import("./pages/Novidades"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5,
+      // Always revalidate against DB/API to avoid stale frontend state.
+      staleTime: 0,
+      refetchOnMount: 'always',
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
       retry: 1,
     },
   },
@@ -137,6 +153,7 @@ const AppRoutes = () => {
         <Route path={ROUTE_PATHS.LOGIN} element={<LoginForm />} />
       <Route path={ROUTE_PATHS.FORGOT_PASSWORD} element={<ForgotPassword />} />
       <Route path={ROUTE_PATHS.UPDATE_PASSWORD} element={<ResetPassword />} />
+      <Route path={ROUTE_PATHS.AUTH_ERROR} element={<AuthError />} />
       <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminOverview />} />

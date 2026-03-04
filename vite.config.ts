@@ -248,9 +248,48 @@ export default defineConfig(({ mode }) => {
           rollupOptions: {
               output: {
                   manualChunks(id) {
-                      if (id.includes('node_modules')) {
-                          return 'vendor';
+                      if (!id.includes('node_modules')) return;
+
+                      // Data layer isolated for better cache hit and faster auth/data startup updates.
+                      if (id.includes('/@supabase/')) return 'supabase';
+
+                      // Query/cache layer
+                      if (id.includes('/@tanstack/')) return 'query';
+
+                      // Router and navigation
+                      if (
+                        id.includes('/react-router/') ||
+                        id.includes('/react-router-dom/')
+                      ) {
+                        return 'router';
                       }
+
+                      // Form + validation stack
+                      if (
+                        id.includes('/react-hook-form/') ||
+                        id.includes('/@hookform/') ||
+                        id.includes('/zod/')
+                      ) {
+                        return 'forms';
+                      }
+
+                      // Icon pack
+                      if (id.includes('/lucide-react/')) return 'icons';
+
+                      // Heavier visual/libs
+                      if (
+                        id.includes('/recharts/') ||
+                        id.includes('/framer-motion/') ||
+                        id.includes('/embla-carousel-react/')
+                      ) {
+                        return 'visual';
+                      }
+
+                      // Date + helpers
+                      if (id.includes('/date-fns/')) return 'visual';
+
+                      // Fallback chunk for remaining third-party code.
+                      return 'vendor';
                   },
                   // Hash naming for cache busting and mild obfuscation
                   entryFileNames: 'assets/[hash].js',

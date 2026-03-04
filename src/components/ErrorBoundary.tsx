@@ -17,6 +17,7 @@ export class ErrorBoundary extends Component<Props, State> {
     hasError: false,
     error: null
   };
+  private static readonly CHUNK_RELOAD_KEY = 'prefest_chunk_reload_once';
 
   public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
@@ -24,6 +25,28 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // console.error("Uncaught error:", error, errorInfo);
+
+    // Auto-recovery for lazy chunk loading issues after fresh deploys.
+    // We reload once; if it still fails, we show the fallback UI.
+    const errorText = `${error?.name || ''} ${error?.message || ''}`.toLowerCase();
+    const isChunkLoadError =
+      errorText.includes('chunkloaderror') ||
+      errorText.includes('failed to fetch dynamically imported module') ||
+      errorText.includes('importing a module script failed') ||
+      errorText.includes('loading chunk');
+
+    if (isChunkLoadError && typeof window !== 'undefined') {
+      const alreadyReloaded = sessionStorage.getItem(ErrorBoundary.CHUNK_RELOAD_KEY) === '1';
+      if (!alreadyReloaded) {
+        sessionStorage.setItem(ErrorBoundary.CHUNK_RELOAD_KEY, '1');
+        window.location.reload();
+        return;
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem(ErrorBoundary.CHUNK_RELOAD_KEY);
+    }
   }
 
   public render() {

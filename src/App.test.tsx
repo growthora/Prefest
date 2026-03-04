@@ -9,13 +9,16 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 // console.log('📦 App.test.tsx carregado');
 
 const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5,
-      retry: 1,
+    defaultOptions: {
+      queries: {
+        staleTime: 0,
+        refetchOnMount: 'always',
+        refetchOnWindowFocus: true,
+        refetchOnReconnect: true,
+        retry: 1,
+      },
     },
-  },
-});
+  });
 
 const TestApp = () => {
   // console.log('🧪 TestApp renderizando...');
