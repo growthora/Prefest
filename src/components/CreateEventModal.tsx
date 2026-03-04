@@ -50,7 +50,7 @@ export function CreateEventModal({ trigger }: CreateEventModalProps) {
 
   const isOrganizer = profile?.roles?.some(r => ['ORGANIZER', 'ADMIN'].includes(r.toUpperCase())) ?? false;
   const isAdmin = profile?.roles?.some(r => r.toUpperCase() === 'ADMIN') ?? false;
-  const organizerStatus = profile?.organizer_status || 'NONE';
+  const organizerStatus = (profile?.organizer_status || 'NONE').toUpperCase();
 
   const renderContent = () => {
     if (!user) {

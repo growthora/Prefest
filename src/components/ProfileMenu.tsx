@@ -50,9 +50,10 @@ export const ProfileMenu = () => {
 
   if (!profile) return null;
 
-  const isOrganizer = profile.roles.includes('ORGANIZER');
-  const isPending = profile.organizer_status === 'PENDING';
-  const isApproved = profile.organizer_status === 'APPROVED';
+  const isOrganizer = profile.roles?.some(r => r.toUpperCase() === 'ORGANIZER') ?? false;
+  const normalizedOrganizerStatus = (profile.organizer_status || 'NONE').toUpperCase();
+  const isPending = normalizedOrganizerStatus === 'PENDING';
+  const isApproved = normalizedOrganizerStatus === 'APPROVED';
 
   // Determine header role text
   let roleText = 'Comprador';

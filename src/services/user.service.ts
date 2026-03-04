@@ -14,6 +14,7 @@ export interface CreateUserData {
   roles?: string[];
   role?: 'admin' | 'user';
   account_type?: 'comprador' | 'organizador' | 'comprador_organizador';
+  organizer_status?: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
 export interface UpdateUserData {
@@ -24,6 +25,7 @@ export interface UpdateUserData {
   roles?: string[];
   role?: 'admin' | 'user';
   account_type?: 'comprador' | 'organizador' | 'comprador_organizador';
+  organizer_status?: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED';
   single_mode?: boolean;
   match_enabled?: boolean;
   show_initials_only?: boolean;
@@ -44,6 +46,18 @@ export interface UpdateUserData {
 }
 
 class UserService {
+  private isMissingColumnError(error: any, column: string): boolean {
+    const code = String(error?.code || '');
+    const message = String(error?.message || '').toLowerCase();
+    return code === '42703' && message.includes(column.toLowerCase());
+  }
+
+  private removeUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
+    return Object.fromEntries(
+      Object.entries(obj).filter(([, value]) => value !== undefined)
+    ) as Partial<T>;
+  }
+
   // Listar todos os usuarios
   async getAllUsers(): Promise<Profile[]> {
     const { data, error } = await supabase
@@ -184,15 +198,29 @@ class UserService {
       }
 
       if (Object.keys(updatePayload).length > 0) {
-      const { data: profile, error: updateError } = await supabase
-        .from('profiles')
-        .update(updatePayload)
-        .eq('id', authData.user.id)
-        .select()
-        .single();
+        let normalizedPayload = this.removeUndefined(updatePayload);
+        let { data: profile, error: updateError } = await supabase
+          .from('profiles')
+          .update(normalizedPayload)
+          .eq('id', authData.user.id)
+          .select()
+          .single();
 
-      if (updateError) throw updateError;
-      return { user: authData.user, profile };
+        if (updateError && this.isMissingColumnError(updateError, 'account_type')) {
+          const { account_type, ...fallbackPayload } = normalizedPayload as any;
+          normalizedPayload = fallbackPayload;
+          const retry = await supabase
+            .from('profiles')
+            .update(normalizedPayload)
+            .eq('id', authData.user.id)
+            .select()
+            .single();
+          profile = retry.data as any;
+          updateError = retry.error;
+        }
+
+        if (updateError) throw updateError;
+        return { user: authData.user, profile };
       }
     }
 
@@ -202,15 +230,28 @@ class UserService {
 
   // Atualizar usuario
   async updateUser(userId: string, updates: UpdateUserData): Promise<Profile> {
-    const { data, error } = await supabase
+    let normalizedUpdates = this.removeUndefined(updates as any);
+    let { data, error } = await supabase
       .from('profiles')
-      .update(updates as any)
+      .update(normalizedUpdates as any)
       .eq('id', userId)
       .select()
       .single();
 
+    if (error && (this.isMissingColumnError(error, 'account_type') || this.isMissingColumnError(error, 'organizer_status'))) {
+      const { account_type, organizer_status, ...fallbackUpdates } = normalizedUpdates as any;
+      const retry = await supabase
+        .from('profiles')
+        .update(fallbackUpdates)
+        .eq('id', userId)
+        .select()
+        .single();
+      data = retry.data as any;
+      error = retry.error;
+    }
+
     if (error) throw error;
-    return data;
+    return data as Profile;
   }
 
   async updateUserPasswordAsAdmin(userId: string, newPassword: string): Promise<void> {

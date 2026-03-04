@@ -19,7 +19,7 @@ export default function DeletarConta() {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   
-  const isOrganizer = profile?.roles?.includes('ORGANIZER') || false;
+  const isOrganizer = profile?.roles?.some(r => r.toUpperCase() === 'ORGANIZER') || false;
   
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');

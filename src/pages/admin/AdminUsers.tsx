@@ -63,6 +63,15 @@ export default function AdminUsers() {
     return [...new Set(result)];
   };
 
+  const getOrganizerStatusFromAccountType = (
+    accountType: 'comprador' | 'organizador' | 'comprador_organizador'
+  ): 'NONE' | 'APPROVED' => {
+    if (accountType === 'organizador' || accountType === 'comprador_organizador') {
+      return 'APPROVED';
+    }
+    return 'NONE';
+  };
+
   const getRoleFromUser = (user: Profile): 'user' | 'admin' => {
     const upperRoles = (user.roles || []).map(r => r.toUpperCase());
     if (upperRoles.includes('ADMIN') || user.role === 'admin') return 'admin';
@@ -92,6 +101,7 @@ export default function AdminUsers() {
       await userService.createUser({
         ...newUser,
         roles: getRolesFromPermissionAndAccountType(newUser.role, newUser.account_type),
+        organizer_status: getOrganizerStatusFromAccountType(newUser.account_type),
       });
       toast.success('Usuário criado com sucesso!');
       setIsCreateUserDialogOpen(false);
@@ -126,8 +136,10 @@ export default function AdminUsers() {
         account_type: userUpdate.account_type,
       };
 
-      if (userUpdate.role && userUpdate.account_type) {
-        updateData.roles = getRolesFromPermissionAndAccountType(userUpdate.role, userUpdate.account_type);
+      if (userUpdate.account_type) {
+        const resolvedRole = userUpdate.role || getRoleFromUser(editingUser);
+        updateData.roles = getRolesFromPermissionAndAccountType(resolvedRole, userUpdate.account_type);
+        updateData.organizer_status = getOrganizerStatusFromAccountType(userUpdate.account_type);
       }
 
       if (userUpdate.new_password || userUpdate.confirm_password) {

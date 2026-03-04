@@ -44,7 +44,7 @@ export function ProtectedRoute({ allowedRoles, requireOrganizerApproved }: Prote
 
   // Organizer status check
   if (requireOrganizerApproved) {
-    const isApproved = profile?.organizer_status === 'APPROVED';
+    const isApproved = (profile?.organizer_status || 'NONE').toUpperCase() === 'APPROVED';
     
     // Admin bypass: Check strictly against roles array
     const isAdmin = profile?.roles?.some(r => r.toUpperCase() === 'ADMIN');

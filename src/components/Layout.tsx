@@ -55,8 +55,9 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
   const currentQuery = searchParams.get("q") || "";
   const [searchTerm, setSearchTerm] = useState(currentQuery);
 
-  const roles = profile?.roles || [];
-  const isOrganizerApproved = roles.includes('ORGANIZER') && profile?.organizer_status === 'APPROVED';
+  const roles = (profile?.roles || []).map(r => r.toUpperCase());
+  const organizerStatus = (profile?.organizer_status || 'NONE').toUpperCase();
+  const isOrganizerApproved = roles.includes('ORGANIZER') && organizerStatus === 'APPROVED';
   const isStaff = roles.includes('STAFF');
   const canUseScanner = isOrganizerApproved || isStaff;
 
