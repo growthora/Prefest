@@ -52,11 +52,12 @@ export function EventListItem({ event, className }: EventListItemProps) {
           
           {/* Data e Hora */}
           <span className="text-gray-500 font-medium capitalize flex items-center gap-1">
-             {event.date} â€¢ {event.time}
+             {event.date} • {event.time}
           </span>
         </div>
       </div>
     </Link>
   );
 }
+
 

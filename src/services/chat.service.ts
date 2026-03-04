@@ -18,19 +18,19 @@ export interface ChatMessage {
 class ChatService {
   // Atualiza a presença do usuário atual (qual chat está aberto)
   async updatePresence(chatId: string | null) {
-    // console.log('ðŸ”” [ChatService] Atualizando presença:', chatId);
+    // console.log('🔔 [ChatService] Atualizando presença:', chatId);
     const { error } = await supabase.rpc('update_presence', {
         p_chat_id: chatId
     });
     
     if (error) {
-        // console.error('âŒ [ChatService] Erro ao atualizar presença:', error);
+        // console.error('❌ [ChatService] Erro ao atualizar presença:', error);
     }
   }
 
   // Buscar mensagens de um chat
   async getMessages(chatId: string): Promise<ChatMessage[]> {
-    // console.log('ðŸ’¬ [ChatService] Buscando mensagens do chat:', chatId);
+    // console.log('💬 [ChatService] Buscando mensagens do chat:', chatId);
 
     const { data, error } = await supabase
       .from('messages')
@@ -46,7 +46,7 @@ class ChatService {
       .order('created_at', { ascending: true });
 
     if (error) {
-      // console.error('âŒ [ChatService] Erro ao buscar mensagens:', error);
+      // console.error('❌ [ChatService] Erro ao buscar mensagens:', error);
       throw error;
     }
     
@@ -68,14 +68,14 @@ class ChatService {
     });
 
     if (error) {
-      // console.error('âŒ [ChatService] Erro ao desfazer match:', error);
+      // console.error('❌ [ChatService] Erro ao desfazer match:', error);
       throw error;
     }
   }
 
   // Enviar mensagem
   async sendMessage(chatId: string, content: string): Promise<ChatMessage> {
-    // console.log('ðŸ“¤ [ChatService] Enviando mensagem:', chatId);
+    // console.log('📤 [ChatService] Enviando mensagem:', chatId);
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
@@ -99,7 +99,7 @@ class ChatService {
       .single();
 
     if (error) {
-      // console.error('âŒ [ChatService] Erro ao enviar mensagem:', error);
+      // console.error('❌ [ChatService] Erro ao enviar mensagem:', error);
       throw error;
     }
 
@@ -112,7 +112,7 @@ class ChatService {
       onMessage: (message: any, eventType: 'INSERT' | 'UPDATE') => void,
       onTyping?: (payload: { isTyping: boolean, userId: string }) => void
   ) {
-    // console.log('ðŸ”„ [ChatService] Inscrevendo-se no chat:', chatId);
+    // console.log('🔄 [ChatService] Inscrevendo-se no chat:', chatId);
 
     const channel = supabase.channel(`chat:${chatId}`);
 
@@ -126,7 +126,7 @@ class ChatService {
           filter: `chat_id=eq.${chatId}`
         },
         (payload) => {
-           // console.log('ðŸ“¨ [ChatService] Evento realtime recebido:', payload.eventType, payload.new);
+           // console.log('📨 [ChatService] Evento realtime recebido:', payload.eventType, payload.new);
            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
                onMessage(payload.new, payload.eventType);
            }
@@ -136,7 +136,7 @@ class ChatService {
           if (onTyping) onTyping(payload.payload);
       })
       .subscribe((status) => {
-          // console.log(`ðŸ“¡ [ChatService] Status da conexão realtime para chat ${chatId}:`, status);
+          // console.log(`📡 [ChatService] Status da conexão realtime para chat ${chatId}:`, status);
       });
 
     return channel;
@@ -151,7 +151,7 @@ class ChatService {
         .single();
     
     if (error) {
-        // console.warn('âš ï¸ [ChatService] Could not fetch presence (maybe empty):', error.message);
+        // console.warn('⚠️ [ChatService] Could not fetch presence (maybe empty):', error.message);
         return null;
     }
     return data?.active_chat_id || null;
@@ -159,7 +159,7 @@ class ChatService {
 
   // Subscribe to partner presence
   subscribeToPartnerPresence(partnerId: string, onPresenceChange: (activeChatId: string | null) => void) {
-        // console.log(`ðŸ”Œ [ChatService] Subscribing to presence for partner: ${partnerId}`);
+        // console.log(`🔌 [ChatService] Subscribing to presence for partner: ${partnerId}`);
         const channel = supabase.channel(`presence:${partnerId}`);
         
         channel
@@ -172,12 +172,12 @@ class ChatService {
                     filter: `user_id=eq.${partnerId}`
                 },
                 (payload) => {
-                    // console.log('ðŸŸ¢ [ChatService] Presence UPDATE received:', payload.new);
+                    // console.log('🟢 [ChatService] Presence UPDATE received:', payload.new);
                     onPresenceChange(payload.new.active_chat_id);
                 }
             )
             .subscribe((status) => {
-                // console.log(`ðŸ”Œ [ChatService] Presence channel status for ${partnerId}:`, status);
+                // console.log(`🔌 [ChatService] Presence channel status for ${partnerId}:`, status);
             });
             
         return channel;
@@ -218,4 +218,6 @@ class ChatService {
 }
 
 export const chatService = new ChatService();
+
+
 

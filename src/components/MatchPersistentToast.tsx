@@ -22,7 +22,7 @@ export function MatchPersistentToast() {
       const subscription = supabase
       .channel('public:matches_toast')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'matches' }, (payload) => {
-        // console.log('ðŸ”¥ New match detected via realtime!', payload);
+        // console.log('🔥 New match detected via realtime!', payload);
         if (payload.new.user_a_id === user.id || payload.new.user_b_id === user.id) {
           loadUnseenMatches();
         }
@@ -108,7 +108,7 @@ export function MatchPersistentToast() {
             </div>
 
             <div className="flex-1 min-w-0 z-10">
-                <h4 className="font-bold text-lg leading-tight">It's a Match! ðŸ”¥</h4>
+                <h4 className="font-bold text-lg leading-tight">It's a Match! 🔥</h4>
                 <p className="text-sm text-white/90 truncate">
                     Você e {currentMatch.partner_name} se curtiram.
                 </p>
@@ -141,4 +141,5 @@ export function MatchPersistentToast() {
     </AnimatePresence>
   );
 }
+
 

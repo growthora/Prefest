@@ -92,7 +92,7 @@ export function CreditCardForm({ onChange, className }: CreditCardFormProps) {
           Nome do Titular
         </Label>
         <Input
-          placeholder="COMO ESTÁ NO CARTÃƒO"
+          placeholder="COMO ESTÁ NO CARTÃO"
           value={data.holderName}
           onChange={(e) => handleChange('holderName', e.target.value)}
           className={cn(errors.holderName && "border-red-500 focus-visible:ring-red-500")}
@@ -161,4 +161,5 @@ export function CreditCardForm({ onChange, className }: CreditCardFormProps) {
     </div>
   );
 }
+
 

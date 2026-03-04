@@ -78,7 +78,7 @@ const ExploreEvents = () => {
       
       setEvents(convertedEvents);
     } catch (err) {
-      // console.error('âŒ Erro ao carregar eventos:', err);
+      // console.error('❌ Erro ao carregar eventos:', err);
       setEvents([]);
     } finally {
       setIsLoading(false);
@@ -395,4 +395,5 @@ const ExploreEvents = () => {
 };
 
 export default ExploreEvents;
+
 

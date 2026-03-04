@@ -485,7 +485,7 @@ export function FloatingChat() {
                       </div>
                     ) : messages.length === 0 ? (
                       <div className="text-center text-muted-foreground text-sm pt-8">
-                        Comece a conversa com {activeChat.partner_name}! ðŸ‘‹
+                        Comece a conversa com {activeChat.partner_name}! 👋
                       </div>
                     ) : (
                       messages.map((msg) => {
@@ -628,4 +628,5 @@ export function FloatingChat() {
     </>
   );
 }
+
 

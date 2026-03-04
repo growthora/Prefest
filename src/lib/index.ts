@@ -145,7 +145,7 @@ export const APP_CONFIG = {
 };
 
 // Configuração global de provedor de email para autenticação
-// SUPABASE: Usa o serviço nativo do Supabase Auth (RECOMENDADO/OBRIGATÃ“RIO)
+// SUPABASE: Usa o serviço nativo do Supabase Auth (RECOMENDADO/OBRIGATÓRIO)
 // CUSTOM: Usa SMTP do banco via Edge Functions (PROIBIDO para Auth)
 export const AUTH_EMAIL_PROVIDER: 'SUPABASE' | 'CUSTOM' = 'SUPABASE';
 
@@ -157,4 +157,5 @@ export enum EMAIL_CONTEXT {
 
 // Regra: SMTP do banco permitido SOMENTE em CUSTOM
 export const ALLOWED_SMTP_CONTEXTS = [EMAIL_CONTEXT.CUSTOM];
+
 

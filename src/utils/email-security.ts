@@ -3,7 +3,7 @@
 /**
  * Valida o contexto de envio de email.
  * 
- * REGRA DE OURO: Auth flows â‰  SMTP do banco.
+ * REGRA DE OURO: Auth flows != SMTP do banco.
  * Se o contexto for AUTH, devemos usar EXCLUSIVAMENTE o Supabase Auth Nativo.
  * O SMTP do banco é reservado apenas para emails CUSTOM.
  * 
@@ -23,7 +23,7 @@ export function validateEmailContext(context: EMAIL_CONTEXT): void {
     
     // Se chegamos aqui, estamos em contexto AUTH e usando provedor SUPABASE.
     // O código chamador deve prosseguir usando APENAS métodos nativos (supabase.auth.*).
-    // NÃƒO deve tentar ler configurações de SMTP do banco.
+    // NÃO deve tentar ler configurações de SMTP do banco.
     return;
   }
 
@@ -36,9 +36,11 @@ export function validateEmailContext(context: EMAIL_CONTEXT): void {
 
 /**
  * Verifica se uma operação de email é segura para o contexto atual.
- * Ãštil para ser chamado antes de invocar qualquer função de envio.
+ * Útil para ser chamado antes de invocar qualquer função de envio.
  */
 export function assertAuthEmailSafety(): void {
   validateEmailContext(EMAIL_CONTEXT.AUTH);
 }
+
+
 

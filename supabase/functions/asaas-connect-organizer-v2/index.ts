@@ -14,7 +14,7 @@ serve(async (req) => {
   try {
     const { user } = await requireAuth(req);
 
-    // ðŸš¨ A PARTIR DAQUI O ORGANIZADOR ESTÁ AUTENTICADO
+    // 🚨 A PARTIR DAQUI O ORGANIZADOR ESTÁ AUTENTICADO
     // console.log(`[asaas-connect-organizer-v2] User Authenticated: ${user.id}`);
 
     const adminClient = createClient(
@@ -171,4 +171,5 @@ serve(async (req) => {
     );
   }
 });
+
 

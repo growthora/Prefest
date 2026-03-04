@@ -87,7 +87,7 @@ export default function CompleteProfile() {
         birth_date: formData.birth_date
       });
 
-      toast.success('Cadastro atualizado com sucesso! ðŸŽ‰');
+      toast.success('Cadastro atualizado com sucesso! 🎉');
       
       // Pequeno delay para garantir propagação
       setTimeout(() => {
@@ -215,4 +215,5 @@ export default function CompleteProfile() {
     </Layout>
   );
 }
+
 

@@ -53,9 +53,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
 const ICEBREAKERS = [
-  "Qual música você está mais ansioso para ouvir hoje? ðŸŽ¶",
+  "Qual música você está mais ansioso para ouvir hoje? 🎶",
   "Primeira vez nesse evento ou já é veterano?",
-  "O que você achou do line-up deste ano? ðŸ”¥",
+  "O que você achou do line-up deste ano? 🔥",
   "Qual sua 'vibe' preferida para eventos assim?"
 ];
 
@@ -703,4 +703,5 @@ export default function Chat() {
     </Layout>
   );
 }
+
 

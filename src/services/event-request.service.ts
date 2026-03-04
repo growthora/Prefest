@@ -25,7 +25,7 @@ export interface CreateEventRequestData {
 
 class EventRequestService {
   async createRequest(data: CreateEventRequestData): Promise<EventRequest> {
-    // console.log('ðŸ“¤ Enviando solicitação:', data);
+    // console.log('📤 Enviando solicitação:', data);
     
     const { data: request, error } = await supabase
       .from('event_requests')
@@ -34,7 +34,7 @@ class EventRequestService {
       .single();
 
     if (error) {
-      // console.error('âŒ Erro ao criar solicitação:', error);
+      // console.error('❌ Erro ao criar solicitação:', error);
       // console.error('Detalhes do erro:', {
       //   message: error.message,
       //   details: error.details,
@@ -44,7 +44,7 @@ class EventRequestService {
       throw new Error(`Falha ao enviar solicitação: ${error.message}`);
     }
 
-    // console.log('âœ… Solicitação criada:', request);
+    // console.log('✅ Solicitação criada:', request);
     return request;
   }
 
@@ -97,4 +97,5 @@ class EventRequestService {
 }
 
 export const eventRequestService = new EventRequestService();
+
 

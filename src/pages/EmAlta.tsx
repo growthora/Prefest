@@ -171,7 +171,7 @@ const EmAlta = () => {
               </span>
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                  <span>ðŸ”¥ Em alta</span>
+                  <span>🔥 Em alta</span>
                 </div>
                 <h1 className="mt-2 text-2xl md:text-3xl font-bold text-gray-900">Os eventos com mais tração</h1>
                 <p className="text-gray-500 text-sm md:text-base mt-1">
@@ -241,5 +241,6 @@ const EmAlta = () => {
 };
 
 export default EmAlta;
+
 
 

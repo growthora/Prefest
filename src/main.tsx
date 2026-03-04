@@ -3,8 +3,8 @@ import App from './App.tsx'
 import './index.css'
 import { sanitizeHtml } from '@/lib/sanitize';
 
-// console.log('ðŸŽ¬ main.tsx carregado');
-// console.log('ðŸŒ window.location:', window.location.href);
+// console.log('🎬 main.tsx carregado');
+// console.log('🌐 window.location:', window.location.href);
 
 try {
   const rootElement = document.getElementById("root");
@@ -13,23 +13,24 @@ try {
     throw new Error('Elemento root não encontrado no HTML!');
   }
   
-  // console.log('ðŸ“¦ Criando root React...');
+  // console.log('📦 Criando root React...');
   const root = createRoot(rootElement);
   
-  // console.log('ðŸš€ Renderizando App...');
+  // console.log('🚀 Renderizando App...');
   root.render(<App />);
   
-  // console.log('âœ… App renderizado com sucesso!');
+  // console.log('✅ App renderizado com sucesso!');
 } catch (error) {
-  // console.error('ðŸ’¥ ERRO CRÍTICO ao inicializar:', error);
+  // console.error('💥 ERRO CRÍTICO ao inicializar:', error);
   const safeError = sanitizeHtml(String(error));
   document.body.innerHTML = `
     <div style="padding: 20px; font-family: sans-serif;">
-      <h1 style="color: red;">âŒ Erro ao carregar aplicação</h1>
+      <h1 style="color: red;">❌ Erro ao carregar aplicação</h1>
       <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px;">${safeError}</pre>
       <p>Abra o Console (F12) para mais detalhes.</p>
     </div>
   `;
 }
+
 
 

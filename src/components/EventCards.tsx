@@ -84,7 +84,7 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
     
     try {
       await navigator.clipboard.writeText(shareUrl);
-      toast.success("Link copiado! ðŸ“Ž");
+      toast.success("Link copiado! 📎");
     } catch (err) {
       // console.error("Failed to copy: ", err);
       toast.error("Erro ao copiar link");
@@ -135,7 +135,7 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
                   : "bg-pink-500/40 text-white"
               )}
             >
-              {event.event_type === 'formal' ? 'ðŸ’¼ Networking' : 'ðŸŽ‰ Match'}
+              {event.event_type === 'formal' ? '💼 Networking' : '🎉 Match'}
             </Badge>
           )}
           {event.tags.slice(0, 1).map((tag) => (
@@ -314,12 +314,13 @@ export function HorizontalEventCard({ event, className }: { event: Event; classN
           </span>
           <span className="text-gray-500 font-medium capitalize flex items-center gap-1">
              {/* Ícone opcional, Sympla usa texto puro ou ícones muito discretos */}
-             {event.date} â€¢ {event.time}
+             {event.date} • {event.time}
           </span>
         </div>
       </div>
     </Link>
   );
 }
+
 
 

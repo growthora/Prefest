@@ -70,7 +70,7 @@ const Home = () => {
         img.src = src;
       });
     } catch (err) {
-      // console.error('âŒ Erro ao carregar eventos:', err);
+      // console.error('❌ Erro ao carregar eventos:', err);
       setEvents([]);
     } finally {
       setIsLoading(false);
@@ -196,7 +196,7 @@ const Home = () => {
 
                               <div className="absolute bottom-3 left-3 right-3 text-white">
                                 <p className="text-xs font-bold uppercase tracking-wider text-white mb-1">
-                                  {new Date(event.date.split('/').reverse().join('-')).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }).replace('.', '')} â€¢ {event.time}
+                                  {new Date(event.date.split('/').reverse().join('-')).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }).replace('.', '')} • {event.time}
                                 </p>
                                 <h3 className="font-bold text-lg leading-tight line-clamp-2 text-shadow-sm">
                                   {event.title}
@@ -295,7 +295,7 @@ const Home = () => {
 
                               <div className="absolute bottom-3 left-3 right-3 text-white">
                                 <p className="text-xs font-bold uppercase tracking-wider text-white mb-1">
-                                  {new Date(event.date.split('/').reverse().join('-')).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }).replace('.', '')} â€¢ {event.time}
+                                  {new Date(event.date.split('/').reverse().join('-')).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }).replace('.', '')} • {event.time}
                                 </p>
                                 <h3 className="font-bold text-lg leading-tight line-clamp-2 text-shadow-sm">
                                   {event.title}
@@ -347,4 +347,5 @@ const Home = () => {
 };
 
 export default Home;
+
 

@@ -2,7 +2,7 @@
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts"
 
 Deno.serve(async (req) => {
-  // FASE 1: PROVA DEFINITIVA - DIAGNÃ“STICO (Logo na entrada)
+  // FASE 1: PROVA DEFINITIVA - DIAGNÓSTICO (Logo na entrada)
   const authProbe = req.headers.get("Authorization") ?? ""
   // console.log("[ENTRY-PROBE] Auth present:", Boolean(authProbe))
   // console.log("[ENTRY-PROBE] Auth prefix:", authProbe.slice(0, 18)) 
@@ -53,4 +53,5 @@ Deno.serve(async (req) => {
     })
   }
 })
+
 

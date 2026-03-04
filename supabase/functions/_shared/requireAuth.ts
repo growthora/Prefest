@@ -2,7 +2,7 @@
 import { createClient, SupabaseClient, User } from 'https://esm.sh/@supabase/supabase-js@2'
 
 export async function requireAuth(req: Request): Promise<{ user: User; supabase: SupabaseClient }> {
-  // FASE 1: PROVA DEFINITIVA - DIAGNÃ“STICO
+  // FASE 1: PROVA DEFINITIVA - DIAGNÓSTICO
   const authHeader = req.headers.get('Authorization') ?? ""
   // console.log("[AUTH] present:", Boolean(authHeader))
   // console.log("[AUTH] prefix:", authHeader.slice(0, 18)) 
@@ -18,7 +18,7 @@ export async function requireAuth(req: Request): Promise<{ user: User; supabase:
 
   const jwt = authHeader.replace('Bearer ', '').trim()
 
-  // FASE 3: VALIDAR JWT DO JEITO CANÃ”NICO
+  // FASE 3: VALIDAR JWT DO JEITO CANÔNICO
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
 
@@ -43,4 +43,5 @@ export async function requireAuth(req: Request): Promise<{ user: User; supabase:
   // Retornar usuário validado e o client autenticado
   return { user, supabase: userClient }
 }
+
 

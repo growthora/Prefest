@@ -1002,7 +1002,7 @@ export class EventService {
 
   // Buscar participantes de um evento que estão com single_mode/match_enabled ativo
   async getEventSingles(eventId: string): Promise<any[]> {
-    // console.log('ðŸ” [EventService] Buscando participantes com match ativo para evento:', eventId);
+    // console.log('🔍 [EventService] Buscando participantes com match ativo para evento:', eventId);
     
     const { data, error } = await supabase
       .from('event_participants')
@@ -1027,7 +1027,7 @@ export class EventService {
       .eq('event_id', eventId);
 
     if (error) {
-      // console.error('âŒ [EventService] Erro ao buscar participantes:', error);
+      // console.error('❌ [EventService] Erro ao buscar participantes:', error);
       throw error;
     }
 
@@ -1060,24 +1060,24 @@ export class EventService {
       })
       .filter(Boolean) || [];
 
-    // console.log('âœ… [EventService] Participantes processados:', singles.length);
+    // console.log('✅ [EventService] Participantes processados:', singles.length);
     return singles;
   }
 
   // Buscar candidatos de match de forma segura via RPC
   async getMatchCandidates(eventId: string): Promise<MatchCandidate[]> {
-    // console.log('ðŸ” [EventService] Buscando candidatos de match via RPC para evento:', eventId);
+    // console.log('🔍 [EventService] Buscando candidatos de match via RPC para evento:', eventId);
     
     const { data, error } = await supabase.rpc('get_match_candidates', {
       event_uuid: eventId
     });
 
     if (error) {
-      // console.error('âŒ [EventService] Erro ao buscar candidatos:', error);
+      // console.error('❌ [EventService] Erro ao buscar candidatos:', error);
       throw error;
     }
 
-    // console.log('âœ… [EventService] Candidatos encontrados:', data?.length || 0);
+    // console.log('✅ [EventService] Candidatos encontrados:', data?.length || 0);
     return data || [];
   }
 
@@ -1328,4 +1328,5 @@ export class EventService {
 }
 
 export const eventService = new EventService();
+
 

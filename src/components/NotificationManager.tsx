@@ -103,7 +103,7 @@ export const NotificationManager: React.FC = () => {
               Hoje é o dia do evento!
             </h4>
             <p className="text-xs text-muted-foreground mb-2">
-              {notification.payload?.message || 'Seus matches também vão estar lá ðŸ‘€ðŸ”¥'}
+              {notification.payload?.message || 'Seus matches também vão estar lá 👀🔥'}
             </p>
             {notification.payload?.event_title && (
               <p className="text-xs font-medium mb-3">
@@ -194,4 +194,5 @@ export const NotificationManager: React.FC = () => {
 
   return null; // Headless component
 };
+
 

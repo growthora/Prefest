@@ -131,7 +131,7 @@ export function useMatch(eventId?: string) {
       const result = await likeService.likeUser(targetUserId, eventId);
       
       if (result.is_match) {
-        toast.success('Deu Match! ðŸŽ‰');
+        toast.success('Deu Match! 🎉');
         loadMatches(); // Recarregar matches
         return true;
       }
@@ -194,4 +194,5 @@ export function useMatch(eventId?: string) {
     loading
   };
 }
+
 

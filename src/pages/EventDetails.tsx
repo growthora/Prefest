@@ -151,7 +151,7 @@ export default function EventDetails() {
       setReceivedLikes(prev => prev.filter(l => l.like_id !== likeId));
       
       if (result.status === 'match') {
-        toast.success("It's a Match! ðŸŽ‰");
+        toast.success("It's a Match! 🎉");
         
         // Play sound
         const audio = new Audio('/sounds/match.mp3');
@@ -296,7 +296,7 @@ export default function EventDetails() {
     
     try {
       await navigator.clipboard.writeText(shareUrl);
-      toast.success("Link copiado! ðŸ“Ž");
+      toast.success("Link copiado! 📎");
     } catch (err) {
       toast.error("Erro ao copiar link");
     }
@@ -360,7 +360,7 @@ export default function EventDetails() {
       };
 
       await updateProfile(updates);
-      toast.success(enable ? 'Você entrou no Match! ðŸ”¥' : 'Você ficou invisível. ðŸ‘»');
+      toast.success(enable ? 'Você entrou no Match! 🔥' : 'Você ficou invisível. 👻');
       
       // Se ativou, recarrega candidatos
       if (enable) {
@@ -497,7 +497,7 @@ export default function EventDetails() {
       }
 
       if (likeResult.status === 'match' || likeResult.is_match) {
-        // Ã‰ um match!
+        // É um match!
         
         // Disparar confetes
         const duration = 3000;
@@ -532,7 +532,7 @@ export default function EventDetails() {
         setLastMatchChatId(likeResult.match_id || null);
 
         setShowMatchOverlay(true);
-        toast.success('Ã‰ um Match! ðŸ’•');
+        toast.success('É um Match! 💕');
         
         // Tocar som de match se existir
         const audio = new Audio('/sounds/match.mp3');
@@ -1215,7 +1215,7 @@ export default function EventDetails() {
                 transition={{ delay: 0.7 }}
                 className="text-muted-foreground mb-8 text-lg relative z-10"
               >
-                Você e <span className="text-foreground font-bold">{lastMatchedUserName}</span> curtiram um ao outro! ðŸ’•
+                Você e <span className="text-foreground font-bold">{lastMatchedUserName}</span> curtiram um ao outro! 💕
               </motion.p>
 
               <motion.div 
@@ -1352,6 +1352,7 @@ export default function EventDetails() {
     </Layout>
   );
 }
+
 
 
 

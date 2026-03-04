@@ -58,7 +58,7 @@ export const ProfileMenu = () => {
   // Determine header role text
   let roleText = 'Comprador';
   if (isApproved) {
-    roleText = 'Organizador â€¢ Comprador';
+    roleText = 'Organizador • Comprador';
   } else if (isPending) {
     roleText = 'Organizador (em análise)';
   }
@@ -257,4 +257,5 @@ export const ProfileMenu = () => {
     </>
   );
 };
+
 

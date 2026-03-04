@@ -54,8 +54,8 @@ export function MatchCard({ user, onLike, onSkip, onDetails, isTop = false }: Ma
 
   // Mapear intenção para emoji
   const intentionEmoji: Record<string, string> = {
-    'paquera': 'ðŸ’•',
-    'amizade': 'ðŸ¤'
+    'paquera': '💕',
+    'amizade': '🤝'
   };
 
   const intentionText: Record<string, string> = {
@@ -303,4 +303,5 @@ export function MatchInterface({ queue, onLike, onSkip }: MatchInterfaceProps) {
     </div>
   );
 }
+
 

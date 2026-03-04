@@ -550,7 +550,7 @@ export default function TicketScanner() {
                          'Inválido'}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {format(item.timestamp, "HH:mm:ss")} â€¢ ID: {item.ticketId.substring(0, 6)}...
+                        {format(item.timestamp, "HH:mm:ss")} • ID: {item.ticketId.substring(0, 6)}...
                       </p>
                     </div>
                   </div>
@@ -563,3 +563,4 @@ export default function TicketScanner() {
     </Layout>
   );
 }
+

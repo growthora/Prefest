@@ -195,7 +195,7 @@ export const LoginForm = () => {
       <div className="flex w-full flex-col justify-center px-4 py-12 lg:w-1/2 lg:px-12 xl:px-24">
         <div className="mx-auto w-full max-w-sm lg:max-w-md">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight text-primary mb-2">Bem-vindo ao PreFest! ðŸŽ‰</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-primary mb-2">Bem-vindo ao PreFest! 🎉</h1>
             <p className="text-muted-foreground">
               Entre ou crie sua conta para começar a curtir os melhores eventos.
             </p>
@@ -262,7 +262,7 @@ export const LoginForm = () => {
                     id="login-password"
                     name="password"
                     type="password"
-                    placeholder="â€¢â€¢â€¢â€¢â€¢â€¢"
+                    placeholder="••••••"
                     value={formData.password}
                     onChange={handleChange}
                     required
@@ -452,4 +452,5 @@ export const LoginForm = () => {
     </div>
   );
 };
+
 

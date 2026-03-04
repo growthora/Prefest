@@ -77,7 +77,7 @@ export const LegalLayout = ({ title, lastUpdated, sections }: LegalLayoutProps) 
             transition={{ delay: 0.2 }}
             className="text-muted-foreground"
           >
-            Ãšltima atualização: {lastUpdated}
+            Última atualização: {lastUpdated}
           </motion.p>
         </div>
       </div>
@@ -138,4 +138,5 @@ export const LegalLayout = ({ title, lastUpdated, sections }: LegalLayoutProps) 
     </Layout>
   );
 };
+
 

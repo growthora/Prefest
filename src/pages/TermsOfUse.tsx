@@ -57,7 +57,7 @@ const TermsOfUse = () => {
       title: 'Uso Proibido',
       content: (
         <>
-          <p className="mb-4">Ã‰ estritamente proibido utilizar a plataforma para:</p>
+          <p className="mb-4">É estritamente proibido utilizar a plataforma para:</p>
           <ul className="list-disc pl-6 space-y-2">
             <li>Publicar eventos falsos, enganosos ou ilegais.</li>
             <li>Disseminar conteúdo ofensivo, discriminatório ou que viole direitos de terceiros.</li>
@@ -142,4 +142,5 @@ const TermsOfUse = () => {
 };
 
 export default TermsOfUse;
+
 

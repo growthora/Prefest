@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 
 /**
  * Hook to apply visual obfuscation when DevTools are detected.
@@ -24,3 +24,4 @@ export function useSensitiveDataProtection() {
 
   return { sensitiveStyle, isDevToolsOpen, maskText };
 }
+
