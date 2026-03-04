@@ -135,6 +135,7 @@ export function EventDetailsEditorModal({
   onClose,
   onUpdated,
 }: EventDetailsEditorModalProps) {
+  const MIN_PAID_TICKET_PRICE = 5;
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('informacoes');
   const [currentMode, setCurrentMode] = useState<ModalMode>('view');
@@ -296,6 +297,14 @@ export function EventDetailsEditorModal({
       toast({ title: 'Preco invalido', description: 'Informe um preco valido.', variant: 'destructive' });
       return;
     }
+    if (price > 0 && price < MIN_PAID_TICKET_PRICE) {
+      toast({
+        title: 'Preco minimo',
+        description: `Ingressos pagos devem ter valor minimo de R$ ${MIN_PAID_TICKET_PRICE.toFixed(2).replace('.', ',')}.`,
+        variant: 'destructive',
+      });
+      return;
+    }
     if (Number.isNaN(quantity) || quantity < Number(ticket.quantity_sold || 0)) {
       toast({
         title: 'Quantidade invalida',
@@ -373,6 +382,14 @@ export function EventDetailsEditorModal({
       toast({ title: 'Preco invalido', description: 'Informe um preco valido.', variant: 'destructive' });
       return;
     }
+    if (price > 0 && price < MIN_PAID_TICKET_PRICE) {
+      toast({
+        title: 'Preco minimo',
+        description: `Ingressos pagos devem ter valor minimo de R$ ${MIN_PAID_TICKET_PRICE.toFixed(2).replace('.', ',')}.`,
+        variant: 'destructive',
+      });
+      return;
+    }
     if (Number.isNaN(quantity) || quantity < 0) {
       toast({ title: 'Quantidade invalida', description: 'Informe uma quantidade valida.', variant: 'destructive' });
       return;
@@ -419,6 +436,10 @@ export function EventDetailsEditorModal({
 
     if (form.price > 0 && asaasStatus !== 'approved') {
       setSaveError('Para evento pago, a conta Asaas do organizador precisa estar aprovada.');
+      return false;
+    }
+    if (form.price > 0 && form.price < MIN_PAID_TICKET_PRICE) {
+      setSaveError(`Eventos pagos devem ter preço base mínimo de R$ ${MIN_PAID_TICKET_PRICE.toFixed(2).replace('.', ',')}.`);
       return false;
     }
 

@@ -30,6 +30,7 @@ export type TicketType = {
 };
 
 export const CreateEventForm = () => {
+  const MIN_PAID_TICKET_PRICE = 5;
   const { user } = useAuth();
   const { asaasStatus } = useOrganizerStatus();
   const navigate = useNavigate();
@@ -79,6 +80,9 @@ export const CreateEventForm = () => {
       for (const ticket of ticketTypes) {
         if (!ticket.name || ticket.quantity_available <= 0) {
           return 'Todos os ingressos devem ter nome e quantidade válida.';
+        }
+        if (ticket.price > 0 && ticket.price < MIN_PAID_TICKET_PRICE) {
+          return `Ingressos pagos devem ter valor mínimo de R$ ${MIN_PAID_TICKET_PRICE.toFixed(2).replace('.', ',')}.`;
         }
       }
     }
@@ -166,13 +170,24 @@ export const CreateEventForm = () => {
       navigate(ROUTE_PATHS.ORGANIZER_EVENTS);
     } catch (err) {
       // console.error('❌ [CreateEvent] Erro ao criar evento:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido ao criar evento';
+      const rawMessage = err instanceof Error ? err.message : (err as any)?.message || 'Erro desconhecido ao criar evento';
+      const isAsaasBlockingError =
+        rawMessage.includes('ORGANIZER_ASAAS_REQUIRED') ||
+        rawMessage.includes('ORGANIZER_ASAAS_NOT_APPROVED') ||
+        rawMessage.includes('ORGANIZER_ASAAS_INVALID_WALLET') ||
+        rawMessage.includes('ORGANIZER_ASAAS_MISSING_DESTINATION_WALLET');
+      const errorMessage = isAsaasBlockingError
+        ? 'Para criar eventos, conecte uma subconta Asaas válida e aprovada (diferente da wallet da plataforma).'
+        : rawMessage;
       setError(errorMessage);
       toast({
         variant: "destructive",
         title: "Erro ao criar evento",
         description: errorMessage,
       });
+      if (isAsaasBlockingError) {
+        navigate(ROUTE_PATHS.ORGANIZER_PAYMENTS);
+      }
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setIsLoading(false);

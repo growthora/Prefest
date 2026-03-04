@@ -29,7 +29,7 @@ export async function guardSalesEnabled(
     query = supabaseClient
       .from('organizer_asaas_accounts')
       .select('*')
-      .eq('asaas_account_id', options.walletId)
+      .or(`asaas_wallet_id.eq.${options.walletId},asaas_account_id.eq.${options.walletId},external_wallet_id.eq.${options.walletId}`)
       .single()
   } else {
     return { 

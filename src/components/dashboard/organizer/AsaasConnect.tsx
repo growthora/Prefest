@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
@@ -15,6 +15,9 @@ import { toast } from 'sonner';
 interface AsaasAccount {
   id: string;
   asaas_account_id: string;
+  asaas_wallet_id?: string | null;
+  payment_method_type?: 'SUBACCOUNT' | 'EXTERNAL_WALLET';
+  external_wallet_id?: string | null;
   kyc_status: 'pending' | 'approved' | 'rejected' | 'awaiting_approval';
   is_active: boolean;
 }
@@ -42,11 +45,9 @@ export function AsaasConnect() {
 
   const [activeTab, setActiveTab] = useState<'create' | 'link'>('create');
   const [linkData, setLinkData] = useState({
-    asaas_account_id: '',
-    token: ''
+    external_wallet_id: '',
+    external_wallet_email: '',
   });
-  const [verificationStep, setVerificationStep] = useState<'start' | 'verify'>('start');
-  const [verificationInstructions, setVerificationInstructions] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -83,54 +84,50 @@ export function AsaasConnect() {
     }
   };
 
-  const handleStartRelink = async (e: React.FormEvent) => {
+  const handleConnectExternalWallet = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
-    try {
-      const { data, error } = await invokeEdgeFunction('asaas-start-relink-existing', {
-        body: { asaas_account_id: linkData.asaas_account_id }
-      });
+    if (!user) return;
 
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
-      if (data.message) {
-         // Já vinculado
-         toast.success(data.message);
-         loadAccount();
-         return;
-      }
+    const walletId = linkData.external_wallet_id.trim();
+    const externalEmail = linkData.external_wallet_email.trim();
+    const walletIsUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(walletId);
 
-      setLinkData(prev => ({ ...prev, token: data.token }));
-      setVerificationInstructions(data.instructions);
-      setVerificationStep('verify');
-      toast.info('Siga as instruções para verificar a conta.');
-
-    } catch (error: any) {
-      // console.error('Relink error:', error);
-      toast.error(error.message || 'Erro ao iniciar verificação');
-    } finally {
-      setSubmitting(false);
+    if (!walletIsUuid) {
+      toast.error('Wallet ID invalido. Informe um UUID valido do Asaas.');
+      return;
     }
-  };
 
-  const handleConfirmRelink = async () => {
+    if (!externalEmail) {
+      toast.error('Informe o e-mail da conta Asaas externa.');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const { data, error } = await invokeEdgeFunction('asaas-confirm-relink', {
-        body: { 
-            token: linkData.token,
-            asaas_account_id: linkData.asaas_account_id
-        }
-      });
+      const { data, error } = await supabase
+        .from('organizer_asaas_accounts')
+        .upsert(
+          {
+            organizer_user_id: user.id,
+            asaas_account_id: walletId,
+            asaas_wallet_id: walletId,
+            is_active: true,
+            kyc_status: 'approved',
+            payment_method_type: 'EXTERNAL_WALLET',
+            external_wallet_id: walletId,
+            external_wallet_email: externalEmail,
+          } as any,
+          { onConflict: 'organizer_user_id' }
+        )
+        .select('*')
+        .single();
 
       if (error) throw error;
-      if (data.error) throw new Error(data.error);
 
-      toast.success('Conta verificada e conectada com sucesso!');
-      loadAccount();
+      setAccount(data);
+      toast.success('Wallet externa conectada com sucesso!');
     } catch (error: any) {
-      // console.error('Confirm error:', error);
-      toast.error(error.message || 'Erro ao confirmar verificação');
+      toast.error(error.message || 'Erro ao conectar wallet externa');
     } finally {
       setSubmitting(false);
     }
@@ -163,7 +160,7 @@ export function AsaasConnect() {
     const errorMessage = error.message || 'Erro desconhecido';
       
       if (errorMessage.toLowerCase().includes('email') && errorMessage.toLowerCase().includes('uso')) {
-          toast.error('Este e-mail já está cadastrado no Asaas. Por favor, use outro e-mail ou entre em contato com o suporte.');
+          toast.error('Este e-mail jÃ¡ estÃ¡ cadastrado no Asaas. Por favor, use outro e-mail ou entre em contato com o suporte.');
       } else {
           toast.error(errorMessage);
       }
@@ -207,7 +204,7 @@ export function AsaasConnect() {
       case 'PENDING':
       case 'awaiting_approval':
       case 'AWAITING_APPROVAL':
-        return <Badge variant="outline" className="text-yellow-600 border-yellow-600"><Loader2 className="w-3 h-3 mr-1 animate-spin"/> Em Análise</Badge>;
+        return <Badge variant="outline" className="text-yellow-600 border-yellow-600"><Loader2 className="w-3 h-3 mr-1 animate-spin"/> Em AnÃ¡lise</Badge>;
       case 'rejected':
       case 'REJECTED':
         return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1"/> Rejeitado</Badge>;
@@ -229,16 +226,19 @@ export function AsaasConnect() {
             {getStatusBadge(account.kyc_status)}
           </div>
           <CardDescription>
-            ID da Conta: {account.asaas_account_id}
+            {account.payment_method_type === 'EXTERNAL_WALLET'
+              ? `Wallet ID: ${account.external_wallet_id || account.asaas_account_id}`
+              : `ID da Conta: ${account.asaas_account_id}`}
+            {account.payment_method_type !== 'EXTERNAL_WALLET' && account.asaas_wallet_id ? ` | Wallet: ${account.asaas_wallet_id}` : ''}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {account.kyc_status !== 'approved' && (
             <Alert className="mb-4 bg-yellow-50 text-yellow-800 border-yellow-200">
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Verificação Pendente</AlertTitle>
+              <AlertTitle>VerificaÃ§Ã£o Pendente</AlertTitle>
               <AlertDescription>
-                Sua conta está em análise pelo Asaas. Você poderá receber pagamentos assim que for aprovada.
+                Sua conta estÃ¡ em anÃ¡lise pelo Asaas. VocÃª poderÃ¡ receber pagamentos assim que for aprovada.
               </AlertDescription>
             </Alert>
           )}
@@ -275,14 +275,14 @@ export function AsaasConnect() {
                     size="sm"
                     onClick={() => setActiveTab('link')}
                 >
-                    Já Tenho Conta
+                    JÃ¡ Tenho Conta
                 </Button>
             </div>
         </div>
         <CardDescription>
             {activeTab === 'create' 
                 ? 'Crie uma nova subconta Asaas para receber pagamentos.' 
-                : 'Conecte uma subconta Asaas existente mediante verificação.'}
+                : 'Conecte sua conta Asaas externa informando o Wallet ID.'}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -290,13 +290,13 @@ export function AsaasConnect() {
         <form onSubmit={handleConnect} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Nome Completo / Razão Social</Label>
+              <Label htmlFor="name">Nome Completo / RazÃ£o Social</Label>
               <Input 
                 id="name" 
                 required 
                 value={formData.name}
                 onChange={e => setFormData({...formData, name: e.target.value})}
-                placeholder="Ex: João Silva"
+                placeholder="Ex: JoÃ£o Silva"
               />
             </div>
             <div className="space-y-2">
@@ -317,7 +317,7 @@ export function AsaasConnect() {
                 required 
                 value={formData.cpfCnpj}
                 onChange={e => setFormData({...formData, cpfCnpj: e.target.value})}
-                placeholder="Apenas números"
+                placeholder="Apenas nÃºmeros"
               />
             </div>
             <div className="space-y-2">
@@ -354,7 +354,7 @@ export function AsaasConnect() {
               />
             </div>
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="address">Endereço Completo</Label>
+              <Label htmlFor="address">EndereÃ§o Completo</Label>
               <Input 
                 id="address" 
                 required 
@@ -364,7 +364,7 @@ export function AsaasConnect() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="addressNumber">Número</Label>
+              <Label htmlFor="addressNumber">NÃºmero</Label>
               <Input 
                 id="addressNumber" 
                 required 
@@ -407,63 +407,51 @@ export function AsaasConnect() {
           </Button>
         </form>
         ) : (
-            <div className="space-y-6">
-                {verificationStep === 'start' ? (
-                    <div className="space-y-4">
-                        <Alert>
-                            <AlertTriangle className="h-4 w-4" />
-                            <AlertTitle>Atenção</AlertTitle>
-                            <AlertDescription>
-                                Para conectar uma conta existente, você precisará provar que é o proprietário dela.
-                            </AlertDescription>
-                        </Alert>
-                        <div className="space-y-2">
-                            <Label htmlFor="asaasAccountId">ID da Conta Asaas (cus_...)</Label>
-                            <Input 
-                                id="asaasAccountId" 
-                                value={linkData.asaas_account_id}
-                                onChange={e => setLinkData({...linkData, asaas_account_id: e.target.value})}
-                                placeholder="cus_000005112006"
-                            />
-                            <p className="text-xs text-muted-foreground">Você encontra este ID no painel da sua conta Asaas ou na URL.</p>
-                        </div>
-                        <Button onClick={handleStartRelink} className="w-full" disabled={submitting || !linkData.asaas_account_id}>
-                             {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                             Iniciar Verificação
-                        </Button>
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                         <Alert className="bg-blue-50 text-blue-800 border-blue-200">
-                            <CheckCircle2 className="h-4 w-4" />
-                            <AlertTitle>Instruções de Verificação</AlertTitle>
-                            <AlertDescription className="mt-2 font-medium">
-                                {verificationInstructions}
-                            </AlertDescription>
-                        </Alert>
+          <form onSubmit={handleConnectExternalWallet} className="space-y-4">
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Conta Externa Asaas</AlertTitle>
+              <AlertDescription>
+                Informe o Wallet ID e o e-mail da sua conta Asaas para receber via split (90% organizador, 10% PreFest).
+              </AlertDescription>
+            </Alert>
 
-                        <div className="space-y-2">
-                            <Label>Código de Verificação (Token)</Label>
-                            <div className="p-4 bg-muted rounded-md text-center text-2xl font-mono tracking-widest select-all cursor-pointer" onClick={() => {navigator.clipboard.writeText(linkData.token); toast.success("Token copiado!")}}>
-                                {linkData.token}
-                            </div>
-                            <p className="text-xs text-muted-foreground text-center">Inclua este código EXATAMENTE como está na descrição do Pix.</p>
-                        </div>
-
-                        <div className="pt-4 flex gap-2">
-                            <Button variant="outline" className="w-full" onClick={() => setVerificationStep('start')}>
-                                Voltar
-                            </Button>
-                            <Button className="w-full" onClick={handleConfirmRelink} disabled={submitting}>
-                                {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                Já fiz o Pix, Confirmar
-                            </Button>
-                        </div>
-                    </div>
-                )}
+            <div className="space-y-2">
+              <Label htmlFor="externalWalletId">Wallet ID do Asaas</Label>
+              <Input
+                id="externalWalletId"
+                value={linkData.external_wallet_id}
+                onChange={e => setLinkData({ ...linkData, external_wallet_id: e.target.value })}
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+              />
+              <p className="text-xs text-muted-foreground">
+                Use o Wallet ID da sua conta criada no proprio Asaas.
+              </p>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="externalWalletEmail">Email da conta Asaas</Label>
+              <Input
+                id="externalWalletEmail"
+                type="email"
+                value={linkData.external_wallet_email}
+                onChange={e => setLinkData({ ...linkData, external_wallet_email: e.target.value })}
+                placeholder="conta@asaas.com"
+              />
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={submitting || !linkData.external_wallet_id || !linkData.external_wallet_email}
+            >
+              {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Conectar Wallet Externa
+            </Button>
+          </form>
         )}
       </CardContent>
     </Card>
   );
 }
+

@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
           : 'https://sandbox.asaas.com/api/v3'
 
         // Check Balance
-        const balanceRes = await fetch(`${apiUrl}/finance/balance`, {
+        const balanceRes = await fetch(`${apiUrl}/finance/balance?walletId=${encodeURIComponent(asaasAccountId)}`, {
           headers: { 'access_token': apiKey, 'walletId': asaasAccountId }
         })
         

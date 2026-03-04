@@ -65,6 +65,7 @@ serve(async (req) => {
 
     // 3) Verificar se conta jÃ¡ existe no ASAAS (CPF/CNPJ)
     let asaasAccountId = null;
+    let asaasWalletId = null;
     let isNewAccount = false;
 
     // console.log(`[asaas-connect-organizer-v2] Searching for existing Asaas account for CPF/CNPJ: ${cpfCnpj}`);
@@ -82,6 +83,7 @@ serve(async (req) => {
         if (searchData.data && searchData.data.length > 0) {
             // console.log(`[asaas-connect-organizer-v2] Found existing Asaas account: ${searchData.data[0].id}`);
             asaasAccountId = searchData.data[0].id;
+            asaasWalletId = searchData.data[0].walletId ?? null;
         }
     } else {
         // console.warn('[asaas-connect-organizer-v2] Error searching for existing account, proceeding to create.');
@@ -122,6 +124,7 @@ serve(async (req) => {
         }
 
         asaasAccountId = createData.id;
+        asaasWalletId = createData.walletId ?? null;
         isNewAccount = true;
     }
 
@@ -133,6 +136,7 @@ serve(async (req) => {
         .insert({
             organizer_user_id: user.id,
             asaas_account_id: asaasAccountId,
+            asaas_wallet_id: asaasWalletId,
             kyc_status: 'pending',
             is_active: false
         })

@@ -130,6 +130,9 @@ Deno.serve(async (req) => {
 
     // 7.5 Apply Coupon Logic (Server-Side Recalculation)
     const basePrice = Number(ticket.unit_price) * Number(ticket.quantity);
+    if (Number(ticket.unit_price) > 0 && Number(ticket.unit_price) < 5) {
+      throw new Error('MIN_TICKET_PRICE_NOT_REACHED: O valor minimo para ingresso pago e R$ 5,00.');
+    }
     let serviceFee = 0;
     
     // Calculate Service Fee (Taxa de ServiÃ§o) - FIXED: 10% Hardcoded as requested
@@ -174,7 +177,7 @@ Deno.serve(async (req) => {
                  throw new Error('Cupom esgotado');
             }
 
-            // 3. Calculate discount
+            // 3. Calculate discount (discount applies only to service fee, never to organizer base)
             let calculatedDiscount = 0;
             if (coupon.discount_type === 'percentage') {
                 calculatedDiscount = (basePrice * coupon.discount_value) / 100;
@@ -182,9 +185,9 @@ Deno.serve(async (req) => {
                 calculatedDiscount = coupon.discount_value;
             }
             
-            // Cap discount
-            calculatedDiscount = Math.min(calculatedDiscount, basePrice);
-            const calculatedFinalPrice = basePrice - calculatedDiscount;
+            // Cap discount to service fee only. Organizer always receives base ticket value.
+            calculatedDiscount = Math.min(calculatedDiscount, serviceFee);
+            const calculatedFinalPrice = basePrice + (serviceFee - calculatedDiscount);
 
             // 4. Record usage
             const { data: usage, error: usageError } = await adminClient
@@ -210,10 +213,7 @@ Deno.serve(async (req) => {
                 .eq('id', coupon.id);
 
             discountAmount = calculatedDiscount;
-            finalPrice = calculatedFinalPrice + serviceFee; // Service fee is added on top of discounted price? 
-            // Wait, logic at line 123 was: let finalPrice = basePrice + serviceFee;
-            // If discount applies to basePrice, then finalPrice = (basePrice - discount) + serviceFee.
-            // Yes.
+            finalPrice = calculatedFinalPrice;
             
             appliedCouponId = usage.coupon_id;
             // console.log(`V3: Coupon Applied: ${coupon_code} - Discount: ${discountAmount} - Final: ${finalPrice}`);
@@ -228,6 +228,10 @@ Deno.serve(async (req) => {
     finalPrice = Number(finalPrice.toFixed(2));
     serviceFee = Number(serviceFee.toFixed(2));
     discountAmount = Number(discountAmount.toFixed(2));
+    const netServiceFee = Number(Math.max(0, serviceFee - discountAmount).toFixed(2));
+    const organizerBaseValue = Number(basePrice.toFixed(2));
+    const recalculatedTotalPrice = Number((organizerBaseValue + netServiceFee).toFixed(2));
+    finalPrice = recalculatedTotalPrice;
 
     // Update Ticket with Final Price (Source of Truth)
     const { error: updateTicketError } = await adminClient
@@ -279,16 +283,21 @@ Deno.serve(async (req) => {
     if (orgAccountError || !organizerAccount || organizerAccount.kyc_status !== 'approved') {
       throw new Error('Organizer not ready for payments');
     }
+    const destinationWalletId =
+      organizerAccount.payment_method_type === 'EXTERNAL_WALLET'
+        ? organizerAccount.external_wallet_id
+        : (organizerAccount.asaas_wallet_id || organizerAccount.asaas_account_id);
+    if (!destinationWalletId) {
+      throw new Error('ORGANIZER_MISSING_DESTINATION_WALLET: Configure primeiro seu método de recebimento Asaas.');
+    }
+    if (platformWalletId && destinationWalletId === platformWalletId) {
+      throw new Error('ORGANIZER_WALLET_CONFLICT: Conta Asaas inválida para repasse (wallet do organizador igual ao wallet da plataforma).');
+    }
 
     // 11. Calculate Values
-    const totalPrice = Number(ticket.total_price);
-    
-    // Platform Fee is the Service Fee calculated earlier
-    const platformFee = serviceFee;
-
-    // Organizer Value = Total - Platform Fee
-    // Which equals: (Base + Fee - Discount) - Fee = Base - Discount
-    const organizerValue = Number((totalPrice - platformFee).toFixed(2));
+    const totalPrice = recalculatedTotalPrice;
+    const platformFee = netServiceFee;
+    const organizerValue = organizerBaseValue;
     
     // console.log(`V3 Financials: Base ${basePrice} | Fee ${serviceFee} | Discount ${discountAmount} | Total ${totalPrice} | Org ${organizerValue}`);
 
@@ -319,7 +328,7 @@ Deno.serve(async (req) => {
     }
 
     // Check strict separation: Customer Email != Organizer Email
-    if (buyerEmail === organizerAccount.asaas_account_email) {
+    if (buyerEmail === (organizerAccount.external_wallet_email || organizerAccount.asaas_account_email)) {
         // console.warn(`V3 Warning: Buyer Email matches Organizer Email (${buyerEmail}). This is only valid for self-testing.`);
     }
 
@@ -396,32 +405,42 @@ Deno.serve(async (req) => {
     // Handle Split
     let splitConfigForDb = null;
 
-    if (split_enabled && organizerAccount.asaas_account_id) {
-        // Prevent splitting to the Master Account itself
-        if (organizerAccount.asaas_account_id === platformWalletId) {
-            // console.log(`V3 Split Skipped: Organizer Wallet (${organizerAccount.asaas_account_id}) is the same as Platform Wallet.`);
-        } else {
-            const split = [];
+    if (destinationWalletId) {
+        const split = [];
+        
+        // Asaas restriction: do not split to master wallet itself.
+        // Keep platform fee in master account and split only organizer part.
+        if (organizerValue > 0) {
+            const splitItem = { 
+                walletId: destinationWalletId, 
+                percentualValue: 90
+            };
+            split.push(splitItem);
             
-            // Only split to the Organizer. The rest (platformFee) stays in Master Account.
-            if (organizerValue > 0) {
-                const splitItem = { 
-                    walletId: organizerAccount.asaas_account_id, 
-                    fixedValue: organizerValue,
-                    percentualValue: undefined
-                };
-                split.push(splitItem);
-                
-                // Store for DB insert
-                splitConfigForDb = splitItem;
-            }
-            
-            if (split.length > 0) {
-                // @ts-expect-error: split is optional and only sent when applicable
-                paymentBody.split = split;
-                // console.log(`V3 Split Configured: Total ${totalPrice} -> Organizer ${organizerValue}`);
-            }
+            // Store for DB insert
+            splitConfigForDb = splitItem;
         }
+        
+        if (split.length > 0) {
+            // @ts-expect-error: split is optional and only sent when applicable
+            paymentBody.split = split;
+            // console.log(`V3 Split Configured: Total ${totalPrice} -> Organizer ${organizerValue}`);
+        }
+    }
+
+    // Hard safety: Asaas rejects split larger than charge value.
+    const splitHasFixedValues = Array.isArray(paymentBody.split) && paymentBody.split.some((item: any) => Number(item?.fixedValue || 0) > 0);
+    const splitTotal = splitHasFixedValues
+      ? Number(
+          paymentBody.split
+            .reduce((sum: number, item: any) => sum + Number(item?.fixedValue || 0), 0)
+            .toFixed(2)
+        )
+      : 0;
+    if (splitHasFixedValues && splitTotal > totalPrice) {
+      throw new Error(
+        `SPLIT_EXCEEDS_CHARGE: split=${splitTotal.toFixed(2)} total=${totalPrice.toFixed(2)} organizer=${organizerValue.toFixed(2)} fee=${platformFee.toFixed(2)}`
+      );
     }
 
     // 15. Create Payment
@@ -474,9 +493,9 @@ Deno.serve(async (req) => {
                 recipient_user_id: ticket.events.creator_id,
                 asaas_account_id: splitConfigForDb.walletId,
                 wallet_id: splitConfigForDb.walletId,
-                fee_type: 'fixed',
-                fee_value: splitConfigForDb.fixedValue,
-                value: splitConfigForDb.fixedValue,
+                fee_type: 'percentage',
+                fee_value: 90,
+                value: organizerValue,
                 status: 'pending',
                 split_rule: splitConfigForDb
             });

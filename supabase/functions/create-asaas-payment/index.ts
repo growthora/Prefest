@@ -111,63 +111,40 @@ Deno.serve(async (req) => {
     if (!organizerAccount.is_active || organizerAccount.kyc_status !== 'approved') {
         throw new Error('ORGANIZER_NOT_READY_FOR_PAYMENTS: Conta Asaas do organizador pendente de aprovaÃ§Ã£o');
     }
+    const destinationWalletId =
+        organizerAccount.payment_method_type === 'EXTERNAL_WALLET'
+            ? organizerAccount.external_wallet_id
+            : (organizerAccount.asaas_wallet_id || organizerAccount.asaas_account_id);
+    if (!destinationWalletId) {
+        throw new Error('ORGANIZER_MISSING_DESTINATION_WALLET: Configure primeiro seu método de recebimento Asaas.');
+    }
+    if (platformWalletId && destinationWalletId === platformWalletId) {
+        throw new Error('ORGANIZER_WALLET_CONFLICT: Conta Asaas inválida para repasse (wallet do organizador igual ao wallet da plataforma).');
+    }
 
     // Check strict separation
-    if (customer_info.email === organizerAccount.asaas_account_email) {
+    if (customer_info.email === (organizerAccount.external_wallet_email || organizerAccount.asaas_account_email)) {
         // console.warn(`V2 Warning: Buyer Email matches Organizer Email (${customer_info.email}). Self-testing?`);
     }
 
     // 7. Calculate Values & Split
     const unitPrice = Number(ticketType.price);
-    const totalPrice = Number((unitPrice * quantity).toFixed(2));
-    
-    let platformFee = 0;
-    if (split_enabled) {
-        if (platform_fee_type === 'percentage') {
-            platformFee = Number((totalPrice * (Number(platform_fee_value) / 100)).toFixed(2));
-        } else {
-            platformFee = Number(Number(platform_fee_value).toFixed(2));
-        }
+    if (unitPrice > 0 && unitPrice < 5) {
+        throw new Error('MIN_TICKET_PRICE_NOT_REACHED: O valor minimo para ingresso pago e R$ 5,00.');
     }
-
-    const organizerValue = Number((totalPrice - platformFee).toFixed(2));
+    const organizerBaseValue = Number((unitPrice * quantity).toFixed(2));
+    const platformFee = Number((organizerBaseValue * 0.10).toFixed(2));
+    const totalPrice = Number((organizerBaseValue + platformFee).toFixed(2));
+    const organizerValue = organizerBaseValue;
 
     // Split Payload
     const split = [];
-    if (split_enabled && platformWalletId) {
-        // Platform Part
-        if (platformFee > 0) {
-            split.push({
-                walletId: platformWalletId,
-                fixedValue: platformFee,
-                // percent: platform_fee_type === 'percentage' ? Number(platform_fee_value) : undefined
-            });
-        }
-        
-        // Organizer Part
-        if (organizerValue > 0) {
-            split.push({
-                walletId: organizerAccount.asaas_account_id,
-                fixedValue: organizerValue,
-                // percent: platform_fee_type === 'percentage' ? (100 - Number(platform_fee_value)) : undefined
-            });
-        }
-    } else {
-        // Fallback or Force Split
-        if (!platformWalletId) throw new Error('Platform Wallet ID missing in config');
-        
-        if (platformFee > 0) {
-            split.push({
-                walletId: platformWalletId,
-                fixedValue: platformFee
-            });
-        }
-        if (organizerValue > 0) {
-            split.push({
-                walletId: organizerAccount.asaas_account_id,
-                fixedValue: organizerValue
-            });
-        }
+    if (organizerValue > 0) {
+      // Asaas restriction: do not split to master wallet itself.
+      split.push({
+        walletId: destinationWalletId,
+        percentualValue: 90
+      });
     }
 
     // 8. Create Customer in Asaas (if needed)
@@ -294,8 +271,8 @@ Deno.serve(async (req) => {
             payment_id: paymentRecord.id,
             recipient_type: 'platform',
             asaas_account_id: platformWalletId,
-            fee_type: platform_fee_type,
-            fee_value: Number(platform_fee_value),
+            fee_type: 'percentage',
+            fee_value: 10,
             value: platformFee,
             status: 'pending'
         });
@@ -305,7 +282,7 @@ Deno.serve(async (req) => {
             payment_id: paymentRecord.id,
             recipient_type: 'organizer',
             recipient_user_id: event.creator_id,
-            asaas_account_id: organizerAccount.asaas_account_id,
+            asaas_account_id: destinationWalletId,
             value: organizerValue,
             status: 'pending'
         });

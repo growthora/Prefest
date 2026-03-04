@@ -132,7 +132,7 @@ serve(async (req) => {
         .insert({
             organizer_user_id: user.id,
             asaas_account_id: asaasAccountId,
-            // wallet_id: asaasWalletId, // Ensure your table has this column if you want to store it
+            asaas_wallet_id: asaasWalletId,
             kyc_status: 'pending', // Assume pending/under analysis initially
             is_active: false
         })

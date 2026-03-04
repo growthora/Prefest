@@ -63,50 +63,102 @@ serve(async (req) => {
         ? 'https://api.asaas.com/v3' 
         : 'https://sandbox.asaas.com/api/v3'
 
-    // Fetch account status from Asaas
-    // We use the main API key to fetch the subaccount details using its ID
-    const response = await fetch(`${API_URL}/accounts/${accountData.asaas_account_id}`, {
+    const paymentMethodType = String(accountData.payment_method_type || 'SUBACCOUNT')
+
+    let kycStatus = 'pending'
+    let isActive = false
+
+    if (paymentMethodType === 'EXTERNAL_WALLET') {
+      const walletId = accountData.external_wallet_id || accountData.asaas_account_id
+
+      if (!walletId) {
+        return new Response(
+          JSON.stringify({
+            error: 'Missing external wallet id',
+            details: { code: 'ORGANIZER_MISSING_DESTINATION_WALLET' },
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' } }
+        )
+      }
+
+      // For external wallets we validate existence/access by querying wallet balance.
+      const balanceRes = await fetch(`${API_URL}/finance/balance?walletId=${encodeURIComponent(walletId)}`, {
         method: 'GET',
         headers: {
-            'Content-Type': 'application/json; charset=utf-8',
-            'access_token': apiKey
+          'Content-Type': 'application/json; charset=utf-8',
+          'access_token': apiKey,
+          'walletId': walletId,
         }
-    })
+      })
 
-    const data = await response.json()
-    
-    if (!response.ok) {
-        // console.error('Asaas API Error:', data);
-        return new Response(JSON.stringify({ error: 'Error fetching account from Asaas', details: data }), {
-            status: 400,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
-        })
-    }
+      const balanceRaw = await balanceRes.text()
+      let balanceData: any = {}
+      if (balanceRaw) {
+        try {
+          balanceData = JSON.parse(balanceRaw)
+        } catch (_parseError) {
+          balanceData = { raw: balanceRaw }
+        }
+      }
 
-    // Determine status
-    // Asaas statuses: PENDING, APPROVED, REJECTED, AWAITING_APPROVAL
-    // We map them to our enums: 'pending', 'approved', 'rejected', 'awaiting_approval'
-    // is_active = true ONLY if status === 'APPROVED' (or equivalent)
-    
-    // data.status is usually upper case.
-    // We map generic statuses to our specific ones if needed.
-    let kycStatus = 'pending'
-    if (data.status) {
-        kycStatus = data.status.toLowerCase()
-    }
-    
-    // Ensure the status is one of the allowed values in DB check constraint
-    // CHECK (kyc_status IN ('pending', 'approved', 'rejected', 'awaiting_approval'))
-    // If Asaas returns something else, default to 'pending' or handle it.
-    const allowedStatuses = ['pending', 'approved', 'rejected', 'awaiting_approval']
-    if (!allowedStatuses.includes(kycStatus)) {
-        // Map unknown statuses
-        if (kycStatus === 'denied') kycStatus = 'rejected'
-        else if (kycStatus === 'awaiting_documents') kycStatus = 'awaiting_approval'
-        else kycStatus = 'pending' 
-    }
+      if (!balanceRes.ok) {
+        return new Response(
+          JSON.stringify({
+            error: 'Error fetching external wallet from Asaas',
+            details: { status: balanceRes.status, body: balanceData },
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' } }
+        )
+      }
 
-    const isActive = kycStatus === 'approved'
+      // External wallet validated successfully.
+      kycStatus = 'approved'
+      isActive = true
+    } else {
+      // Fetch subaccount status from Asaas using account id.
+      const response = await fetch(`${API_URL}/accounts/${accountData.asaas_account_id}`, {
+          method: 'GET',
+          headers: {
+              'Content-Type': 'application/json; charset=utf-8',
+              'access_token': apiKey
+          }
+      })
+
+      const rawBody = await response.text()
+      let data: any = {}
+      if (rawBody) {
+        try {
+          data = JSON.parse(rawBody)
+        } catch (_parseError) {
+          data = { raw: rawBody }
+        }
+      }
+      
+      if (!response.ok) {
+          return new Response(JSON.stringify({ error: 'Error fetching account from Asaas', details: { status: response.status, body: data } }), {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
+          })
+      }
+
+      if (data.status) {
+          kycStatus = data.status.toLowerCase()
+      }
+      
+      const allowedStatuses = ['pending', 'approved', 'rejected', 'awaiting_approval']
+      if (!allowedStatuses.includes(kycStatus)) {
+          if (kycStatus === 'denied') kycStatus = 'rejected'
+          else if (kycStatus === 'awaiting_documents') kycStatus = 'awaiting_approval'
+          else kycStatus = 'pending' 
+      }
+
+      isActive = kycStatus === 'approved'
+
+      // Persist subaccount wallet id for balance/split requests.
+      if (data.walletId && typeof data.walletId === 'string') {
+        accountData.asaas_wallet_id = data.walletId
+      }
+    }
 
     // Update DB
     const { data: updatedAccount, error: updateError } = await adminClient
@@ -114,6 +166,7 @@ serve(async (req) => {
         .update({
             kyc_status: kycStatus,
             is_active: isActive,
+            asaas_wallet_id: accountData.asaas_wallet_id || null,
             updated_at: new Date().toISOString()
         })
         .eq('id', accountData.id)
@@ -130,6 +183,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
         success: true,
+        payment_method_type: paymentMethodType,
         status: kycStatus,
         is_active: isActive,
         account: updatedAccount
@@ -137,8 +191,8 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
     })
 
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+  } catch (error: any) {
+    return new Response(JSON.stringify({ error: error?.message || 'Internal error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
     })

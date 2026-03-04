@@ -106,20 +106,31 @@ Deno.serve(async (req) => {
     if (orgAccountError || !organizerAccount || organizerAccount.kyc_status !== 'approved') {
       throw new Error('Organizer not ready for payments');
     }
-
-    // 4. Calculate Values
-    const totalPrice = Number(ticket.total_price);
-    
-    let platformFee = 0;
-    if (split_enabled) {
-        if (platform_fee_type === 'percentage') {
-            platformFee = Number((totalPrice * (Number(platform_fee_value) / 100)).toFixed(2));
-        } else {
-            platformFee = Number(Number(platform_fee_value).toFixed(2));
-        }
+    const destinationWalletId =
+      organizerAccount.payment_method_type === 'EXTERNAL_WALLET'
+        ? organizerAccount.external_wallet_id
+        : (organizerAccount.asaas_wallet_id || organizerAccount.asaas_account_id);
+    if (!destinationWalletId) {
+      throw new Error('ORGANIZER_MISSING_DESTINATION_WALLET: Configure primeiro seu método de recebimento Asaas.');
+    }
+    if (platformWalletId && destinationWalletId === platformWalletId) {
+      throw new Error('ORGANIZER_WALLET_CONFLICT: Conta Asaas inválida para repasse (wallet do organizador igual ao wallet da plataforma).');
     }
 
-    const organizerValue = Number((totalPrice - platformFee).toFixed(2));
+    // 4. Calculate Values (organizer price + global 10% fee)
+    const unitPrice = Number(ticket.unit_price || 0);
+    const quantity = Number(ticket.quantity || 1);
+    if (unitPrice > 0 && unitPrice < 5) {
+      throw new Error('MIN_TICKET_PRICE_NOT_REACHED: O valor minimo para ingresso pago e R$ 5,00.');
+    }
+    const organizerValue = Number((unitPrice * quantity).toFixed(2));
+    const platformFee = Number((organizerValue * 0.10).toFixed(2));
+    const totalPrice = Number((organizerValue + platformFee).toFixed(2));
+
+    await adminClient
+      .from('tickets')
+      .update({ total_price: totalPrice, updated_at: new Date().toISOString() })
+      .eq('id', ticket.id);
 
     // 5. Customer Info (Buyer Data ONLY - FIXED)
     // STRICT RULE: Never use Organizer data for Customer creation.
@@ -148,7 +159,7 @@ Deno.serve(async (req) => {
     }
 
     // Check strict separation
-    if (buyerEmail === organizerAccount.asaas_account_email) {
+    if (buyerEmail === (organizerAccount.external_wallet_email || organizerAccount.asaas_account_email)) {
         // console.warn(`V2 Warning: Buyer Email matches Organizer Email (${buyerEmail}). Self-testing?`);
     }
 
@@ -182,13 +193,9 @@ Deno.serve(async (req) => {
 
     // 7. Payment Payload
     const split = [];
-    if (split_enabled && platformWalletId) {
-        if (platformFee > 0) split.push({ walletId: platformWalletId, fixedValue: platformFee });
-        if (organizerValue > 0) split.push({ walletId: organizerAccount.asaas_account_id, fixedValue: organizerValue });
-    } else {
-        // Fallback logic
-        if (platformFee > 0) split.push({ walletId: platformWalletId, fixedValue: platformFee });
-        if (organizerValue > 0) split.push({ walletId: organizerAccount.asaas_account_id, fixedValue: organizerValue });
+    if (organizerValue > 0) {
+      // Asaas restriction: do not split to master wallet itself.
+      split.push({ walletId: destinationWalletId, percentualValue: 90 });
     }
 
     const paymentBody: any = {
