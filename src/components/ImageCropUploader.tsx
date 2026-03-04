@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, Upload, X, Image as ImageIcon, ZoomIn, Move } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 type ImageType = 'profile' | 'event';
 
@@ -27,7 +28,7 @@ const CONFIG = {
     aspect: 1,
     cropShape: 'round' as const,
     resize: { width: 512, height: 512 },
-    bucket: 'profiles'
+    bucket: 'avatars'
   },
   event: {
     aspect: 16 / 9,
@@ -47,6 +48,7 @@ export function ImageCropUploader({
   label,
   children
 }: ImageCropUploaderProps & { children?: React.ReactNode }) {
+  const { user } = useAuth();
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -107,8 +109,9 @@ export function ImageCropUploader({
       const file = new File([croppedBlob], filename, { type: 'image/jpeg' });
 
       // 3. Upload
-      const uploadFolder = type === 'event' ? 'events' : '';
-      const url = await storageService.uploadImage(file, config.bucket, uploadFolder);
+      const url = type === 'profile'
+        ? await storageService.uploadAvatar(file, user?.id)
+        : await storageService.uploadImage(file, config.bucket, 'events');
       
       // 4. Update parent
       onChange(url);

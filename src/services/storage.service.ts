@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 
 class StorageService {
   private bucketName = 'event-images';
+  private avatarBucketName = 'avatars';
 
   async uploadEventImage(file: File, eventId: string): Promise<string> {
     const fileExt = file.name.split('.').pop() || 'jpg';
@@ -19,6 +20,39 @@ class StorageService {
     const { data: publicUrl } = supabase.storage
       .from('event-images')
       .getPublicUrl(fileName);
+
+    return publicUrl.publicUrl;
+  }
+
+  async uploadAvatar(file: File, userId?: string): Promise<string> {
+    if (!userId) {
+      throw new Error('Usuário não autenticado para upload de avatar');
+    }
+
+    let fileToUpload = file;
+    if (file.type.startsWith('image/')) {
+      try {
+        fileToUpload = await this.compressImage(file);
+      } catch {
+        // Fallback para o arquivo original.
+      }
+    }
+
+    const extFromMime = fileToUpload.type.split('/')[1] || 'jpg';
+    const filePath = `${userId}/profile-${Date.now()}.${extFromMime}`;
+
+    const { error } = await supabase.storage
+      .from(this.avatarBucketName)
+      .upload(filePath, fileToUpload, {
+        cacheControl: '3600',
+        upsert: true
+      });
+
+    if (error) throw error;
+
+    const { data: publicUrl } = supabase.storage
+      .from(this.avatarBucketName)
+      .getPublicUrl(filePath);
 
     return publicUrl.publicUrl;
   }
@@ -121,6 +155,7 @@ class StorageService {
       // Tenta identificar o bucket pela URL ou usa o padrão
       let bucket = this.bucketName;
       if (imageUrl.includes('/profiles/')) bucket = 'profiles';
+      else if (imageUrl.includes('/avatars/')) bucket = 'avatars';
       else if (imageUrl.includes('/events/')) bucket = 'event-images';
       else if (imageUrl.includes('/event-images/')) bucket = 'event-images';
 
