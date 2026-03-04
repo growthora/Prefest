@@ -62,20 +62,25 @@ export default function AdminOverview() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [statsData, eventsData, usersData, couponsData] = await Promise.all([
+      const [statsRes, eventsRes, usersRes, couponsRes] = await Promise.allSettled([
         userService.getStatistics(),
-        eventService.getAllEvents(),
+        eventService.getAllEvents(3, true),
         userService.getUsersWithStats(),
-        couponService.getAllCoupons()
+        couponService.getAllCoupons(),
       ]);
+
+      const statsData = statsRes.status === 'fulfilled' ? statsRes.value : null;
+      const eventsData = eventsRes.status === 'fulfilled' ? eventsRes.value : [];
+      const usersData = usersRes.status === 'fulfilled' ? usersRes.value : [];
+      const couponsData = couponsRes.status === 'fulfilled' ? couponsRes.value : [];
 
       setStatistics(statsData);
       setEvents(eventsData);
       setUsers(usersData);
       setCounts({
-        users: usersData.length,
+        users: usersData.length || Number(statsData?.totalUsers || 0),
         coupons: couponsData.length,
-        activeCoupons: couponsData.filter(c => c.active).length
+        activeCoupons: couponsData.filter(c => c.active).length,
       });
     } catch (error) {
       // console.error('Erro ao carregar dados:', error);

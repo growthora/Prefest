@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Edit, Eye, MoreHorizontal, Plus, Search, Trash2, Calendar, MapPin, Users, ChevronRight, Loader2 } from 'lucide-react';
+import { Edit, Eye, MoreHorizontal, Plus, Search, Trash2, Calendar, MapPin, Users, ChevronRight, Loader2, Power } from 'lucide-react';
 import { motion } from 'framer-motion';
 import {
   DropdownMenu,
@@ -167,6 +167,29 @@ export function OrganizerEvents() {
     if (action === 'delete') setIsDeleteOpen(true);
   };
 
+  const handleDeactivateEvent = async (event: DashboardEvent) => {
+    try {
+      await eventService.deactivateEvent(event.id);
+      setEvents(prev =>
+        prev.map(e =>
+          e.id === event.id
+            ? { ...e, is_active: false, sales_enabled: false, status: 'draft' }
+            : e
+        )
+      );
+      toast({
+        title: 'Evento desativado',
+        description: 'O evento está offline para visualização e compras.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao desativar',
+        description: error?.message || 'Não foi possível desativar o evento.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleSuccess = () => {
     loadEvents();
     setIsDetailsOpen(false);
@@ -275,8 +298,8 @@ export function OrganizerEvents() {
                   {new Date(event.event_date).toLocaleDateString()}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={new Date(event.event_date) > new Date() ? "default" : "secondary"}>
-                    {new Date(event.event_date) > new Date() ? "Ativo" : "Realizado"}
+                  <Badge variant={event.is_active === false ? "secondary" : new Date(event.event_date) > new Date() ? "default" : "secondary"}>
+                    {event.is_active === false ? "Inativo" : new Date(event.event_date) > new Date() ? "Ativo" : "Realizado"}
                   </Badge>
                 </TableCell>
                 <TableCell>
@@ -317,6 +340,12 @@ export function OrganizerEvents() {
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleAction(event, 'edit')}>
                         <Edit className="mr-2 h-4 w-4" /> Editar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={event.is_active === false}
+                        onClick={() => handleDeactivateEvent(event)}
+                      >
+                        <Power className="mr-2 h-4 w-4" /> Desativar
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem 
@@ -362,10 +391,10 @@ export function OrganizerEvents() {
                     </div>
                  )}
                  <Badge 
-                    variant={new Date(event.event_date) > new Date() ? "default" : "secondary"}
+                    variant={event.is_active === false ? "secondary" : new Date(event.event_date) > new Date() ? "default" : "secondary"}
                     className="absolute right-2 top-2 shadow-sm backdrop-blur-sm bg-opacity-90"
                  >
-                    {new Date(event.event_date) > new Date() ? "Ativo" : "Realizado"}
+                    {event.is_active === false ? "Inativo" : new Date(event.event_date) > new Date() ? "Ativo" : "Realizado"}
                  </Badge>
               </div>
               <CardHeader className="p-4 pb-2">
@@ -412,12 +441,21 @@ export function OrganizerEvents() {
                     </div>
                  )}
               </CardContent>
-              <CardFooter className="p-4 pt-0 grid grid-cols-3 gap-2">
+              <CardFooter className="p-4 pt-0 grid grid-cols-4 gap-2">
                  <Button variant="outline" size="sm" className="w-full h-9 hover:bg-primary/5 hover:text-primary transition-colors" onClick={() => handleAction(event, 'view')}>
                     <Eye className="h-4 w-4 mr-1" /> Ver
                  </Button>
                  <Button variant="outline" size="sm" className="w-full h-9 hover:bg-primary/5 hover:text-primary transition-colors" onClick={() => handleAction(event, 'edit')}>
                     <Edit className="h-4 w-4 mr-1" /> Editar
+                 </Button>
+                 <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full h-9"
+                    disabled={event.is_active === false}
+                    onClick={() => handleDeactivateEvent(event)}
+                 >
+                    <Power className="h-4 w-4 mr-1" /> Desativar
                  </Button>
                  <Button variant="ghost" size="sm" className="w-full h-9 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => handleAction(event, 'delete')}>
                     <Trash2 className="h-4 w-4 mr-1" /> Excluir

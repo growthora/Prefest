@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Pencil, Trash2, Calendar, Plus, Search, MapPin, DollarSign, Users } from 'lucide-react';
+import { Pencil, Trash2, Calendar, Plus, Search, MapPin, DollarSign, Users, Power } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -202,6 +202,19 @@ export default function AdminEvents() {
     }
   };
 
+  const handleDeactivateEvent = async (event: Event) => {
+    try {
+      setIsLoading(true);
+      await eventService.deactivateEvent(event.id);
+      toast.success(`Evento "${event.title}" desativado e offline com sucesso!`);
+      await loadEvents();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao desativar evento');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const filteredEvents = events.filter(event => 
     event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     event.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -282,6 +295,15 @@ export default function AdminEvents() {
                       </Button>
                       <Button
                         size="icon"
+                        variant="outline"
+                        className="h-8 w-8 rounded-full bg-background/80 backdrop-blur-sm"
+                        disabled={event.is_active === false}
+                        onClick={() => handleDeactivateEvent(event)}
+                      >
+                        <Power className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="icon"
                         variant="destructive"
                         className="h-8 w-8 rounded-full"
                         onClick={() => handleDeleteEvent(event.id)}
@@ -290,7 +312,7 @@ export default function AdminEvents() {
                       </Button>
                     </div>
                     <Badge className="absolute top-2 left-2 bg-background/80 backdrop-blur-sm text-foreground hover:bg-background/90">
-                      {event.category || 'Geral'}
+                      {event.is_active === false ? 'Inativo' : (event.category || 'Geral')}
                     </Badge>
                   </div>
                   

@@ -3,6 +3,7 @@ import { userService } from '@/services/user.service';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { eventService, type Event } from '@/services/event.service';
+import { invokeEdgeFunction } from '@/services/apiClient';
 import { DollarSign, TrendingUp, Percent, Calendar, PieChart as PieChartIcon, BarChart3 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, Cell, PieChart, Pie, Legend } from 'recharts';
@@ -20,12 +21,35 @@ export default function AdminStats() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [statsData, eventsData] = await Promise.all([
+      const [overviewRes, statsRes, eventsRes] = await Promise.allSettled([
+        invokeEdgeFunction('admin-financial-dashboard?type=overview'),
         userService.getStatistics(),
-        eventService.getAllEvents(),
+        eventService.getAllEvents(3, true),
       ]);
 
-      setStatistics(statsData);
+      const overview =
+        overviewRes.status === 'fulfilled' && !overviewRes.value.error
+          ? (overviewRes.value.data as any)
+          : null;
+      const statsFallback = statsRes.status === 'fulfilled' ? (statsRes.value as any) : {};
+      const eventsData = eventsRes.status === 'fulfilled' ? eventsRes.value : [];
+
+      setStatistics({
+        ...statsFallback,
+        totalRevenue:
+          Number(overview?.total_gross_sales ?? overview?.total_sales ?? overview?.total_revenue) ||
+          Number(statsFallback?.totalRevenue) ||
+          0,
+        prefestRevenue:
+          Number(overview?.total_service_fees ?? overview?.platform_fees) ||
+          Number(statsFallback?.prefestRevenue ?? statsFallback?.profit) ||
+          0,
+        profitMargin:
+          Number(overview?.platform_margin_percent) ||
+          Number(statsFallback?.profitMargin) ||
+          0,
+        totalEvents: eventsData.length || Number(statsFallback?.totalEvents) || 0,
+      });
       setEvents(eventsData);
     } catch (error) {
       // console.error('Erro ao carregar estatísticas:', error);

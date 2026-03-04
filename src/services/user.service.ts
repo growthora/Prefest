@@ -270,7 +270,15 @@ class UserService {
           events(title)
         )
       `)
-      .in('status', ['paid', 'received', 'confirmed']);
+      .in('status', [
+        'paid',
+        'received',
+        'confirmed',
+        'PAID',
+        'RECEIVED',
+        'CONFIRMED',
+        'RECEIVED_IN_CASH',
+      ]);
 
     if (revenueError) {
       // Silently ignore error
