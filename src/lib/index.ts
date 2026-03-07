@@ -23,6 +23,7 @@
   HELP_CENTER: '/central-de-ajuda',
   CONTACT_US: '/fale-conosco',
   FAQ: '/perguntas-frequentes',
+  STATUS: '/status',
   FORGOT_PASSWORD: '/esqueci-minha-senha',
   UPDATE_PASSWORD: '/reset-password',
   AUTH_ERROR: '/auth/error',
@@ -157,5 +158,7 @@ export enum EMAIL_CONTEXT {
 
 // Regra: SMTP do banco permitido SOMENTE em CUSTOM
 export const ALLOWED_SMTP_CONTEXTS = [EMAIL_CONTEXT.CUSTOM];
+
+
 
 

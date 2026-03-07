@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect } from "react";
+﻿import React, { Suspense, lazy, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -80,6 +80,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 const EmAlta = lazy(() => import("./pages/EmAlta"));
 const Categorias = lazy(() => import("./pages/Categorias"));
 const Novidades = lazy(() => import("./pages/Novidades"));
+const StatusPage = lazy(() => import("./pages/Status"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -179,6 +180,7 @@ const AppRoutes = () => {
       <Route path={ROUTE_PATHS.SELL_TICKETS} element={<SellTickets />} />
       <Route path={ROUTE_PATHS.PRIVACY} element={<PrivacyPolicy />} />
       <Route path={ROUTE_PATHS.TERMS} element={<TermsOfUse />} />
+      <Route path={ROUTE_PATHS.STATUS} element={<StatusPage />} />
       <Route path={ROUTE_PATHS.SUPPORT} element={<SupportHub />} />
       <Route
         path={ROUTE_PATHS.HELP_CENTER}
@@ -292,3 +294,7 @@ const App = () => {
 };
 
 export default App;
+
+
+
+

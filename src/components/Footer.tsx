@@ -33,6 +33,7 @@ export function Footer() {
     legal: [
       { label: 'Termos de Uso', path: ROUTE_PATHS.TERMS },
       { label: 'Política de Privacidade', path: ROUTE_PATHS.PRIVACY },
+      { label: 'Status do Sistema', path: ROUTE_PATHS.STATUS },
       { label: 'Política de Cookies', path: '#' },
       { label: 'Compliance', path: '#' },
     ]
@@ -130,4 +131,6 @@ export function Footer() {
     </footer>
   );
 }
+
+
 
