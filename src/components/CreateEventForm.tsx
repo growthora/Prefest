@@ -1,4 +1,4 @@
-Ôªøimport { useState } from 'react';
+import { useState } from 'react';
 import { eventService, type CreateEventData } from '@/services/event.service';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrganizerStatus } from '@/hooks/useOrganizerStatus';
@@ -16,7 +16,7 @@ import { useToast } from '@/components/ui/use-toast';
 
 import { CategorySelect } from './create-event/CategorySelect';
 import { LocationSelect } from './create-event/LocationSelect';
-import { ImageUploader } from './create-event/ImageUploader';
+import { EventGalleryManager, type EventGalleryImage } from '@/components/event/EventGalleryManager';
 import { DateTimePicker } from './create-event/DateTimePicker';
 
 export type TicketType = {
@@ -55,34 +55,36 @@ export const CreateEventForm = () => {
     max_participants: undefined,
   });
   
+  const [galleryImages, setGalleryImages] = useState<EventGalleryImage[]>([]);
+
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([
     {
       name: 'Entrada Gratuita',
-      description: 'Ingresso padr√£o',
+      description: 'Ingresso padr„o',
       price: 0,
       quantity_available: 100,
     }
   ]);
 
   const validateForm = (isPublishing: boolean) => {
-    if (!formData.title) return 'O t√≠tulo do evento √© obrigat√≥rio.';
-    if (!formData.event_date) return 'A data de in√≠cio √© obrigat√≥ria.';
-    if (!formData.location) return 'O local espec√≠fico √© obrigat√≥rio.';
-    if (!formData.state || !formData.city) return 'Estado e cidade s√£o obrigat√≥rios.';
+    if (!formData.title) return 'O tÌtulo do evento È obrigatÛrio.';
+    if (!formData.event_date) return 'A data de inÌcio È obrigatÛria.';
+    if (!formData.location) return 'O local especÌfico È obrigatÛrio.';
+    if (!formData.state || !formData.city) return 'Estado e cidade s„o obrigatÛrios.';
     
     if (isPublishing) {
-      if (!formData.description) return 'Adicione uma descri√ß√£o para publicar.';
-      if (!formData.image_url) return 'Uma imagem de capa √© necess√°ria para publicar.';
+      if (!formData.description) return 'Adicione uma descriÁ„o para publicar.';
+      if (galleryImages.length === 0) return 'Adicione entre 1 e 5 imagens para publicar.';
       if (!formData.category_id) return 'Selecione uma categoria para publicar.';
       
       // Validar ingressos
       if (ticketTypes.length === 0) return 'Adicione pelo menos um tipo de ingresso.';
       for (const ticket of ticketTypes) {
         if (!ticket.name || ticket.quantity_available <= 0) {
-          return 'Todos os ingressos devem ter nome e quantidade v√°lida.';
+          return 'Todos os ingressos devem ter nome e quantidade v·lida.';
         }
         if (ticket.price > 0 && ticket.price < MIN_PAID_TICKET_PRICE) {
-          return `Ingressos pagos devem ter valor m√≠nimo de R$ ${MIN_PAID_TICKET_PRICE.toFixed(2).replace('.', ',')}.`;
+          return `Ingressos pagos devem ter valor mÌnimo de R$ ${MIN_PAID_TICKET_PRICE.toFixed(2).replace('.', ',')}.`;
         }
       }
     }
@@ -93,83 +95,50 @@ export const CreateEventForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const status: 'published' = 'published';
-    // console.log(`üöÄ [CreateEvent] Iniciando submiss√£o. Status: ${status}`);
 
-    if (status === 'published') {
-      const isPaid = formData.price > 0 || ticketTypes.some(t => t.price > 0);
-      if (isPaid && asaasStatus !== 'approved') {
-        toast({
-          variant: "destructive",
-          title: "Conta Asaas necess√°ria",
-          description: "Para publicar um evento com ingressos pagos, voc√™ precisa conectar e aprovar sua conta Asaas.",
-          action: (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="bg-white text-destructive hover:bg-gray-100 border-none"
-              onClick={() => navigate(ROUTE_PATHS.ORGANIZER_PAYMENTS)}
-            >
-              Conectar
-            </Button>
-          ),
-        });
-        return;
-      }
+    if (!user?.id) {
+      setError('FaÁa login para criar um evento.');
+      return;
     }
-    
+
     const validationError = validateForm(status === 'published');
     if (validationError) {
-      // console.warn('‚ö†Ô∏è [CreateEvent] Erro de valida√ß√£o:', validationError);
       setError(validationError);
-      toast({
-        variant: "destructive",
-        title: "Erro de valida√ß√£o",
-        description: validationError,
-      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
-    if (!user) {
-      // console.log('üë§ [CreateEvent] Usu√°rio n√£o logado. Redirecionando para login.');
-      toast({
-        title: "Login necess√°rio",
-        description: "Fa√ßa login para salvar seu evento.",
-      });
-      navigate(ROUTE_PATHS.LOGIN, { state: { returnTo: ROUTE_PATHS.CREATE_EVENT, tab: 'signup' } });
-      return;
-    }
+    setIsLoading(true);
+    setError(null);
 
     try {
-      setIsLoading(true);
-      setError(null);
-      // console.log('üíæ [CreateEvent] Enviando dados para o backend:', { formData, ticketTypes, status });
-
-      const isPaid = formData.price > 0 || ticketTypes.some(t => t.price > 0);
-      const dataToSubmit = { 
-        ...formData, 
-        status: status, // Force status from argument
+      const isPaid = formData.price > 0 || ticketTypes.some((t) => t.price > 0);
+      const coverImage = galleryImages.find((img) => img.is_cover)?.image_url || galleryImages[0]?.image_url || '';
+      const dataToSubmit = {
+        ...formData,
+        image_url: coverImage,
+        status,
         is_paid_event: isPaid,
-        sales_enabled: status === 'published' ? isPaid : false, // Only enable sales if publishing
+        sales_enabled: status === 'published' ? isPaid : false,
         asaas_required: true,
       };
-      const event = await eventService.createEvent(dataToSubmit, user.id);
-      // console.log('‚úÖ [CreateEvent] Evento criado com sucesso:', event);
 
-      // Criar tipos de ingressos
+      const event = await eventService.createEvent(dataToSubmit, user.id);
+
       if (ticketTypes.length > 0) {
-        // console.log('üé´ [CreateEvent] Criando tipos de ingressos...');
         await eventService.createTicketTypes(event.id, ticketTypes);
       }
-      
+
+      await eventService.setEventImages(event.id, galleryImages);
 
       toast({
         title: "Evento publicado!",
-        description: "Seu evento j√° est√° vis√≠vel para todos.",
+        description: "Seu evento j· est· visÌvel para todos.",
       });
 
       navigate(ROUTE_PATHS.ORGANIZER_EVENTS);
     } catch (err) {
-      // console.error('‚ùå [CreateEvent] Erro ao criar evento:', err);
+      // console.error('? [CreateEvent] Erro ao criar evento:', err);
       const rawMessage = err instanceof Error ? err.message : (err as any)?.message || 'Erro desconhecido ao criar evento';
       const isAsaasBlockingError =
         rawMessage.includes('ORGANIZER_ASAAS_REQUIRED') ||
@@ -177,7 +146,7 @@ export const CreateEventForm = () => {
         rawMessage.includes('ORGANIZER_ASAAS_INVALID_WALLET') ||
         rawMessage.includes('ORGANIZER_ASAAS_MISSING_DESTINATION_WALLET');
       const errorMessage = isAsaasBlockingError
-        ? 'Para criar eventos, conecte uma subconta Asaas v√°lida e aprovada (diferente da wallet da plataforma).'
+        ? 'Para criar eventos, conecte uma subconta Asaas v·lida e aprovada (diferente da wallet da plataforma).'
         : rawMessage;
       setError(errorMessage);
       toast({
@@ -193,7 +162,6 @@ export const CreateEventForm = () => {
       setIsLoading(false);
     }
   };
-
   const handleChange = (field: keyof CreateEventData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -230,7 +198,7 @@ export const CreateEventForm = () => {
             className="flex items-center gap-2 px-0 text-muted-foreground hover:text-primary"
           >
             <ChevronLeft className="w-4 h-4" />
-            Voltar para a p√°gina inicial
+            Voltar para a p·gina inicial
           </Button>
         </div>
 
@@ -245,7 +213,7 @@ export const CreateEventForm = () => {
               disabled={isLoading}
               className="flex-1 md:flex-none"
             >
-              {isLoading ? <span className="animate-spin mr-2">‚è≥</span> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+              {isLoading ? <span className="animate-spin mr-2">?</span> : <CheckCircle2 className="w-4 h-4 mr-2" />}
               Publicar Evento
             </Button>
           </div>
@@ -262,12 +230,12 @@ export const CreateEventForm = () => {
           {/* Coluna Principal (Esquerda) */}
           <div className="lg:col-span-2 space-y-6">
             
-            {/* 1. Informa√ß√µes B√°sicas */}
+            {/* 1. InformaÁıes B·sicas */}
             <Card className="shadow-sm border-gray-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-xl">
                   <Info className="w-5 h-5 text-primary" />
-                  Informa√ß√µes B√°sicas
+                  InformaÁıes B·sicas
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -295,7 +263,7 @@ export const CreateEventForm = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="description">Descri√ß√£o do Evento</Label>
+                  <Label htmlFor="description">DescriÁ„o do Evento</Label>
                   <Textarea
                     id="description"
                     value={formData.description}
@@ -344,7 +312,7 @@ export const CreateEventForm = () => {
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                          <div className="space-y-2">
-                          <Label>Pre√ßo (R$)</Label>
+                          <Label>PreÁo (R$)</Label>
                           <Input
                             type="number"
                             min="0"
@@ -374,20 +342,29 @@ export const CreateEventForm = () => {
           {/* Coluna Lateral (Direita) */}
           <div className="space-y-6">
             
-            {/* 3. Imagem de Capa */}
+            {/* 3. Galeria de Imagens */}
             <Card className="shadow-sm border-gray-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <ImageIcon className="w-5 h-5 text-primary" />
-                  Imagem de Capa
+                  Galeria de Imagens
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <ImageUploader 
-                  value={formData.image_url} 
-                  onChange={(url) => handleChange('image_url', url)}
-                  error={!formData.image_url && error ? 'Imagem obrigat√≥ria' : undefined}
+                <EventGalleryManager
+                  images={galleryImages}
+                  onChange={(next) => {
+                    setGalleryImages(next);
+                    const cover = next.find((img) => img.is_cover)?.image_url || next[0]?.image_url || '';
+                    handleChange('image_url', cover);
+                  }}
+                  label="Galeria do evento"
+                  maxImages={5}
+                  uploadFolder="events"
                 />
+                {galleryImages.length === 0 && error && (
+                  <p className="text-sm text-red-500 mt-2">Adicione pelo menos 1 imagem.</p>
+                )}
               </CardContent>
             </Card>
 
@@ -401,25 +378,25 @@ export const CreateEventForm = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <DateTimePicker
-                  label="In√≠cio"
+                  label="InÌcio"
                   value={formData.event_date}
                   onChange={(val) => handleChange('event_date', val)}
                   required
                 />
                 <DateTimePicker
-                  label="T√©rmino"
+                  label="TÈrmino"
                   value={formData.end_at || ''}
                   onChange={(val) => handleChange('end_at', val)}
                 />
               </CardContent>
             </Card>
 
-            {/* 5. Localiza√ß√£o */}
+            {/* 5. LocalizaÁ„o */}
             <Card className="shadow-sm border-gray-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <MapPin className="w-5 h-5 text-primary" />
-                  Localiza√ß√£o
+                  LocalizaÁ„o
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -431,11 +408,11 @@ export const CreateEventForm = () => {
                 />
                 
                 <div className="space-y-2">
-                  <Label>Local Espec√≠fico / Endere√ßo</Label>
+                  <Label>Local EspecÌfico / EndereÁo</Label>
                   <Input
                     value={formData.location}
                     onChange={(e) => handleChange('location', e.target.value)}
-                    placeholder="Nome do local, Rua, N¬∫"
+                    placeholder="Nome do local, Rua, N∫"
                   />
                 </div>
               </CardContent>
@@ -448,6 +425,15 @@ export const CreateEventForm = () => {
     </div>
   );
 };
+
+
+
+
+
+
+
+
+
 
 
 

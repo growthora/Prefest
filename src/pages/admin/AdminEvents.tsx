@@ -1,8 +1,8 @@
-ï»¿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { eventService, type Event } from '@/services/event.service';
-import { ImageCropUploader } from '@/components/ImageCropUploader';
+import { EventGalleryManager, type EventGalleryImage } from '@/components/event/EventGalleryManager';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -57,6 +57,9 @@ export default function AdminEvents() {
     max_participants: undefined as number | undefined,
   });
 
+  const [newEventImages, setNewEventImages] = useState<EventGalleryImage[]>([]);
+  const [editingEventImages, setEditingEventImages] = useState<EventGalleryImage[]>([]);
+
   const [ticketTypes, setTicketTypes] = useState<Array<{
     name: string;
     description: string;
@@ -66,7 +69,7 @@ export default function AdminEvents() {
     sale_end_date?: string;
   }>>([
     {
-      name: '1Âº Lote',
+      name: '1º Lote',
       description: 'Ingresso promocional do primeiro lote',
       price: 0,
       quantity_available: 100,
@@ -76,6 +79,29 @@ export default function AdminEvents() {
   useEffect(() => {
     loadEvents();
   }, []);
+  useEffect(() => {
+    const loadEditingGallery = async () => {
+      if (!isEditDialogOpen || !editingEvent) return;
+      try {
+        const rows = await eventService.getEventImages(editingEvent.id);
+        if (rows.length > 0) {
+          setEditingEventImages(rows.map((row) => ({ image_url: row.image_url, is_cover: !!row.is_cover })));
+        } else if (editingEvent.image_url) {
+          setEditingEventImages([{ image_url: editingEvent.image_url, is_cover: true }]);
+        } else {
+          setEditingEventImages([]);
+        }
+      } catch {
+        if (editingEvent.image_url) {
+          setEditingEventImages([{ image_url: editingEvent.image_url, is_cover: true }]);
+        } else {
+          setEditingEventImages([]);
+        }
+      }
+    };
+
+    loadEditingGallery();
+  }, [isEditDialogOpen, editingEvent]);
 
   const loadEvents = async () => {
     try {
@@ -94,6 +120,11 @@ export default function AdminEvents() {
     e.preventDefault();
     if (!user) return;
 
+    if (newEventImages.length === 0 || newEventImages.length > 5) {
+      toast.error('Adicione entre 1 e 5 imagens para o evento.');
+      return;
+    }
+
     if (ticketTypes.length === 0) {
       toast.error('Adicione pelo menos um tipo de ingresso');
       return;
@@ -101,7 +132,7 @@ export default function AdminEvents() {
 
     for (const ticket of ticketTypes) {
       if (!ticket.name || ticket.price < 0 || ticket.quantity_available <= 0) {
-        toast.error('Todos os tipos de ingressos devem ter nome, preÃ§o vÃ¡lido e quantidade disponÃ­vel');
+        toast.error('Todos os tipos de ingressos devem ter nome, preço válido e quantidade disponível');
         return;
       }
     }
@@ -116,14 +147,15 @@ export default function AdminEvents() {
         location: newEvent.location,
         state: newEvent.state,
         city: newEvent.city,
-        image_url: newEvent.image_url,
+        image_url: newEventImages.find((img) => img.is_cover)?.image_url || newEventImages[0]?.image_url || '',
         category: newEvent.category,
         price: newEvent.price,
         max_participants: newEvent.max_participants,
       }, user.id);
-      
+
       await eventService.createTicketTypes(event.id, ticketTypes);
-      
+      await eventService.setEventImages(event.id, newEventImages);
+
       toast.success('Evento criado com sucesso!');
       setIsCreateDialogOpen(false);
       setNewEvent({
@@ -139,12 +171,7 @@ export default function AdminEvents() {
         max_participants: undefined,
         event_type: 'festive',
       });
-      setTicketTypes([{
-        name: '1Âº Lote',
-        description: 'Ingresso promocional do primeiro lote',
-        price: 0,
-        quantity_available: 100,
-      }]);
+      setNewEventImages([]);
       await loadEvents();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao criar evento');
@@ -157,6 +184,11 @@ export default function AdminEvents() {
     e.preventDefault();
     if (!editingEvent) return;
 
+    if (editingEventImages.length === 0 || editingEventImages.length > 5) {
+      toast.error('Adicione entre 1 e 5 imagens para o evento.');
+      return;
+    }
+
     try {
       setIsLoading(true);
       
@@ -165,12 +197,14 @@ export default function AdminEvents() {
         description: editingEvent.description,
         event_date: editingEvent.event_date,
         location: editingEvent.location,
-        image_url: editingEvent.image_url,
+        image_url: editingEventImages.find((img) => img.is_cover)?.image_url || editingEventImages[0]?.image_url || null,
         category: editingEvent.category,
         price: editingEvent.price,
         max_participants: editingEvent.max_participants,
       });
       
+      await eventService.setEventImages(editingEvent.id, editingEventImages);
+
       toast.success('Evento atualizado com sucesso!');
       setIsEditDialogOpen(false);
       setEditingEvent(null);
@@ -185,7 +219,7 @@ export default function AdminEvents() {
   const handleDeleteEvent = async (eventId: string) => {
     if (!await confirm({
       title: 'Deletar Evento',
-      description: 'Tem certeza que deseja deletar este evento? Esta aÃ§Ã£o nÃ£o pode ser desfeita e a imagem serÃ¡ removida.',
+      description: 'Tem certeza que deseja deletar este evento? Esta ação não pode ser desfeita e a imagem será removida.',
       variant: 'destructive',
       confirmText: 'Deletar',
     })) return;
@@ -352,9 +386,9 @@ export default function AdminEvents() {
                       <div className="flex items-center gap-1.5 text-muted-foreground">
                         <DollarSign className="w-4 h-4 text-green-500" />
                         <span>
-                          {event.is_free_event ? 'GrÃ¡tis' : 
+                          {event.is_free_event ? 'Grátis' : 
                            (event.display_price_value && event.display_price_value > 0) ? `A partir de R$ ${event.display_price_value.toFixed(2)}` :
-                           (event.price > 0 ? `R$ ${event.price.toFixed(2)}` : 'GrÃ¡tis')
+                           (event.price > 0 ? `R$ ${event.price.toFixed(2)}` : 'Grátis')
                           }
                         </span>
                       </div>
@@ -385,7 +419,7 @@ export default function AdminEvents() {
           <form onSubmit={handleCreateEvent} className="space-y-6 py-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="new-title">TÃ­tulo *</Label>
+                <Label htmlFor="new-title">Título *</Label>
                 <Input
                   id="new-title"
                   value={newEvent.title}
@@ -407,7 +441,7 @@ export default function AdminEvents() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="new-description">DescriÃ§Ã£o</Label>
+              <Label htmlFor="new-description">Descrição</Label>
               <Textarea
                 id="new-description"
                 value={newEvent.description}
@@ -441,8 +475,8 @@ export default function AdminEvents() {
                     <SelectValue placeholder="Selecione o tipo" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="festive">ðŸŽ‰ Festivo</SelectItem>
-                    <SelectItem value="formal">ðŸ’¼ Formal</SelectItem>
+                    <SelectItem value="festive">?? Festivo</SelectItem>
+                    <SelectItem value="formal">?? Formal</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -468,35 +502,36 @@ export default function AdminEvents() {
                   id="new-city"
                   value={newEvent.city}
                   onChange={(e) => setNewEvent({ ...newEvent, city: e.target.value })}
-                  placeholder="Ex: SÃ£o Paulo"
+                  placeholder="Ex: São Paulo"
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="new-location">EndereÃ§o *</Label>
+                <Label htmlFor="new-location">Endereço *</Label>
                 <Input
                   id="new-location"
                   value={newEvent.location}
                   onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
                   required
-                  placeholder="Rua, NÃºmero"
+                  placeholder="Rua, Número"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <ImageCropUploader
-                type="event"
-                label="Imagem do Evento"
-                value={newEvent.image_url}
-                onChange={(url) => setNewEvent({ ...newEvent, image_url: url })}
+              <EventGalleryManager
+                images={newEventImages}
+                onChange={setNewEventImages}
+                label="Galeria do Evento"
+                maxImages={5}
+                uploadFolder="events"
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="new-price">PreÃ§o Inicial (R$) *</Label>
+                <Label htmlFor="new-price">Preço Inicial (R$) *</Label>
                 <Input
                   id="new-price"
                   type="number"
@@ -509,7 +544,7 @@ export default function AdminEvents() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="new-max">Capacidade MÃ¡xima</Label>
+                <Label htmlFor="new-max">Capacidade Máxima</Label>
                 <Input
                   id="new-max"
                   type="number"
@@ -567,12 +602,12 @@ export default function AdminEvents() {
                             newTickets[index].name = e.target.value;
                             setTicketTypes(newTickets);
                           }}
-                          placeholder="Ex: 1Âº Lote"
+                          placeholder="Ex: 1º Lote"
                           required
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>PreÃ§o (R$)</Label>
+                        <Label>Preço (R$)</Label>
                         <Input
                           type="number"
                           step="0.01"
@@ -601,7 +636,7 @@ export default function AdminEvents() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>DescriÃ§Ã£o</Label>
+                        <Label>Descrição</Label>
                         <Input
                           value={ticket.description}
                           onChange={(e) => {
@@ -635,13 +670,13 @@ export default function AdminEvents() {
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar Evento</DialogTitle>
-            <DialogDescription>Atualize as informaÃ§Ãµes do evento.</DialogDescription>
+            <DialogDescription>Atualize as informações do evento.</DialogDescription>
           </DialogHeader>
           
           {editingEvent && (
             <form onSubmit={handleUpdateEvent} className="space-y-6 py-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-title">TÃ­tulo *</Label>
+                <Label htmlFor="edit-title">Título *</Label>
                 <Input
                   id="edit-title"
                   value={editingEvent.title}
@@ -651,7 +686,7 @@ export default function AdminEvents() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="edit-description">DescriÃ§Ã£o</Label>
+                <Label htmlFor="edit-description">Descrição</Label>
                 <Textarea
                   id="edit-description"
                   value={editingEvent.description || ''}
@@ -683,7 +718,7 @@ export default function AdminEvents() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="edit-location">LocalizaÃ§Ã£o *</Label>
+                <Label htmlFor="edit-location">Localização *</Label>
                 <Input
                   id="edit-location"
                   value={editingEvent.location}
@@ -693,17 +728,18 @@ export default function AdminEvents() {
               </div>
 
               <div className="space-y-2">
-                <ImageCropUploader
-                  type="event"
-                  label="Imagem do Evento"
-                  value={editingEvent.image_url}
-                  onChange={(url) => setEditingEvent({ ...editingEvent, image_url: url })}
+                <EventGalleryManager
+                  images={editingEventImages}
+                  onChange={setEditingEventImages}
+                  label="Galeria do Evento"
+                  maxImages={5}
+                  uploadFolder="events"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-price">PreÃ§o (R$) *</Label>
+                  <Label htmlFor="edit-price">Preço (R$) *</Label>
                   <Input
                     id="edit-price"
                     type="number"
@@ -716,7 +752,7 @@ export default function AdminEvents() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="edit-max">Capacidade MÃ¡xima</Label>
+                  <Label htmlFor="edit-max">Capacidade Máxima</Label>
                   <Input
                     id="edit-max"
                     type="number"
@@ -733,7 +769,7 @@ export default function AdminEvents() {
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={isLoading}>
-                  {isLoading ? 'Salvando...' : 'Salvar AlteraÃ§Ãµes'}
+                  {isLoading ? 'Salvando...' : 'Salvar Alterações'}
                 </Button>
               </DialogFooter>
             </form>
@@ -743,5 +779,19 @@ export default function AdminEvents() {
     </motion.div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

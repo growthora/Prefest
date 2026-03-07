@@ -1,4 +1,4 @@
-ï»¿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import * as z from 'zod';
 import {
   Dialog,
@@ -20,8 +20,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { eventService, type Event, type TicketTypeDB } from '@/services/event.service';
-import { storageService } from '@/services/storage.service';
-import { Loader2, AlertTriangle, CheckCircle2, Eye, Pencil, Upload, Image as ImageIcon, Trash2, Plus } from 'lucide-react';
+import { EventGalleryManager, type EventGalleryImage } from '@/components/event/EventGalleryManager';
+import { Loader2, AlertTriangle, CheckCircle2, Eye, Pencil, Trash2, Plus } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 type DashboardEvent = Event & {
@@ -36,15 +36,15 @@ type SaveState = 'idle' | 'loading' | 'success' | 'error';
 
 const formSchema = z
   .object({
-    title: z.string().min(3, 'O tÃ­tulo deve ter pelo menos 3 caracteres.'),
-    description: z.string().min(10, 'A descriÃ§Ã£o deve ter pelo menos 10 caracteres.'),
-    event_date: z.string().min(1, 'A data de inÃ­cio Ã© obrigatÃ³ria.'),
+    title: z.string().min(3, 'O título deve ter pelo menos 3 caracteres.'),
+    description: z.string().min(10, 'A descrição deve ter pelo menos 10 caracteres.'),
+    event_date: z.string().min(1, 'A data de início é obrigatória.'),
     end_at: z.string().optional(),
-    location: z.string().min(3, 'O local Ã© obrigatÃ³rio.'),
+    location: z.string().min(3, 'O local é obrigatório.'),
     city: z.string().optional(),
     state: z.string().optional(),
     image_url: z.string().optional(),
-    price: z.coerce.number().min(0, 'O preÃ§o nÃ£o pode ser negativo.'),
+    price: z.coerce.number().min(0, 'O preço não pode ser negativo.'),
     max_participants: z.union([z.coerce.number().min(0), z.literal('')]).optional(),
     ui_status: z.enum(['ativo', 'esgotado', 'realizado', 'inativo']),
     sales_enabled: z.boolean(),
@@ -57,7 +57,7 @@ const formSchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['end_at'],
-          message: 'A data de tÃ©rmino deve ser maior que a data de inÃ­cio.',
+          message: 'A data de término deve ser maior que a data de início.',
         });
       }
     }
@@ -159,8 +159,7 @@ export function EventDetailsEditorModal({
     is_active: true,
   });
   const [creatingTicket, setCreatingTicket] = useState(false);
-  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [galleryImages, setGalleryImages] = useState<EventGalleryImage[]>([]);
 
   useEffect(() => {
     if (!event || !isOpen) return;
@@ -172,8 +171,7 @@ export function EventDetailsEditorModal({
     setActiveTab('informacoes');
     setEditingTicketId(null);
     setTicketEditors({});
-    setSelectedImageFile(null);
-    setImagePreviewUrl(null);
+    setGalleryImages(event.image_url ? [{ image_url: event.image_url, is_cover: true }] : []);
   }, [event, isOpen, mode]);
 
   useEffect(() => {
@@ -193,10 +191,28 @@ export function EventDetailsEditorModal({
   }, [event, isOpen]);
 
   useEffect(() => {
-    return () => {
-      if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    const loadGallery = async () => {
+      if (!event || !isOpen) return;
+      try {
+        const rows = await eventService.getEventImages(event.id);
+        if (rows.length > 0) {
+          setGalleryImages(rows.map((row) => ({ image_url: row.image_url, is_cover: !!row.is_cover })));
+        } else if (event.image_url) {
+          setGalleryImages([{ image_url: event.image_url, is_cover: true }]);
+        } else {
+          setGalleryImages([]);
+        }
+      } catch {
+        if (event.image_url) {
+          setGalleryImages([{ image_url: event.image_url, is_cover: true }]);
+        } else {
+          setGalleryImages([]);
+        }
+      }
     };
-  }, [imagePreviewUrl]);
+
+    loadGallery();
+  }, [event, isOpen]);
 
   const metrics = useMemo(() => {
     if (!event) return { sold: 0, capacity: 0, available: 0, revenue: 0 };
@@ -220,27 +236,7 @@ export function EventDetailsEditorModal({
     });
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      toast({ title: 'Arquivo invalido', description: 'Selecione uma imagem valida.', variant: 'destructive' });
-      return;
-    }
-
-    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
-    const previewUrl = URL.createObjectURL(file);
-    setSelectedImageFile(file);
-    setImagePreviewUrl(previewUrl);
-  };
-
-  const handleRemoveImage = () => {
-    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
-    setImagePreviewUrl(null);
-    setSelectedImageFile(null);
-    onFieldChange('image_url', '');
-  };
 
   const startEditingTicket = (ticket: TicketTypeDB) => {
     setTicketEditors((prev) => ({ ...prev, [ticket.id]: buildTicketFormState(ticket) }));
@@ -439,7 +435,12 @@ export function EventDetailsEditorModal({
       return false;
     }
     if (form.price > 0 && form.price < MIN_PAID_TICKET_PRICE) {
-      setSaveError(`Eventos pagos devem ter preÃ§o base mÃ­nimo de R$ ${MIN_PAID_TICKET_PRICE.toFixed(2).replace('.', ',')}.`);
+      setSaveError(`Eventos pagos devem ter preço base mínimo de R$ ${MIN_PAID_TICKET_PRICE.toFixed(2).replace('.', ',')}.`);
+      return false;
+    }
+
+    if (galleryImages.length === 0 || galleryImages.length > 5) {
+      setSaveError('Adicione entre 1 e 5 imagens para o evento.');
       return false;
     }
 
@@ -468,11 +469,8 @@ export function EventDetailsEditorModal({
       setSaveState('loading');
       setSaveError(null);
 
-      let finalImageUrl = (form.image_url || '').trim();
-      if (selectedImageFile) {
-        const uploadedUrl = await storageService.uploadImage(selectedImageFile, 'event-images', event.id);
-        finalImageUrl = uploadedUrl;
-      }
+      const coverImage = galleryImages.find((img) => img.is_cover)?.image_url || galleryImages[0]?.image_url || '';
+      const finalImageUrl = (coverImage || form.image_url || '').trim();
 
       const isPaid = Number(form.price) > 0;
       const mappedStatus: Event['status'] =
@@ -501,6 +499,7 @@ export function EventDetailsEditorModal({
       };
 
       await eventService.updateEvent(event.id, payload);
+      await eventService.setEventImages(event.id, galleryImages);
 
       const optimistic: DashboardEvent = {
         ...event,
@@ -510,17 +509,14 @@ export function EventDetailsEditorModal({
 
       onUpdated(optimistic);
       setSaveState('idle');
-      setSelectedImageFile(null);
-      if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
-      setImagePreviewUrl(null);
       toast({
         title: 'Evento atualizado',
-        description: 'As alteraÃ§Ãµes foram salvas com sucesso.',
+        description: 'As alterações foram salvas com sucesso.',
       });
       onClose();
     } catch {
       setSaveState('error');
-      setSaveError('NÃ£o foi possÃ­vel salvar as alteraÃ§Ãµes. Tente novamente.');
+      setSaveError('Não foi possível salvar as alterações. Tente novamente.');
     }
   };
 
@@ -535,7 +531,7 @@ export function EventDetailsEditorModal({
             <div className="min-w-0">
               <DialogTitle className="truncate">{event.title}</DialogTitle>
               <DialogDescription id="event-editor-description">
-                {currentMode === 'view' ? 'VisualizaÃ§Ã£o do evento' : 'EdiÃ§Ã£o do evento'} â€¢ ID: {event.id}
+                {currentMode === 'view' ? 'Visualização do evento' : 'Edição do evento'} • ID: {event.id}
               </DialogDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -550,7 +546,7 @@ export function EventDetailsEditorModal({
         <div className="px-4 py-3 md:px-6 border-b">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
-              <TabsTrigger value="informacoes">InformaÃ§Ãµes</TabsTrigger>
+              <TabsTrigger value="informacoes">Informações</TabsTrigger>
               <TabsTrigger value="ingressos">Ingressos</TabsTrigger>
               <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
               <TabsTrigger value="datas_status">Datas & Status</TabsTrigger>
@@ -563,7 +559,7 @@ export function EventDetailsEditorModal({
             {!!saveError && (
               <Alert className="mb-4 border-red-300 text-red-800">
                 <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Falha de validaÃ§Ã£o</AlertTitle>
+                <AlertTitle>Falha de validação</AlertTitle>
                 <AlertDescription>{saveError}</AlertDescription>
               </Alert>
             )}
@@ -580,7 +576,7 @@ export function EventDetailsEditorModal({
               <TabsContent value="informacoes" className="mt-0 space-y-4">
                 <div className="grid grid-cols-1 gap-4">
                   <div>
-                    <Label htmlFor="event-title">TÃ­tulo</Label>
+                    <Label htmlFor="event-title">Título</Label>
                     <Input
                       id="event-title"
                       aria-invalid={!!fieldErrors.title}
@@ -593,7 +589,7 @@ export function EventDetailsEditorModal({
                   </div>
 
                   <div>
-                    <Label htmlFor="event-description">DescriÃ§Ã£o</Label>
+                    <Label htmlFor="event-description">Descrição</Label>
                     <Textarea
                       id="event-description"
                       aria-invalid={!!fieldErrors.description}
@@ -606,45 +602,18 @@ export function EventDetailsEditorModal({
                   </div>
 
                   <div className="space-y-3">
-                    <Label>Imagem do evento</Label>
-                    <div className="w-full h-48 rounded-lg overflow-hidden border bg-muted/30">
-                      {(imagePreviewUrl || form.image_url) ? (
-                        <img
-                          src={imagePreviewUrl || form.image_url || ''}
-                          alt="Preview do evento"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                          <ImageIcon className="h-8 w-8 mr-2" />
-                          <span>Sem imagem</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {!readOnly && (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <input
-                          id="event-image-upload"
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleImageChange}
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => document.getElementById('event-image-upload')?.click()}
-                        >
-                          <Upload className="h-4 w-4 mr-2" />
-                          Alterar imagem
-                        </Button>
-                        <Button type="button" variant="outline" onClick={handleRemoveImage}>
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Remover imagem
-                        </Button>
-                      </div>
-                    )}
+                    <EventGalleryManager
+                      images={galleryImages}
+                      onChange={(next) => {
+                        setGalleryImages(next);
+                        const cover = next.find((img) => img.is_cover)?.image_url || next[0]?.image_url || '';
+                        onFieldChange('image_url', cover);
+                      }}
+                      label="Galeria do evento"
+                      maxImages={5}
+                      uploadFolder={event.id}
+                      readOnly={readOnly}
+                    />
                   </div>
 
                   <div>
@@ -694,7 +663,7 @@ export function EventDetailsEditorModal({
                     <p className="text-lg font-semibold">{metrics.capacity || 'Ilimitado'}</p>
                   </div>
                   <div className="rounded-lg border p-3">
-                    <p className="text-xs text-muted-foreground">DisponÃ­veis</p>
+                    <p className="text-xs text-muted-foreground">Disponíveis</p>
                     <p className="text-lg font-semibold">{metrics.capacity ? metrics.available : '-'}</p>
                   </div>
                   <div className="rounded-lg border p-3">
@@ -723,7 +692,7 @@ export function EventDetailsEditorModal({
                           </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
-                          PreÃ§o: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(ticket.price) || 0)}
+                          Preço: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(ticket.price) || 0)}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
                           Vendidos: {ticket.quantity_sold} / {ticket.quantity_available}
@@ -737,7 +706,7 @@ export function EventDetailsEditorModal({
               <TabsContent value="financeiro" className="mt-0 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="event-price">PreÃ§o base (R$)</Label>
+                    <Label htmlFor="event-price">Preço base (R$)</Label>
                     <Input
                       id="event-price"
                       type="number"
@@ -755,7 +724,7 @@ export function EventDetailsEditorModal({
                   </div>
 
                   <div>
-                    <Label htmlFor="event-max">Capacidade mÃ¡xima</Label>
+                    <Label htmlFor="event-max">Capacidade máxima</Label>
                     <Input
                       id="event-max"
                       type="number"
@@ -1010,7 +979,7 @@ export function EventDetailsEditorModal({
               <TabsContent value="datas_status" className="mt-0 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="event-start">InÃ­cio</Label>
+                    <Label htmlFor="event-start">Início</Label>
                     <Input
                       id="event-start"
                       type="datetime-local"
@@ -1023,7 +992,7 @@ export function EventDetailsEditorModal({
                   </div>
 
                   <div>
-                    <Label htmlFor="event-end">TÃ©rmino</Label>
+                    <Label htmlFor="event-end">Término</Label>
                     <Input
                       id="event-end"
                       type="datetime-local"
@@ -1065,7 +1034,7 @@ export function EventDetailsEditorModal({
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <div>
                     <p className="text-sm font-medium">Vendas habilitadas</p>
-                    <p className="text-xs text-muted-foreground">Controle rÃ¡pido para eventos pagos.</p>
+                    <p className="text-xs text-muted-foreground">Controle rápido para eventos pagos.</p>
                   </div>
                   <Switch
                     checked={form.sales_enabled}
@@ -1115,5 +1084,16 @@ export function EventDetailsEditorModal({
     </Dialog>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
 
 

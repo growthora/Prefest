@@ -1,4 +1,4 @@
-ï»¿export const ROUTE_PATHS = {
+export const ROUTE_PATHS = {
   HOME: '/',
   LOGIN: '/login',
   MY_EVENTS: '/meus-eventos',
@@ -57,12 +57,12 @@ export function buildCollectionPath(slug: string) {
 
 export type VibeType = 
   | 'curtir' 
-  | 'danÃ§ar' 
+  | 'dançar' 
   | 'conhecer pessoas' 
   | 'networking' 
   | 'romance' 
   | 'amizade' 
-  | 'diversÃ£o';
+  | 'diversão';
 
 export interface User {
   id: string;
@@ -101,6 +101,7 @@ export interface Event {
   city?: string | null;
   state?: string | null;
   image: string;
+  images?: string[];
   category: string;
   price?: string | number;
   display_price_label?: string;
@@ -145,19 +146,20 @@ export const APP_CONFIG = {
   primaryColor: '#FF007F', // Social Spark Pink
 };
 
-// ConfiguraÃ§Ã£o global de provedor de email para autenticaÃ§Ã£o
-// SUPABASE: Usa o serviÃ§o nativo do Supabase Auth (RECOMENDADO/OBRIGATÃ“RIO)
+// Configuração global de provedor de email para autenticação
+// SUPABASE: Usa o serviço nativo do Supabase Auth (RECOMENDADO/OBRIGATÓRIO)
 // CUSTOM: Usa SMTP do banco via Edge Functions (PROIBIDO para Auth)
 export const AUTH_EMAIL_PROVIDER: 'SUPABASE' | 'CUSTOM' = 'SUPABASE';
 
 // Contexto de envio de email
 export enum EMAIL_CONTEXT {
   AUTH = 'AUTH',   // signup, reset password, magic link, change email, reauthentication
-  CUSTOM = 'CUSTOM' // notificaÃ§Ãµes, marketing, eventos, admin
+  CUSTOM = 'CUSTOM' // notificações, marketing, eventos, admin
 }
 
 // Regra: SMTP do banco permitido SOMENTE em CUSTOM
 export const ALLOWED_SMTP_CONTEXTS = [EMAIL_CONTEXT.CUSTOM];
+
 
 
 

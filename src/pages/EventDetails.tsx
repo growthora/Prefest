@@ -1,4 +1,4 @@
-Ôªøimport React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Calendar,
@@ -60,7 +60,7 @@ export default function EventDetails() {
   const [isParticipating, setIsParticipating] = useState(false);
   const [participants, setParticipants] = useState<{ id: string; avatar_url: string; name: string }[]>([]);
   
-  // New state for Conhe√ßa a Galera
+  // New state for ConheÁa a Galera
   const [attendees, setAttendees] = useState<any[]>([]);
   const [loadingAttendees, setLoadingAttendees] = useState(false);
   
@@ -119,7 +119,7 @@ export default function EventDetails() {
           (payload) => {
              if (payload.new.event_id === event.id) {
                 loadReceivedLikes();
-                toast.info('Voc√™ recebeu uma nova curtida! ‚ù§Ô∏è');
+                toast.info('VocÍ recebeu uma nova curtida! ??');
              }
           }
         )
@@ -151,7 +151,7 @@ export default function EventDetails() {
       setReceivedLikes(prev => prev.filter(l => l.like_id !== likeId));
       
       if (result.status === 'match') {
-        toast.success("It's a Match! üéâ");
+        toast.success("It's a Match! ??");
         
         // Play sound
         const audio = new Audio('/sounds/match.mp3');
@@ -169,7 +169,7 @@ export default function EventDetails() {
             const profile = await eventService.getPublicProfile(userId);
             if (profile) {
                 setLastMatchedUser(userId);
-                setLastMatchedUserName(profile.full_name || 'Algu√©m');
+                setLastMatchedUserName(profile.full_name || 'AlguÈm');
                 setLastMatchedUserPhoto(profile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`);
                 setLastMatchChatId(result.match_id || null);
                 setShowMatchOverlay(true);
@@ -221,7 +221,7 @@ export default function EventDetails() {
         })
         .map((c: any) => ({
           id: c.id || c.user_id,
-          name: c.full_name || c.name || 'Usu√°rio',
+          name: c.full_name || c.name || 'Usu·rio',
           photo: c.avatar_url || c.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.id || c.user_id}`,
           age: c.age || 25,
           bio: c.bio || '',
@@ -263,14 +263,14 @@ export default function EventDetails() {
 
   const handleLike = async () => {
     if (!user) {
-      toast.error("Fa√ßa login para curtir este evento! ‚ù§Ô∏è");
+      toast.error("FaÁa login para curtir este evento! ??");
       return;
     }
     
     if (!event?.id) return;
 
     if (event.id.length !== 36) {
-      toast.error("Este evento √© demonstrativo e n√£o pode ser curtido.");
+      toast.error("Este evento È demonstrativo e n„o pode ser curtido.");
       return;
     }
 
@@ -281,7 +281,7 @@ export default function EventDetails() {
       setIsLoadingLike(true);
       const newStatus = await eventService.toggleLike(event.id, user.id);
       setIsLiked(newStatus);
-      toast.success(newStatus ? "Evento favoritado! ‚ù§Ô∏è" : "Removido dos favoritos");
+      toast.success(newStatus ? "Evento favoritado! ??" : "Removido dos favoritos");
     } catch (error) {
       setIsLiked(previousState);
       toast.error("Erro ao atualizar favorito");
@@ -296,7 +296,7 @@ export default function EventDetails() {
     
     try {
       await navigator.clipboard.writeText(shareUrl);
-      toast.success("Link copiado! üìé");
+      toast.success("Link copiado! ??");
     } catch (err) {
       toast.error("Erro ao copiar link");
     }
@@ -335,7 +335,7 @@ export default function EventDetails() {
     if (!checkAccess('aparecer na lista de participantes')) return;
 
     if (!user || !profile) {
-      toast.error('Voc√™ precisa estar logado para ativar essa fun√ß√£o');
+      toast.error('VocÍ precisa estar logado para ativar essa funÁ„o');
       return;
     }
     
@@ -360,7 +360,7 @@ export default function EventDetails() {
       };
 
       await updateProfile(updates);
-      toast.success(enable ? 'Voc√™ entrou no Match! üî•' : 'Voc√™ ficou invis√≠vel. üëª');
+      toast.success(enable ? 'VocÍ entrou no Match! ??' : 'VocÍ ficou invisÌvel. ??');
       
       // Se ativou, recarrega candidatos
       if (enable) {
@@ -401,16 +401,16 @@ export default function EventDetails() {
         // SEO Updates
         document.title = `${supabaseEvent.title} | PreFest`;
         
-        // Montar endere√ßo completo
+        // Montar endereÁo completo
         const locationParts = [];
         if (supabaseEvent.city) locationParts.push(supabaseEvent.city);
         if (supabaseEvent.state) locationParts.push(supabaseEvent.state);
         const fullLocation = locationParts.length > 0 ? locationParts.join(' - ') : supabaseEvent.location;
         
-        // Criar Date object tratando o fuso hor√°rio
+        // Criar Date object tratando o fuso hor·rio
         const eventDate = new Date(supabaseEvent.event_date);
         
-        // Formatar data e hora no fuso hor√°rio local do usu√°rio
+        // Formatar data e hora no fuso hor·rio local do usu·rio
         const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
           day: '2-digit',
           month: '2-digit',
@@ -423,12 +423,17 @@ export default function EventDetails() {
           hour12: false
         });
         
-        const galleryImages = Array.isArray((supabaseEvent as any).gallery_images)
-          ? (supabaseEvent as any).gallery_images.filter((url: unknown) => typeof url === 'string' && url)
-          : [];
+        const galleryRows = await eventService.getEventImages(supabaseEvent.id).catch(() => []);
+        const orderedGallery = galleryRows
+          .slice()
+          .sort((a, b) => Number(a.display_order) - Number(b.display_order));
 
-        const primaryImage = supabaseEvent.image_url || IMAGES.EVENTS_1;
-        const images = [primaryImage, ...galleryImages.filter((url) => url !== primaryImage)];
+        const coverFromGallery = orderedGallery.find((img) => img.is_cover)?.image_url;
+        const primaryImage = coverFromGallery || supabaseEvent.image_url || IMAGES.EVENTS_1;
+        const imagesFromGallery = orderedGallery.map((img) => img.image_url).filter(Boolean);
+        const images = imagesFromGallery.length > 0
+          ? [primaryImage, ...imagesFromGallery.filter((url) => url !== primaryImage)]
+          : [primaryImage];
 
         // Converter para formato frontend
         const convertedEvent: Event = {
@@ -457,18 +462,18 @@ export default function EventDetails() {
         const parts = await eventService.getEventParticipants(supabaseEvent.id);
         setParticipants(parts);
 
-        // Verificar se usu√°rio j√° est√° inscrito
+        // Verificar se usu·rio j· est· inscrito
         if (user) {
           const participating = await eventService.isUserParticipating(supabaseEvent.id, user.id);
           setIsParticipating(participating);
         }
       } else {
-        toast.error('Evento n√£o encontrado');
+        toast.error('Evento n„o encontrado');
         navigate(ROUTE_PATHS.HOME);
       }
     } catch (err: any) {
       if (err?.message === 'EVENT_OFFLINE') {
-        toast.error('Este evento est√° desativado e offline.');
+        toast.error('Este evento est· desativado e offline.');
       } else {
         toast.error('Erro ao carregar evento');
       }
@@ -488,16 +493,16 @@ export default function EventDetails() {
       // Registrar o like no banco de dados
       const likeResult = await likeService.likeUser(userId, event.id);
       
-      // Encontrar o usu√°rio que recebeu o like para pegar o nome e foto
+      // Encontrar o usu·rio que recebeu o like para pegar o nome e foto
       const likedUser = matchQueue.find(p => p.id === userId); 
       
       if (likeResult.status === 'already_liked') {
-        toast.info('Voc√™ j√° curtiu esta pessoa');
+        toast.info('VocÍ j· curtiu esta pessoa');
         return;
       }
 
       if (likeResult.status === 'match' || likeResult.is_match) {
-        // √â um match!
+        // … um match!
         
         // Disparar confetes
         const duration = 3000;
@@ -526,13 +531,13 @@ export default function EventDetails() {
         frame();
 
         setLastMatchedUser(userId);
-        setLastMatchedUserName(likedUser?.name || 'Algu√©m');
+        setLastMatchedUserName(likedUser?.name || 'AlguÈm');
         setLastMatchedUserPhoto(likedUser?.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`);
         
         setLastMatchChatId(likeResult.match_id || null);
 
         setShowMatchOverlay(true);
-        toast.success('√â um Match! üíï');
+        toast.success('… um Match! ??');
         
         // Tocar som de match se existir
         const audio = new Audio('/sounds/match.mp3');
@@ -544,14 +549,14 @@ export default function EventDetails() {
         }
         
       } else {
-        toast.success('Like enviado! ‚ù§Ô∏è');
+        toast.success('Like enviado! ??');
       }
       
       // Removed likeUser(userId) to prevent queue from shifting and double-skipping
       // The MatchInterface handles navigation internally
     } catch (error: any) {
       if (error.code === '23505') {
-        toast.info('Voc√™ j√° curtiu esta pessoa');
+        toast.info('VocÍ j· curtiu esta pessoa');
       } else {
         toast.error('Erro ao processar like');
       }
@@ -574,7 +579,7 @@ export default function EventDetails() {
 
   const handlePurchase = async (singleMode: boolean, ticketTypeId?: string, totalPaid?: number) => {
     if (!user || !event) {
-      toast.error('Voc√™ precisa estar logado para comprar ingressos');
+      toast.error('VocÍ precisa estar logado para comprar ingressos');
       // Save current location for post-login redirect
       const currentPath = window.location.pathname + window.location.search;
       sessionStorage.setItem('postLoginRedirect', currentPath);
@@ -589,12 +594,12 @@ export default function EventDetails() {
     }
 
     if (isParticipating) {
-      toast.info('Voc√™ j√° est√° inscrito neste evento!');
+      toast.info('VocÍ j· est· inscrito neste evento!');
       return;
     }
 
     if (event.sales_enabled === false) {
-      toast.error('As vendas para este evento ainda n√£o foram abertas.');
+      toast.error('As vendas para este evento ainda n„o foram abertas.');
       return;
     }
 
@@ -603,7 +608,7 @@ export default function EventDetails() {
       
         toast.success(
           singleMode
-          ? 'Ingresso reservado! Ative "Conhe√ßa a Galera" para ver quem vai!'
+          ? 'Ingresso reservado! Ative "ConheÁa a Galera" para ver quem vai!'
           : 'Ingresso reservado com sucesso!'
         );
       
@@ -623,7 +628,7 @@ export default function EventDetails() {
                 match_enabled: true,
                 allow_profile_view: true
             });
-            toast.success('Conhe√ßa a Galera ativado automaticamente!');
+            toast.success('ConheÁa a Galera ativado automaticamente!');
         }
         setActiveTab('attendees');
       }
@@ -720,73 +725,102 @@ export default function EventDetails() {
                   <Clock className="w-5 h-5 text-muted-foreground" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-foreground">Este evento j√° foi realizado</h3>
+                  <h3 className="font-semibold text-foreground">Este evento j· foi realizado</h3>
                   <p className="text-sm text-muted-foreground">
                     {isParticipating 
-                      ? "Voc√™ est√° visualizando o hist√≥rico deste evento pois participou dele."
-                      : "As vendas para este evento est√£o encerradas."}
+                      ? "VocÍ est· visualizando o histÛrico deste evento pois participou dele."
+                      : "As vendas para este evento est„o encerradas."}
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Hero Image Section with multi-image support */}
+            {/* Hero Image Section */}
             <div className="relative mb-8">
-              <Carousel className="w-full">
-                <CarouselContent>
-                  {(event.images && event.images.length > 0 ? event.images : [event.image]).map((imageUrl, index, all) => (
-                    <CarouselItem key={`${imageUrl}-${index}`}>
-                      <div className="relative aspect-video rounded-2xl overflow-hidden group">
-                        <img
-                          src={imageUrl}
-                          alt={event.title}
-                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 grayscale-[40%]"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-60" />
+              {event.images && event.images.length > 1 ? (
+                <Carousel className="w-full">
+                  <CarouselContent>
+                    {event.images.map((imageUrl, index, all) => (
+                      <CarouselItem key={`${imageUrl}-${index}`}>
+                        <div className="relative aspect-video rounded-2xl overflow-hidden group">
+                          <img
+                            src={imageUrl}
+                            alt={event.title}
+                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 grayscale-[40%]"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-60" />
 
-                        <div className="absolute top-4 right-4 flex gap-2">
-                          <Button 
-                            size="icon" 
-                            variant="secondary" 
-                            onClick={handleShare}
-                            className="bg-background/40 backdrop-blur-md border-none hover:bg-background/60 transition-all hover:scale-105"
-                            title="Compartilhar"
-                          >
-                            <Share2 className="w-4 h-4 text-white" />
-                          </Button>
-                          <Button 
-                            size="icon" 
-                            variant="secondary" 
-                            onClick={handleLike}
-                            className={cn(
-                              "backdrop-blur-md border-none transition-all hover:scale-105",
-                              isLiked 
-                                ? "bg-red-500/20 hover:bg-red-500/30 text-red-500" 
-                                : "bg-background/40 hover:bg-background/60 text-white"
-                            )}
-                            title={isLiked ? "Remover dos favoritos" : "Favoritar"}
-                          >
-                            <Heart className={cn("w-4 h-4", isLiked && "fill-current")} />
-                          </Button>
-                        </div>
+                          <div className="absolute top-4 right-4 flex gap-2">
+                            <Button
+                              size="icon"
+                              variant="secondary"
+                              onClick={handleShare}
+                              className="bg-background/40 backdrop-blur-md border-none hover:bg-background/60 transition-all hover:scale-105"
+                              title="Compartilhar"
+                            >
+                              <Share2 className="w-4 h-4 text-white" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="secondary"
+                              onClick={handleLike}
+                              className={cn(
+                                "backdrop-blur-md border-none transition-all hover:scale-105",
+                                isLiked
+                                  ? "bg-red-500/20 hover:bg-red-500/30 text-red-500"
+                                  : "bg-background/40 hover:bg-background/60 text-white"
+                              )}
+                              title={isLiked ? "Remover dos favoritos" : "Favoritar"}
+                            >
+                              <Heart className={cn("w-4 h-4", isLiked && "fill-current")} />
+                            </Button>
+                          </div>
 
-                        {all.length > 1 && (
                           <div className="absolute bottom-4 right-4 px-3 py-1.5 rounded-full bg-background/70 text-xs font-medium text-foreground">
                             {index + 1} / {all.length}
                           </div>
-                        )}
-                      </div>
-                    </CarouselItem>
-                  ))}
-                </CarouselContent>
+                        </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
 
-                {event.images && event.images.length > 1 && (
-                  <>
-                    <CarouselPrevious className="left-4 top-1/2 -translate-y-1/2 h-10 w-10 border-none bg-background/80 text-foreground shadow-lg hover:bg-background" />
-                    <CarouselNext className="right-4 top-1/2 -translate-y-1/2 h-10 w-10 border-none bg-background/80 text-foreground shadow-lg hover:bg-background" />
-                  </>
-                )}
-              </Carousel>
+                  <CarouselPrevious className="left-4 top-1/2 -translate-y-1/2 h-10 w-10 border-none bg-background/80 text-foreground shadow-lg hover:bg-background" />
+                  <CarouselNext className="right-4 top-1/2 -translate-y-1/2 h-10 w-10 border-none bg-background/80 text-foreground shadow-lg hover:bg-background" />
+                </Carousel>
+              ) : (
+                <div className="relative aspect-video rounded-2xl overflow-hidden group">
+                  <img
+                    src={(event.images && event.images[0]) || event.image}
+                    alt={event.title}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 grayscale-[40%]"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent opacity-60" />
+
+                  <div className="absolute top-4 right-4 flex gap-2">
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      onClick={handleShare}
+                      className="bg-background/40 backdrop-blur-md border-none hover:bg-background/60 transition-all hover:scale-105"
+                      title="Compartilhar"
+                    >
+                      <Share2 className="w-4 h-4 text-white" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      onClick={handleLike}
+                      className={cn(
+                        "backdrop-blur-md border-none transition-all hover:scale-105",
+                        isLiked ? "bg-red-500/20 hover:bg-red-500/30 text-red-500" : "bg-background/40 hover:bg-background/60 text-white"
+                      )}
+                      title={isLiked ? "Remover dos favoritos" : "Favoritar"}
+                    >
+                      <Heart className={cn("w-4 h-4", isLiked && "fill-current")} />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-6">
@@ -821,8 +855,8 @@ export default function EventDetails() {
                     <Clock className="w-4 h-4 lg:w-5 lg:h-5 text-primary" />
                   </div>
                   <div>
-                    <p className="text-[10px] lg:text-xs text-muted-foreground uppercase tracking-wide">Hor√°rio</p>
-                    <p className="text-sm font-medium">Port√µes abrem √É¬†s {event.time}</p>
+                    <p className="text-[10px] lg:text-xs text-muted-foreground uppercase tracking-wide">Hor·rio</p>
+                    <p className="text-sm font-medium">Portıes abrem √†s {event.time}</p>
                   </div>
                 </div>
 
@@ -927,7 +961,7 @@ export default function EventDetails() {
                     Curtidas Recebidas
                   </h3>
                   <p className="text-muted-foreground mt-1">
-                    Veja quem curtiu voc√™ neste evento!
+                    Veja quem curtiu vocÍ neste evento!
                   </p>
                 </div>
               </div>
@@ -1047,7 +1081,7 @@ export default function EventDetails() {
                   <div className="flex items-center gap-4">
                     <div className="text-right hidden md:block">
                       <p className="text-sm font-medium">
-                        {profile?.match_enabled ? 'Voc√™ est√° vis√≠vel' : 'Voc√™ est√° invis√≠vel'}
+                        {profile?.match_enabled ? 'VocÍ est· visÌvel' : 'VocÍ est· invisÌvel'}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {profile?.match_enabled ? 'Outros podem ver seu perfil' : 'Ative para participar do Match'}
@@ -1079,7 +1113,7 @@ export default function EventDetails() {
                   <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
                     <UserPlus className="w-8 h-8 text-primary" />
                   </div>
-                  <h4 className="font-semibold text-xl mb-2">Fa√ßa login para dar Match!</h4>
+                  <h4 className="font-semibold text-xl mb-2">FaÁa login para dar Match!</h4>
                   <p className="text-muted-foreground mb-6 max-w-md mx-auto">
                     Entre na sua conta para interagir com outros participantes.
                   </p>
@@ -1092,7 +1126,7 @@ export default function EventDetails() {
                   </div>
                   <h3 className="text-2xl font-bold mb-3 text-destructive">Acesso Restrito</h3>
                   <p className="text-muted-foreground max-w-md mb-8 text-lg">
-                    A funcionalidade de Match √© exclusiva para maiores de 18 anos, conforme nossos termos de uso e legisla√ß√£o vigente.
+                    A funcionalidade de Match È exclusiva para maiores de 18 anos, conforme nossos termos de uso e legislaÁ„o vigente.
                   </p>
                 </div>
               ) : !profile?.match_enabled ? (
@@ -1103,7 +1137,7 @@ export default function EventDetails() {
                    </div>
                    <h3 className="text-2xl font-bold mb-3">Participe do Match!</h3>
                    <p className="text-muted-foreground max-w-md mb-8 text-lg">
-                     Ative o modo Match para encontrar pessoas com interesses em comum que tamb√©m v√£o ao evento.
+                     Ative o modo Match para encontrar pessoas com interesses em comum que tambÈm v„o ao evento.
                    </p>
                    <Button 
                      size="lg" 
@@ -1114,7 +1148,7 @@ export default function EventDetails() {
                      Entrar no Match Agora
                    </Button>
                    <p className="text-xs text-muted-foreground mt-4">
-                     Ao ativar, seu perfil ficar√° vis√≠vel para outros participantes na aba de Match.
+                     Ao ativar, seu perfil ficar· visÌvel para outros participantes na aba de Match.
                    </p>
                 </div>
               ) : (
@@ -1148,14 +1182,14 @@ export default function EventDetails() {
               {/* Efeito de confete/brilho de fundo */}
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,105,180,0.1),transparent_50%)]" />
               
-              {/* Fotos dos usu√°rios lado a lado */}
+              {/* Fotos dos usu·rios lado a lado */}
               <motion.div 
                 initial={{ scale: 0.5, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
                 className="relative flex items-center justify-center mb-8 z-10"
               >
-                {/* Foto do usu√°rio atual (voc√™) */}
+                {/* Foto do usu·rio atual (vocÍ) */}
                 <div className="relative">
                   <motion.div 
                     animate={{ scale: [1, 1.05, 1] }}
@@ -1165,13 +1199,13 @@ export default function EventDetails() {
                   <div className="relative w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-4 border-primary shadow-2xl">
                     <img 
                       src={profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
-                      alt="Voc√™"
+                      alt="VocÍ"
                       className="w-full h-full object-cover"
                     />
                   </div>
                 </div>
 
-                {/* √çcone de chama no meio */}
+                {/* Õcone de chama no meio */}
                 <motion.div
                   initial={{ scale: 0, rotate: -180 }}
                   animate={{ scale: 1, rotate: 0 }}
@@ -1183,7 +1217,7 @@ export default function EventDetails() {
                   </div>
                 </motion.div>
 
-                {/* Foto do usu√°rio que deu match */}
+                {/* Foto do usu·rio que deu match */}
                 <div className="relative">
                   <motion.div 
                     animate={{ scale: [1, 1.05, 1] }}
@@ -1215,7 +1249,7 @@ export default function EventDetails() {
                 transition={{ delay: 0.7 }}
                 className="text-muted-foreground mb-8 text-lg relative z-10"
               >
-                Voc√™ e <span className="text-foreground font-bold">{lastMatchedUserName}</span> curtiram um ao outro! üíï
+                VocÍ e <span className="text-foreground font-bold">{lastMatchedUserName}</span> curtiram um ao outro! ??
               </motion.p>
 
               <motion.div 
@@ -1228,7 +1262,7 @@ export default function EventDetails() {
                   onClick={() => {
                     setShowMatchOverlay(false);
                     if (lastMatchChatId) {
-                        // Marcar intera√ß√£o iniciada antes de navegar
+                        // Marcar interaÁ„o iniciada antes de navegar
                         // matchService.markChatOpened(lastMatchChatId).catch(console.error); // Optional: if needed
                         navigate(`/chat/${lastMatchChatId}`);
                     } else {
@@ -1272,7 +1306,7 @@ export default function EventDetails() {
                 </div>
                 <h2 className="text-xl font-bold tracking-tight">Ingresso confirmado!</h2>
                 <p className="text-sm text-muted-foreground">
-                  Agora √© a hora de criar seu perfil social para que outros participantes possam te conhecer antes da festa.
+                  Agora È a hora de criar seu perfil social para que outros participantes possam te conhecer antes da festa.
                 </p>
               </div>
 
@@ -1282,9 +1316,9 @@ export default function EventDetails() {
                 </p>
                 <ul className="list-disc list-inside text-xs text-muted-foreground space-y-1">
                   <li>Foto de perfil para aparecer na galeria do evento</li>
-                  <li>Bio curta contando quem √© voc√™</li>
+                  <li>Bio curta contando quem È vocÍ</li>
                   <li>Seu objetivo (paquera, amizade...)</li>
-                  <li>Prefer√™ncias de quem voc√™ quer conhecer</li>
+                  <li>PreferÍncias de quem vocÍ quer conhecer</li>
                 </ul>
               </div>
 
@@ -1303,7 +1337,7 @@ export default function EventDetails() {
                   className="w-full h-10 text-xs text-muted-foreground"
                   onClick={() => setShowSocialOnboarding(false)}
                 >
-                  Agora n√£o
+                  Agora n„o
                 </Button>
               </div>
             </motion.div>
@@ -1352,6 +1386,8 @@ export default function EventDetails() {
     </Layout>
   );
 }
+
+
 
 
 
