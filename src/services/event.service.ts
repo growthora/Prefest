@@ -586,6 +586,15 @@ export class EventService {
   async setEventImages(eventId: string, images: Array<{ image_url: string; is_cover?: boolean }>): Promise<EventImage[]> {
     const normalized = this.normalizeEventImages(images);
     const cover = normalized.find((img) => img.is_cover) || normalized[0];
+    const payload = normalized
+      .map((img) => ({
+        event_id: eventId,
+        image_url: img.image_url,
+        is_cover: img.is_cover,
+        display_order: img.display_order,
+      }))
+      // Keep exactly one cover and insert it first to avoid trigger race with unique cover constraint.
+      .sort((a, b) => Number(b.is_cover) - Number(a.is_cover));
 
     const { error: deleteError } = await supabase
       .from('event_images')
@@ -596,14 +605,7 @@ export class EventService {
 
     const { data: inserted, error: insertError } = await supabase
       .from('event_images')
-      .insert(
-        normalized.map((img) => ({
-          event_id: eventId,
-          image_url: img.image_url,
-          is_cover: img.is_cover,
-          display_order: img.display_order,
-        }))
-      )
+      .insert(payload)
       .select('*')
       .order('display_order', { ascending: true });
 
@@ -1514,6 +1516,7 @@ export class EventService {
 }
 
 export const eventService = new EventService();
+
 
 
 
