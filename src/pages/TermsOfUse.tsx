@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { LegalLayout } from '@/components/LegalLayout';
 
 const TermsOfUse = () => {
@@ -9,7 +9,7 @@ const TermsOfUse = () => {
       content: (
         <>
           <p className="mb-4">
-            Bem-vindo Ã  PREFEST! Ao acessar ou utilizar nossa plataforma (site e aplicativo), você concorda em cumprir e estar vinculado a estes Termos de Uso.
+            Bem-vindo a PREFEST! Ao acessar ou utilizar nossa plataforma (site e aplicativo), você concorda em cumprir e estar vinculado a estes Termos de Uso.
           </p>
           <p>
             Se você não concordar com qualquer parte destes termos, por favor, não utilize nossos serviços. Estes termos aplicam-se a todos os visitantes, usuários e outras pessoas que acessam ou usam o serviço.
@@ -142,5 +142,6 @@ const TermsOfUse = () => {
 };
 
 export default TermsOfUse;
+
 
 

@@ -1,4 +1,4 @@
-﻿-- Permite excluir cupons sem quebrar tickets históricos.
+-- Permite excluir cupons sem quebrar tickets históricos.
 -- Ao remover um cupom, tickets que o referenciam ficam com coupon_id = NULL.
 
 ALTER TABLE public.tickets

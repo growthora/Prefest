@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { MessageCircle, X, Send, ChevronLeft, MoreVertical, Search, Check, CheckCheck, Trash2, Ticket } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';

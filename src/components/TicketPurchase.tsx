@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Flame, Ticket, CreditCard, ShieldCheck, Info, Tag, X, Ban } from 'lucide-react';
 import { Event } from '@/lib/index';
@@ -35,6 +35,11 @@ interface SingleModeToggleProps {
 }
 
 export function SingleModeToggle({ enabled, onToggle, isLocked = false }: SingleModeToggleProps) {
+  if (isBot) {
+    // Silent fail for bots
+    return null;
+  }
+
   return (
     <div 
       className={cn(
@@ -48,7 +53,7 @@ export function SingleModeToggle({ enabled, onToggle, isLocked = false }: Single
     >
       {isLocked && (
         <div className="absolute top-3 right-3 z-10 px-2 py-1 rounded-full bg-muted text-[10px] font-bold uppercase tracking-wider text-muted-foreground border border-border">
-          🔒 Bloqueado
+          ?? Bloqueado
         </div>
       )}
       
@@ -56,13 +61,13 @@ export function SingleModeToggle({ enabled, onToggle, isLocked = false }: Single
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <Flame className={cn("w-5 h-5 transition-colors", enabled && !isLocked ? "text-primary animate-pulse" : "text-muted-foreground")} />
-            <h3 className="font-bold text-lg tracking-tight">Conheça a Galera!! 🔥</h3>
+            <h3 className="font-bold text-lg tracking-tight">Conheça a Galera!! ??</h3>
           </div>
           <p className="text-sm text-muted-foreground leading-relaxed">
             {isLocked ? (
               <>
                 Complete sua inscrição no evento para liberar a aba <span className="text-foreground font-medium">"Match do Evento"</span>. 
-                Conecte-se com outros solteiros confirmados após garantir seu ingresso! 🎟️
+                Conecte-se com outros solteiros confirmados após garantir seu ingresso! ???
               </>
             ) : (
               <>
@@ -412,11 +417,6 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   // Anti-Bot: Honeypot state
   const [isBot, setIsBot] = useState(false);
 
-  if (isBot) {
-    // Silent fail for bots
-    return null;
-  }
-
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) {
       toast.error('Digite um código de cupom');
@@ -429,7 +429,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
       
       if (coupon) {
         setAppliedCoupon(coupon);
-        toast.success(`Cupom "${coupon.code}" aplicado com sucesso! 🎉`);
+        toast.success(`Cupom "${coupon.code}" aplicado com sucesso! ??`);
       } else {
         toast.error('Cupom inválido ou expirado');
       }
@@ -483,7 +483,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
 
         if (ticketError) throw ticketError;
 
-        toast.success('Ingresso gratuito confirmado! Você já pode conhecer quem vai Ã  festa.');
+        toast.success('Ingresso gratuito confirmado! Você já pode conhecer quem vai a festa.');
         await onPurchase(singleMode, selectedTicketTypeId, 0);
 
       } else {
@@ -579,9 +579,12 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   
   const total = Math.max(0, basePrice + serviceFee - discount);
 
-  const isEventRealized = event.status === 'realizado';
+  const eventEndTimestamp = new Date((event.event_end_at || event.end_at || event.event_start_at || '') as string).getTime();
+  const isSalesClosedByDate = !Number.isNaN(eventEndTimestamp) && Date.now() >= eventEndTimestamp;
+  const normalizedStatus = String((event as any).status || '').toLowerCase();
+  const isEventCanceled = normalizedStatus === 'cancelado' || normalizedStatus === 'canceled' || normalizedStatus === 'cancelled';
   const isSalesDisabled = event.sales_enabled === false;
-  const isCheckoutBlocked = isEventRealized || isSalesDisabled;
+  const isCheckoutBlocked = isSalesClosedByDate || isEventCanceled || isSalesDisabled;
 
   const handlePaymentSuccess = React.useCallback(() => {
     setPixModalOpen(false);
@@ -657,9 +660,9 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold tracking-tight">Checkout do Ingresso</h2>
-          {isEventRealized && (
+          {(isSalesClosedByDate || isEventCanceled) && (
             <Badge variant="destructive" className="animate-pulse">
-                Evento Realizado
+                Venda encerrada
             </Badge>
           )}
         </div>
@@ -760,7 +763,8 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
                 onSelect={handleTicketSelect}
                 selectedTicketTypeId={selectedTicketTypeId}
                 onLoaded={handleTicketsLoaded}
-                isEventRealized={isEventRealized}
+                isSalesClosedByDate={isSalesClosedByDate}
+                isEventCanceled={isEventCanceled}
                 isSalesDisabled={isSalesDisabled}
               />
               {hasAvailableTicketTypes === false && (
@@ -964,7 +968,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
               </div>
 
               <p className="text-[11px] text-muted-foreground">
-                Após a compra, você já poderá conhecer quem vai Ã  festa.
+                Após a compra, você já poderá conhecer quem vai a festa.
               </p>
             </div>
 
@@ -1088,15 +1092,20 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
             (step === 'payment' && !selectedTicketTypeId)
           }
         >
-          {isEventRealized ? (
+          {isEventCanceled ? (
             <>
                 <Ban className="w-5 h-5 mr-2" />
-                Evento realizado
+                Evento cancelado
+            </>
+          ) : isSalesClosedByDate ? (
+            <>
+              <Ban className="w-5 h-5 mr-2" />
+              Venda encerrada
             </>
           ) : isSalesDisabled ? (
             <>
               <Ban className="w-5 h-5 mr-2" />
-              Vendas fechadas
+              Vendas desativadas
             </>
           ) : isParticipating ? (
             <>
@@ -1122,18 +1131,18 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         </Button>
       </div>
 
-      {isEventRealized && (
+      {(isSalesClosedByDate || isEventCanceled) && (
         <p className="text-center text-sm font-medium text-destructive mt-2">
-            Este evento já foi realizado e não aceita novos ingressos.
+            Venda de ingressos encerrada
         </p>
       )}
 
-      {isSalesDisabled && !isEventRealized && (
+      {isSalesDisabled && !isSalesClosedByDate && !isEventCanceled && (
         <Card className="border-amber-200 bg-amber-50/70 mt-2">
           <div className="p-4 text-sm">
-            <p className="font-semibold text-amber-800">Vendas ainda não abertas</p>
+            <p className="font-semibold text-amber-800">Vendas desativadas</p>
             <p className="text-amber-700">
-              As vendas para este evento ainda não foram liberadas pelo organizador. Fique atento, em breve os ingressos estarão disponíveis.
+              As vendas para este evento foram desativadas manualmente pelo organizador.
             </p>
           </div>
         </Card>
@@ -1163,6 +1172,9 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     </div>
   );
 }
+
+
+
 
 
 

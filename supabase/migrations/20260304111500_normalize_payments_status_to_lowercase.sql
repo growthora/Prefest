@@ -1,4 +1,4 @@
-﻿-- Corrige statuses de pagamentos que ficaram em formato incompatível
+-- Corrige statuses de pagamentos que ficaram em formato incompatível
 -- com as métricas financeiras (maiúsculo/variações do Asaas).
 
 UPDATE public.payments

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Check, Ticket, ShoppingCart } from 'lucide-react';
 import { eventService, type TicketTypeDB } from '@/services/event.service';
@@ -15,7 +15,8 @@ interface TicketSelectorProps {
   onSelect: (ticketTypeId: string, ticketType: TicketTypeDB) => void;
   selectedTicketTypeId?: string;
   onLoaded?: (ticketTypes: TicketTypeDB[]) => void;
-  isEventRealized?: boolean;
+  isSalesClosedByDate?: boolean;
+  isEventCanceled?: boolean;
   isSalesDisabled?: boolean;
 }
 
@@ -24,7 +25,8 @@ export function TicketSelector({
   onSelect,
   selectedTicketTypeId,
   onLoaded,
-  isEventRealized = false,
+  isSalesClosedByDate = false,
+  isEventCanceled = false,
   isSalesDisabled = false
 }: TicketSelectorProps) {
   const [ticketTypes, setTicketTypes] = useState<TicketTypeDB[]>([]);
@@ -44,7 +46,7 @@ export function TicketSelector({
       }
       
       // Auto-selecionar se houver apenas um tipo
-      if (types.length === 1 && !selectedTicketTypeId && !isEventRealized && !isSalesDisabled) {
+      if (types.length === 1 && !selectedTicketTypeId && !isSalesClosedByDate && !isEventCanceled && !isSalesDisabled) {
         onSelect(types[0].id, types[0]);
       }
     } catch (error) {
@@ -79,16 +81,32 @@ export function TicketSelector({
     );
   }
 
-  if (isEventRealized) {
+  if (isEventCanceled) {
     return (
       <Card className="border-red-200 bg-red-50/50">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-red-700">
             <Ticket className="w-5 h-5" />
-            Vendas Encerradas
+            Evento cancelado
           </CardTitle>
           <CardDescription className="text-red-600/80">
-            Este evento já foi realizado e não aceita mais compras de ingressos.
+            Este evento foi cancelado e não aceita novas compras de ingressos.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  if (isSalesClosedByDate) {
+    return (
+      <Card className="border-amber-200 bg-amber-50/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-amber-700">
+            <Ticket className="w-5 h-5" />
+            Venda de ingressos encerrada
+          </CardTitle>
+          <CardDescription className="text-amber-700/90">
+            Este evento atingiu a data de término e não aceita novas compras de ingressos.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -101,10 +119,10 @@ export function TicketSelector({
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-amber-700">
             <Ticket className="w-5 h-5" />
-            Vendas ainda não abertas
+            Vendas desativadas
           </CardTitle>
           <CardDescription className="text-amber-700/90">
-            As vendas para este evento ainda não foram liberadas pelo organizador.
+            As vendas para este evento foram desativadas manualmente pelo organizador.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -216,5 +234,6 @@ export function TicketSelector({
     </Card>
   );
 }
+
 
 

@@ -33,6 +33,7 @@ export const ROUTE_PATHS = {
   ORGANIZER_PARTICIPANTS: '/dashboard/organizador/participantes',
   ORGANIZER_PAYMENTS: '/dashboard/organizador/pagamentos',
   ORGANIZER_SETTINGS: '/dashboard/organizador/configuracoes',
+  ORGANIZER_TEAM: '/dashboard/organizador/equipe',
   ORGANIZER_SCANNER: '/dashboard/organizador/scanner',
   TICKET_SCANNER: '/scanner',
   ADMIN_DASHBOARD: '/admin',
@@ -57,12 +58,12 @@ export function buildCollectionPath(slug: string) {
 
 export type VibeType = 
   | 'curtir' 
-  | 'dançar' 
+  | 'dancar' 
   | 'conhecer pessoas' 
   | 'networking' 
   | 'romance' 
   | 'amizade' 
-  | 'diversão';
+  | 'diversao';
 
 export interface User {
   id: string;
@@ -96,6 +97,9 @@ export interface Event {
   title: string;
   date: string;
   time: string;
+  event_start_at?: string | null;
+  event_end_at?: string | null;
+  end_at?: string | null;
   location: string;
   address: string;
   city?: string | null;
@@ -146,19 +150,24 @@ export const APP_CONFIG = {
   primaryColor: '#FF007F', // Social Spark Pink
 };
 
-// Configuração global de provedor de email para autenticação
-// SUPABASE: Usa o serviço nativo do Supabase Auth (RECOMENDADO/OBRIGATÓRIO)
+// // Configuracao global de provedor de email para autenticacao
+// // SUPABASE: Usa o servico nativo do Supabase Auth (RECOMENDADO/OBRIGATORIO)
 // CUSTOM: Usa SMTP do banco via Edge Functions (PROIBIDO para Auth)
 export const AUTH_EMAIL_PROVIDER: 'SUPABASE' | 'CUSTOM' = 'SUPABASE';
 
 // Contexto de envio de email
 export enum EMAIL_CONTEXT {
   AUTH = 'AUTH',   // signup, reset password, magic link, change email, reauthentication
-  CUSTOM = 'CUSTOM' // notificações, marketing, eventos, admin
+    CUSTOM = 'CUSTOM' // notificacoes, marketing, eventos, admin
 }
 
 // Regra: SMTP do banco permitido SOMENTE em CUSTOM
 export const ALLOWED_SMTP_CONTEXTS = [EMAIL_CONTEXT.CUSTOM];
+
+
+
+
+
 
 
 

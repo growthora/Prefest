@@ -20,6 +20,85 @@ interface EventGalleryManagerProps {
 }
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const TARGET_WIDTH = 1600;
+const TARGET_HEIGHT = 900;
+const TARGET_RATIO = TARGET_WIDTH / TARGET_HEIGHT;
+
+async function prepareGalleryImage(file: File): Promise<File> {
+  if (!file.type.startsWith('image/')) return file;
+
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const img = new Image();
+
+      img.onload = () => {
+        const sourceWidth = img.width;
+        const sourceHeight = img.height;
+        if (!sourceWidth || !sourceHeight) {
+          resolve(file);
+          return;
+        }
+
+        const sourceRatio = sourceWidth / sourceHeight;
+        let cropWidth = sourceWidth;
+        let cropHeight = sourceHeight;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        if (sourceRatio > TARGET_RATIO) {
+          cropWidth = sourceHeight * TARGET_RATIO;
+          offsetX = (sourceWidth - cropWidth) / 2;
+        } else if (sourceRatio < TARGET_RATIO) {
+          cropHeight = sourceWidth / TARGET_RATIO;
+          offsetY = (sourceHeight - cropHeight) / 2;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = TARGET_WIDTH;
+        canvas.height = TARGET_HEIGHT;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(file);
+          return;
+        }
+
+        ctx.drawImage(
+          img,
+          offsetX,
+          offsetY,
+          cropWidth,
+          cropHeight,
+          0,
+          0,
+          TARGET_WIDTH,
+          TARGET_HEIGHT
+        );
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              resolve(file);
+              return;
+            }
+            const baseName = file.name.replace(/\.[^/.]+$/, '');
+            resolve(new File([blob], `${baseName}.webp`, { type: 'image/webp' }));
+          },
+          'image/webp',
+          0.85
+        );
+      };
+
+      img.onerror = () => resolve(file);
+      img.src = reader.result as string;
+    };
+
+    reader.onerror = () => resolve(file);
+    reader.readAsDataURL(file);
+  });
+}
 
 function normalizeImages(input: EventGalleryImage[], maxImages: number): EventGalleryImage[] {
   const deduped = input
@@ -87,13 +166,13 @@ export function EventGalleryManager({
     const availableSlots = maxImages - normalizedImages.length;
 
     if (availableSlots <= 0) {
-      toast.error(`Limite máximo de ${maxImages} imagens por evento.`);
+      toast.error(`Limite mÃ¡ximo de ${maxImages} imagens por evento.`);
       return;
     }
 
     const filesToUpload = files.slice(0, availableSlots);
     if (files.length > availableSlots) {
-      toast.warning(`Apenas ${availableSlots} imagem(ns) serão enviadas por causa do limite.`);
+      toast.warning(`Apenas ${availableSlots} imagem(ns) serÃ£o enviadas por causa do limite.`);
     }
 
     const uploaded: EventGalleryImage[] = [];
@@ -102,15 +181,16 @@ export function EventGalleryManager({
       setIsUploading(true);
       for (const file of filesToUpload) {
         if (!file.type.startsWith('image/')) {
-          toast.error(`Arquivo inválido: ${file.name}`);
+          toast.error(`Arquivo invÃ¡lido: ${file.name}`);
           continue;
         }
         if (file.size > MAX_FILE_SIZE) {
-          toast.error(`Imagem muito grande (${file.name}). Máximo: 5MB.`);
+          toast.error(`Imagem muito grande (${file.name}). MÃ¡ximo: 5MB.`);
           continue;
         }
 
-        const url = await storageService.uploadImage(file, 'event-images', uploadFolder);
+        const preparedFile = await prepareGalleryImage(file);
+        const url = await storageService.uploadImage(preparedFile, 'event-images', uploadFolder);
         uploaded.push({ image_url: url, is_cover: false });
       }
 
@@ -169,24 +249,47 @@ export function EventGalleryManager({
       {normalizedImages.length === 0 ? (
         <p className="text-sm text-muted-foreground">Adicione entre 1 e {maxImages} imagens.</p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {normalizedImages.map((img, index) => (
-            <div key={`${img.image_url}-${index}`} className="rounded-lg border overflow-hidden bg-muted/20">
-              <div className="relative aspect-video">
-                <img src={img.image_url} alt={`Imagem ${index + 1}`} className="w-full h-full object-cover" />
+            <div
+              key={`${img.image_url}-${index}`}
+              className="flex flex-col rounded-xl border bg-card shadow-sm overflow-hidden"
+            >
+              <div className="relative w-full aspect-[16/9] overflow-hidden bg-muted">
+                <img
+                  src={img.image_url}
+                  alt={`Imagem ${index + 1}`}
+                  className="absolute inset-0 h-full w-full object-cover object-center"
+                />
                 {img.is_cover && (
-                  <span className="absolute top-2 left-2 text-[10px] font-semibold px-2 py-1 rounded bg-primary text-primary-foreground">
+                  <span className="absolute top-2 right-2 z-10 text-[10px] font-semibold px-2 py-1 rounded-full bg-primary/95 text-primary-foreground shadow">
                     CAPA
                   </span>
                 )}
               </div>
+
               {!readOnly && (
-                <div className="p-2 flex items-center justify-between gap-1">
-                  <Button type="button" size="sm" variant="outline" onClick={() => setCover(index)} disabled={img.is_cover}>
+                <div className="p-2 border-t bg-background flex items-center justify-between gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={img.is_cover ? 'secondary' : 'outline'}
+                    onClick={() => setCover(index)}
+                    disabled={img.is_cover}
+                    className="shrink-0"
+                  >
                     <Star className="h-4 w-4 mr-1" /> Capa
                   </Button>
-                  <div className="flex items-center gap-1">
-                    <Button type="button" size="icon" variant="ghost" onClick={() => moveImage(index, -1)} disabled={index === 0}>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => moveImage(index, -1)}
+                      disabled={index === 0}
+                      className="h-8 w-8"
+                    >
                       <ArrowLeft className="h-4 w-4" />
                     </Button>
                     <Button
@@ -195,10 +298,17 @@ export function EventGalleryManager({
                       variant="ghost"
                       onClick={() => moveImage(index, 1)}
                       disabled={index === normalizedImages.length - 1}
+                      className="h-8 w-8"
                     >
                       <ArrowRight className="h-4 w-4" />
                     </Button>
-                    <Button type="button" size="icon" variant="ghost" onClick={() => removeImage(index)}>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => removeImage(index)}
+                      className="h-8 w-8"
+                    >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
@@ -211,3 +321,5 @@ export function EventGalleryManager({
     </div>
   );
 }
+
+

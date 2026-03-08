@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, MapPin, Calendar, Music, PartyPopper, Theater, ChevronRight, Briefcase, Ticket, Mic } from 'lucide-react';
@@ -70,7 +70,7 @@ const Home = () => {
         img.src = src;
       });
     } catch (err) {
-      // console.error('❌ Erro ao carregar eventos:', err);
+      // console.error('? Erro ao carregar eventos:', err);
       setEvents([]);
     } finally {
       setIsLoading(false);
@@ -178,12 +178,12 @@ const Home = () => {
                       <div className="h-full transform transition-transform hover:-translate-y-1 duration-300">
                         <div className="relative group/card h-full">
                           <Link to={`/eventos/${event.slug || event.id}`} className="block h-full">
-                            <div className="relative overflow-hidden rounded-2xl mb-3 bg-gray-900 shadow-lg">
+                            <div className="relative aspect-video overflow-hidden rounded-2xl mb-3 bg-gray-900 shadow-lg">
                               {/* Main Image Layer */}
                               <img 
                                 src={event.image} 
                                 alt={event.title}
-                                className="w-full h-auto object-contain z-10 transition-transform duration-500 group-hover/card:scale-105"
+                                className="w-full h-full object-cover object-center z-10 transition-transform duration-500 group-hover/card:scale-105"
                               />
                               
                               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-20 opacity-90" />
@@ -214,20 +214,22 @@ const Home = () => {
                                   <span className="font-bold text-sm text-primary">{event.display_price_label}</span>
                                 ) : (
                                   event.is_free_event ? (
-                                    <span className="font-bold text-lg text-primary">Grátis</span>
-                                  ) : (
+                                    <span className="font-bold text-lg text-primary">Evento gratuito</span>
+                                  ) : event.display_price_value !== undefined ? (
                                     <>
                                       <span className="text-xs text-gray-500 font-medium">A partir de</span>
                                       <span className="font-bold text-lg text-primary">
-                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(event.display_price_value ?? event.price)}
+                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(event.display_price_value)}
                                       </span>
                                     </>
+                                  ) : (
+                                    <span className="font-bold text-sm text-gray-500">Consulte os lotes</span>
                                   )
                                 )}
                               </div>
                             </div>
                           </Link>
-                        </div>
+                      </div>
                       </div>
                     </CarouselItem>
                   ))}
@@ -277,12 +279,12 @@ const Home = () => {
                        <div className="h-full transform transition-transform hover:-translate-y-1 duration-300">
                         <div className="relative group/card h-full">
                           <Link to={`/eventos/${event.slug || event.id}`} className="block h-full">
-                            <div className="relative overflow-hidden rounded-2xl mb-3 bg-gray-900 shadow-lg">
+                            <div className="relative aspect-video overflow-hidden rounded-2xl mb-3 bg-gray-900 shadow-lg">
                               {/* Main Image Layer */}
                               <img 
                                 src={event.image} 
                                 alt={event.title}
-                                className="w-full h-auto object-contain z-10 transition-transform duration-500 group-hover/card:scale-105"
+                                className="w-full h-full object-cover object-center z-10 transition-transform duration-500 group-hover/card:scale-105"
                               />
                               
                               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-20 opacity-90" />
@@ -313,20 +315,22 @@ const Home = () => {
                                   <span className="font-bold text-sm text-primary">{event.display_price_label}</span>
                                 ) : (
                                   event.is_free_event ? (
-                                    <span className="font-bold text-lg text-primary">Grátis</span>
-                                  ) : (
+                                    <span className="font-bold text-lg text-primary">Evento gratuito</span>
+                                  ) : event.display_price_value !== undefined ? (
                                     <>
                                       <span className="text-xs text-gray-500 font-medium">A partir de</span>
                                       <span className="font-bold text-lg text-primary">
-                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(event.display_price_value ?? event.price)}
+                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(event.display_price_value)}
                                       </span>
                                     </>
+                                  ) : (
+                                    <span className="font-bold text-sm text-gray-500">Consulte os lotes</span>
                                   )
                                 )}
                               </div>
                             </div>
                           </Link>
-                        </div>
+                      </div>
                       </div>
                     </CarouselItem>
                   ))}
@@ -347,5 +351,8 @@ const Home = () => {
 };
 
 export default Home;
+
+
+
 
 

@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { 
   Home, 
@@ -65,7 +65,7 @@ export function DashboardSidebar({
   toggleSidebar, 
   className,
   navItems = dashboardNavItems,
-  headerTitle = "Gestão"
+  headerTitle = "Gestao"
 }: DashboardSidebarProps) {
   const navigate = useNavigate();
   const { signOut } = useAuth();
@@ -139,10 +139,10 @@ export function DashboardSidebar({
           )}
         >
           <Home className={cn("w-5 h-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-110", isCollapsed ? "w-6 h-6" : "")} />
-          {!isCollapsed && <span>Voltar para Início</span>}
+          {!isCollapsed && <span>Voltar para Inicio</span>}
           {isCollapsed && (
             <div className="absolute left-full ml-2 px-2 py-1 bg-popover text-popover-foreground text-xs rounded shadow-md opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
-              Voltar para Início
+              Voltar para Inicio
             </div>
           )}
         </NavLink>
@@ -166,4 +166,5 @@ export function DashboardSidebar({
     </aside>
   );
 }
+
 

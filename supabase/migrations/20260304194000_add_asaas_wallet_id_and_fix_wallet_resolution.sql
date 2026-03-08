@@ -1,4 +1,4 @@
-﻿ALTER TABLE public.organizer_asaas_accounts
+ALTER TABLE public.organizer_asaas_accounts
   ADD COLUMN IF NOT EXISTS asaas_wallet_id text;
 
 -- Backfill safe for external wallet rows.

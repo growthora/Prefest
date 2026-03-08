@@ -1,5 +1,5 @@
-﻿import { useState, useEffect } from 'react';
-import { userService, type UserWithStats, type CreateUserData, type UpdateUserData } from '@/services/user.service';
+import { useState, useEffect } from 'react';
+import { userService, type UserWithStats, type CreateUserData, type UpdateUserData, type OrganizerOption } from '@/services/user.service';
 import { type Profile } from '@/services/auth.service';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -26,18 +26,35 @@ export default function AdminUsers() {
   const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
   
-  const [newUser, setNewUser] = useState<CreateUserData & { role: 'user' | 'admin'; account_type: 'comprador' | 'organizador' | 'comprador_organizador' }>({
+  const [newUser, setNewUser] = useState<CreateUserData & {
+    role: 'user' | 'admin';
+    account_type: 'comprador' | 'organizador' | 'comprador_organizador';
+    is_team_member: boolean;
+    team_organizer_id: string;
+  }>({
     email: '',
     password: '',
     full_name: '',
     role: 'user',
     account_type: 'comprador',
+    is_team_member: false,
+    team_organizer_id: '',
   });
 
-  const [userUpdate, setUserUpdate] = useState<UpdateUserData & { role?: 'user' | 'admin'; account_type?: 'comprador' | 'organizador' | 'comprador_organizador'; new_password?: string; confirm_password?: string }>({});
+  const [userUpdate, setUserUpdate] = useState<UpdateUserData & {
+    role?: 'user' | 'admin';
+    account_type?: 'comprador' | 'organizador' | 'comprador_organizador';
+    is_team_member?: boolean;
+    team_organizer_id?: string;
+    new_password?: string;
+    confirm_password?: string;
+  }>({});
+
+  const [organizerOptions, setOrganizerOptions] = useState<OrganizerOption[]>([]);
 
   useEffect(() => {
-    loadUsers();
+    void loadUsers();
+    void loadOrganizerOptions();
   }, []);
 
   const loadUsers = async () => {
@@ -52,13 +69,27 @@ export default function AdminUsers() {
     }
   };
 
+  const loadOrganizerOptions = async () => {
+    try {
+      const options = await userService.getOrganizerOptions();
+      setOrganizerOptions(options);
+    } catch {
+      toast.error('Erro ao carregar organizadores');
+    }
+  };
+
   const getRolesFromPermissionAndAccountType = (
     role: 'user' | 'admin',
-    accountType: 'comprador' | 'organizador' | 'comprador_organizador'
+    accountType: 'comprador' | 'organizador' | 'comprador_organizador',
+    isTeamMember = false
   ): string[] => {
     const result: string[] = [];
     if (accountType === 'comprador' || accountType === 'comprador_organizador') result.push('BUYER');
     if (accountType === 'organizador' || accountType === 'comprador_organizador') result.push('ORGANIZER');
+    if (isTeamMember) {
+      result.push('EQUIPE');
+      if (!result.includes('BUYER')) result.push('BUYER');
+    }
     if (role === 'admin') result.push('ADMIN');
     return [...new Set(result)];
   };
@@ -90,6 +121,11 @@ export default function AdminUsers() {
     return 'comprador';
   };
 
+  const isTeamMemberFromUser = (user: Profile): boolean => {
+    const upperRoles = (user.roles || []).map(r => r.toUpperCase());
+    return upperRoles.includes('EQUIPE');
+  };
+
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -98,11 +134,24 @@ export default function AdminUsers() {
       if (newUser.password.length < 8) {
         throw new Error('A senha deve ter no mínimo 8 caracteres.');
       }
-      await userService.createUser({
-        ...newUser,
-        roles: getRolesFromPermissionAndAccountType(newUser.role, newUser.account_type),
+      if (newUser.is_team_member && !newUser.team_organizer_id) {
+        throw new Error('Selecione o organizador responsável para usuário de equipe.');
+      }
+
+      const created = await userService.createUser({
+        email: newUser.email,
+        password: newUser.password,
+        full_name: newUser.full_name,
+        role: newUser.role,
+        account_type: newUser.account_type,
+        roles: getRolesFromPermissionAndAccountType(newUser.role, newUser.account_type, newUser.is_team_member),
         organizer_status: getOrganizerStatusFromAccountType(newUser.account_type),
       });
+
+      if (newUser.is_team_member && newUser.team_organizer_id) {
+        await userService.upsertTeamMemberLink(created.profile.id, newUser.team_organizer_id);
+      }
+
       toast.success('Usuário criado com sucesso!');
       setIsCreateUserDialogOpen(false);
       setNewUser({
@@ -111,6 +160,8 @@ export default function AdminUsers() {
         full_name: '',
         role: 'user',
         account_type: 'comprador',
+        is_team_member: false,
+        team_organizer_id: '',
       });
       await loadUsers();
     } catch (err) {
@@ -126,21 +177,25 @@ export default function AdminUsers() {
 
     try {
       setIsLoading(true);
-      
+
+      const resolvedRole = userUpdate.role || getRoleFromUser(editingUser);
+      const resolvedAccountType = userUpdate.account_type || getAccountTypeFromUser(editingUser);
+      const isTeamMember = Boolean(userUpdate.is_team_member);
+
+      if (isTeamMember && !userUpdate.team_organizer_id) {
+        throw new Error('Selecione o organizador responsável para usuário de equipe.');
+      }
+
       const updateData: UpdateUserData = {
         full_name: userUpdate.full_name,
         bio: userUpdate.bio,
         avatar_url: userUpdate.avatar_url,
         single_mode: userUpdate.single_mode,
-        role: userUpdate.role,
-        account_type: userUpdate.account_type,
+        role: resolvedRole,
+        account_type: resolvedAccountType,
+        roles: getRolesFromPermissionAndAccountType(resolvedRole, resolvedAccountType, isTeamMember),
+        organizer_status: getOrganizerStatusFromAccountType(resolvedAccountType),
       };
-
-      if (userUpdate.account_type) {
-        const resolvedRole = userUpdate.role || getRoleFromUser(editingUser);
-        updateData.roles = getRolesFromPermissionAndAccountType(resolvedRole, userUpdate.account_type);
-        updateData.organizer_status = getOrganizerStatusFromAccountType(userUpdate.account_type);
-      }
 
       if (userUpdate.new_password || userUpdate.confirm_password) {
         if (!userUpdate.new_password || !userUpdate.confirm_password) {
@@ -155,6 +210,13 @@ export default function AdminUsers() {
       }
 
       await userService.updateUser(editingUser.id, updateData);
+
+      if (isTeamMember && userUpdate.team_organizer_id) {
+        await userService.upsertTeamMemberLink(editingUser.id, userUpdate.team_organizer_id);
+      } else {
+        await userService.removeTeamMemberLink(editingUser.id);
+      }
+
       if (userUpdate.new_password) {
         await userService.updateUserPasswordAsAdmin(editingUser.id, userUpdate.new_password);
       }
@@ -190,19 +252,37 @@ export default function AdminUsers() {
     }
   };
 
-  const openEditUserDialog = (user: Profile) => {
+  const openEditUserDialog = async (user: Profile) => {
     setEditingUser(user);
+
+    const teamByRole = isTeamMemberFromUser(user);
     setUserUpdate({
       full_name: user.full_name || '',
       bio: user.bio || '',
       avatar_url: user.avatar_url || '',
       role: getRoleFromUser(user),
       account_type: getAccountTypeFromUser(user),
+      is_team_member: teamByRole,
+      team_organizer_id: '',
       single_mode: user.single_mode,
       show_initials_only: user.show_initials_only,
       new_password: '',
       confirm_password: '',
     });
+
+    try {
+      const organizerId = await userService.getTeamOrganizerForUser(user.id);
+      if (organizerId) {
+        setUserUpdate((prev) => ({
+          ...prev,
+          is_team_member: true,
+          team_organizer_id: organizerId,
+        }));
+      }
+    } catch {
+      toast.error('Erro ao carregar vínculo de equipe');
+    }
+
     setIsEditUserDialogOpen(true);
   };
 
@@ -347,6 +427,47 @@ export default function AdminUsers() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-user-team-member">Membro de Equipe</Label>
+                <Select
+                  value={newUser.is_team_member ? 'sim' : 'nao'}
+                  onValueChange={(value: 'sim' | 'nao') =>
+                    setNewUser({
+                      ...newUser,
+                      is_team_member: value === 'sim',
+                      team_organizer_id: value === 'sim' ? newUser.team_organizer_id : '',
+                    })
+                  }
+                >
+                  <SelectTrigger id="new-user-team-member">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nao">Não</SelectItem>
+                    <SelectItem value="sim">Sim</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {newUser.is_team_member && (
+                <div className="space-y-2">
+                  <Label htmlFor="new-user-team-organizer">Organizador Responsável</Label>
+                  <Select
+                    value={newUser.team_organizer_id}
+                    onValueChange={(value) => setNewUser({ ...newUser, team_organizer_id: value })}
+                  >
+                    <SelectTrigger id="new-user-team-organizer">
+                      <SelectValue placeholder="Selecione um organizador" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {organizerOptions.map((organizer) => (
+                        <SelectItem key={organizer.id} value={organizer.id}>
+                          {organizer.full_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <DialogFooter>
                 <Button type="submit" disabled={isLoading} className="w-full">
                   {isLoading ? 'Criando...' : 'Criar Usuário'}
@@ -428,6 +549,9 @@ export default function AdminUsers() {
                               ? 'Organizador'
                               : 'Comprador e Organizador'}
                           </Badge>
+                          {isTeamMemberFromUser(user) && (
+                            <Badge variant="outline">Equipe</Badge>
+                          )}
                         </div>
                       );
                     })()}
@@ -436,7 +560,7 @@ export default function AdminUsers() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-muted-foreground hover:text-primary"
-                        onClick={() => openEditUserDialog(user)}
+                        onClick={() => { void openEditUserDialog(user); }}
                       >
                         <Pencil className="w-4 h-4" />
                       </Button>
@@ -561,6 +685,47 @@ export default function AdminUsers() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-user-team-member">Membro de Equipe</Label>
+                <Select
+                  value={userUpdate.is_team_member ? 'sim' : 'nao'}
+                  onValueChange={(value: 'sim' | 'nao') =>
+                    setUserUpdate({
+                      ...userUpdate,
+                      is_team_member: value === 'sim',
+                      team_organizer_id: value === 'sim' ? (userUpdate.team_organizer_id || '') : '',
+                    })
+                  }
+                >
+                  <SelectTrigger id="edit-user-team-member">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nao">Não</SelectItem>
+                    <SelectItem value="sim">Sim</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {userUpdate.is_team_member && (
+                <div className="space-y-2">
+                  <Label htmlFor="edit-user-team-organizer">Organizador Responsável</Label>
+                  <Select
+                    value={userUpdate.team_organizer_id || ''}
+                    onValueChange={(value) => setUserUpdate({ ...userUpdate, team_organizer_id: value })}
+                  >
+                    <SelectTrigger id="edit-user-team-organizer">
+                      <SelectValue placeholder="Selecione um organizador" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {organizerOptions.map((organizer) => (
+                        <SelectItem key={organizer.id} value={organizer.id}>
+                          {organizer.full_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="rounded-md border p-3 space-y-3">
                 <div>
                   <h4 className="font-medium">Segurança da Conta</h4>

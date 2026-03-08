@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, NavLink, Link, useLocation, useSearchParams } from 'react-router-dom';
 import { 
   Menu, 
@@ -59,7 +59,8 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
   const organizerStatus = (profile?.organizer_status || 'NONE').toUpperCase();
   const isOrganizerApproved = roles.includes('ORGANIZER') && organizerStatus === 'APPROVED';
   const isStaff = roles.includes('STAFF');
-  const canUseScanner = isOrganizerApproved || isStaff;
+  const isEquipe = roles.includes('EQUIPE');
+  const canUseScanner = isOrganizerApproved || isStaff || isEquipe;
 
   // Sync internal state with URL params
   useEffect(() => {
@@ -83,11 +84,11 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
 
   const categories = [
     { name: "Festas e shows", icon: Music },
-    { name: "Teatros e espetáculos", icon: Theater },
+    { name: "Teatros e espetaculos", icon: Theater },
     { name: "Congressos e palestras", icon: Mic },
     { name: "Passeios e tours", icon: Compass },
     { name: "Gastronomia", icon: Utensils },
-    { name: "Grátis", icon: Star }
+    { name: "Gratis", icon: Star }
   ];
 
   return (
@@ -98,7 +99,7 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
       {showTopBanner && (
         <div className="bg-[#1F222A] text-white py-2 px-4 flex md:hidden justify-between items-center text-sm z-50 relative">
           <div className="flex items-center gap-4">
-            <span className="font-bold">É Produtor?</span>
+            <span className="font-bold">E Produtor?</span>
             <CreateEventModal 
               trigger={
                 <button className="border border-white rounded px-4 py-1 hover:bg-white/10 transition-colors font-medium text-xs uppercase tracking-wide">
@@ -116,7 +117,7 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
           <Link to={ROUTE_PATHS.HOME} className="flex-shrink-0">
             <img 
               src={logoImage} 
-              alt="Pré-fest" 
+              alt="Prefest" 
               className="h-12 w-auto object-contain" 
             />
           </Link>
@@ -167,7 +168,7 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
           <form onSubmit={handleSearch} className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input 
-              placeholder="Buscar experiências..." 
+              placeholder="Buscar experiencias..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9 h-10 bg-gray-50 border-gray-200 focus:bg-white transition-colors w-full"
@@ -220,7 +221,7 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
             <Link to={ROUTE_PATHS.HOME} className="flex-shrink-0">
               <img 
                 src={logoImage} 
-                alt="Pré-fest" 
+                alt="Prefest" 
                 className="h-16 w-auto object-contain" 
               />
             </Link>
@@ -230,7 +231,7 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
               <form onSubmit={handleSearch} className="relative flex-1 group z-10">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <Input 
-                  placeholder="Buscar experiências" 
+                  placeholder="Buscar experiencias" 
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-12 h-12 bg-white border-gray-200 focus-visible:ring-0 focus-visible:border-primary rounded-l-lg rounded-r-none border-r-0 shadow-none hover:border-gray-300 transition-colors focus:z-20 w-full"
@@ -335,7 +336,7 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
             )}
           >
             <HomeIcon size={24} />
-            <span className="text-[10px] font-medium">Início</span>
+            <span className="text-[10px] font-medium">Inicio</span>
           </NavLink>
 
           <NavLink 
@@ -428,5 +429,8 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
     </div>
   );
 }
+
+
+
 
 

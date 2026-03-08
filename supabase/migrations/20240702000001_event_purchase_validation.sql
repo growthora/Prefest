@@ -1,4 +1,4 @@
-﻿-- Função para validar se evento pode receber compras
+-- Função para validar se evento pode receber compras
 CREATE OR REPLACE FUNCTION check_event_purchase_availability(p_event_id UUID)
 RETURNS BOOLEAN
 LANGUAGE plpgsql

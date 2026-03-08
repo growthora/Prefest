@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { Heart, X, Info, Sparkles, MapPin, Zap, Ruler, Users, Clock } from 'lucide-react';
 import { User, VibeType } from '@/lib/index';

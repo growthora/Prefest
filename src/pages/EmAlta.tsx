@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Flame, Trophy, ChevronRight } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { EventGrid, EventCard } from '@/components/EventCards';

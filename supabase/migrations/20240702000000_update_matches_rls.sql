@@ -1,4 +1,4 @@
-﻿-- Atualizar política RLS para incluir status válidos (paid, issued)
+-- Atualizar política RLS para incluir status válidos (paid, issued)
 DROP POLICY IF EXISTS "Users can view their matches" ON matches;
 
 CREATE POLICY "Users can view their matches"

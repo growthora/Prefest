@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { User, Match, Message, APP_CONFIG } from '@/lib/index';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { notificationService, Notification } from '@/services/notification.service';
 import { toast } from 'sonner';

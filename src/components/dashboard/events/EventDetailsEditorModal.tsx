@@ -36,15 +36,14 @@ type SaveState = 'idle' | 'loading' | 'success' | 'error';
 
 const formSchema = z
   .object({
-    title: z.string().min(3, 'O tÌtulo deve ter pelo menos 3 caracteres.'),
-    description: z.string().min(10, 'A descriÁ„o deve ter pelo menos 10 caracteres.'),
-    event_date: z.string().min(1, 'A data de inÌcio È obrigatÛria.'),
+    title: z.string().min(3, 'O t√≠tulo deve ter pelo menos 3 caracteres.'),
+    description: z.string().min(10, 'A descri√ß√£o deve ter pelo menos 10 caracteres.'),
+    event_date: z.string().min(1, 'A data de in√≠cio √© obrigat√≥ria.'),
     end_at: z.string().optional(),
-    location: z.string().min(3, 'O local È obrigatÛrio.'),
+    location: z.string().min(3, 'O local √© obrigat√≥rio.'),
     city: z.string().optional(),
     state: z.string().optional(),
     image_url: z.string().optional(),
-    price: z.coerce.number().min(0, 'O preÁo n„o pode ser negativo.'),
     max_participants: z.union([z.coerce.number().min(0), z.literal('')]).optional(),
     ui_status: z.enum(['ativo', 'esgotado', 'realizado', 'inativo']),
     sales_enabled: z.boolean(),
@@ -57,7 +56,7 @@ const formSchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['end_at'],
-          message: 'A data de tÈrmino deve ser maior que a data de inÌcio.',
+          message: 'A data de t√©rmino deve ser maior que a data de in√≠cio.',
         });
       }
     }
@@ -85,7 +84,7 @@ function toInputDate(value?: string | null) {
 function fromEventToUiStatus(event: DashboardEvent): UiStatus {
   if (event.is_active === false || event.status === 'draft') return 'inativo';
   if (event.status === 'realizado') return 'realizado';
-  if (event.is_paid_event && !event.sales_enabled) return 'esgotado';
+  if (!event.sales_enabled) return 'esgotado';
   return 'ativo';
 }
 
@@ -99,7 +98,6 @@ function buildFormState(event: DashboardEvent): FormState {
     city: event.city || '',
     state: event.state || '',
     image_url: event.image_url || '',
-    price: Number(event.price) || 0,
     max_participants: event.max_participants ?? '',
     ui_status: fromEventToUiStatus(event),
     sales_enabled: !!event.sales_enabled,
@@ -290,12 +288,12 @@ export function EventDetailsEditorModal({
       return;
     }
     if (Number.isNaN(price) || price < 0) {
-      toast({ title: 'Preco invalido', description: 'Informe um preco valido.', variant: 'destructive' });
+      toast({ title: 'Pre√ßo invalido', description: 'Informe um preco valido.', variant: 'destructive' });
       return;
     }
     if (price > 0 && price < MIN_PAID_TICKET_PRICE) {
       toast({
-        title: 'Preco minimo',
+        title: 'Pre√ßo minimo',
         description: `Ingressos pagos devem ter valor minimo de R$ ${MIN_PAID_TICKET_PRICE.toFixed(2).replace('.', ',')}.`,
         variant: 'destructive',
       });
@@ -375,12 +373,12 @@ export function EventDetailsEditorModal({
       return;
     }
     if (Number.isNaN(price) || price < 0) {
-      toast({ title: 'Preco invalido', description: 'Informe um preco valido.', variant: 'destructive' });
+      toast({ title: 'Pre√ßo invalido', description: 'Informe um preco valido.', variant: 'destructive' });
       return;
     }
     if (price > 0 && price < MIN_PAID_TICKET_PRICE) {
       toast({
-        title: 'Preco minimo',
+        title: 'Pre√ßo minimo',
         description: `Ingressos pagos devem ter valor minimo de R$ ${MIN_PAID_TICKET_PRICE.toFixed(2).replace('.', ',')}.`,
         variant: 'destructive',
       });
@@ -430,12 +428,9 @@ export function EventDetailsEditorModal({
     setFieldErrors({});
     setSaveError(null);
 
-    if (form.price > 0 && asaasStatus !== 'approved') {
+    const hasPaidTickets = tickets.some((ticket) => Number(ticket.price) > 0);
+    if (hasPaidTickets && form.sales_enabled && asaasStatus !== 'approved') {
       setSaveError('Para evento pago, a conta Asaas do organizador precisa estar aprovada.');
-      return false;
-    }
-    if (form.price > 0 && form.price < MIN_PAID_TICKET_PRICE) {
-      setSaveError(`Eventos pagos devem ter preÁo base mÌnimo de R$ ${MIN_PAID_TICKET_PRICE.toFixed(2).replace('.', ',')}.`);
       return false;
     }
 
@@ -472,14 +467,14 @@ export function EventDetailsEditorModal({
       const coverImage = galleryImages.find((img) => img.is_cover)?.image_url || galleryImages[0]?.image_url || '';
       const finalImageUrl = (coverImage || form.image_url || '').trim();
 
-      const isPaid = Number(form.price) > 0;
+      const isPaid = tickets.some((ticket) => Number(ticket.price) > 0);
       const mappedStatus: Event['status'] =
         form.ui_status === 'realizado'
           ? 'realizado'
           : form.ui_status === 'inativo'
           ? 'draft'
           : 'published';
-      const mappedSalesEnabled = form.ui_status === 'ativo' && isPaid && form.sales_enabled;
+      const mappedSalesEnabled = form.ui_status === 'ativo' && form.sales_enabled;
 
       const payload: Partial<Event> = {
         title: form.title,
@@ -490,12 +485,11 @@ export function EventDetailsEditorModal({
         city: form.city || null,
         state: form.state || null,
         image_url: finalImageUrl || null,
-        price: Number(form.price),
         max_participants: form.max_participants === '' ? null : Number(form.max_participants),
         status: mappedStatus,
         is_active: form.ui_status !== 'inativo',
         is_paid_event: isPaid,
-        sales_enabled: isPaid ? mappedSalesEnabled : false,
+        sales_enabled: mappedSalesEnabled,
       };
 
       await eventService.updateEvent(event.id, payload);
@@ -511,12 +505,12 @@ export function EventDetailsEditorModal({
       setSaveState('idle');
       toast({
         title: 'Evento atualizado',
-        description: 'As alteraÁıes foram salvas com sucesso.',
+        description: 'As altera√ß√µes foram salvas com sucesso.',
       });
       onClose();
     } catch {
       setSaveState('error');
-      setSaveError('N„o foi possÌvel salvar as alteraÁıes. Tente novamente.');
+      setSaveError('N√£o foi poss√≠vel salvar as altera√ß√µes. Tente novamente.');
     }
   };
 
@@ -531,7 +525,7 @@ export function EventDetailsEditorModal({
             <div className="min-w-0">
               <DialogTitle className="truncate">{event.title}</DialogTitle>
               <DialogDescription id="event-editor-description">
-                {currentMode === 'view' ? 'VisualizaÁ„o do evento' : 'EdiÁ„o do evento'} ï ID: {event.id}
+                {currentMode === 'view' ? 'Visualiza√ß√£o do evento' : 'Edi√ß√£o do evento'} ‚Ä¢ ID: {event.id}
               </DialogDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -546,7 +540,7 @@ export function EventDetailsEditorModal({
         <div className="px-4 py-3 md:px-6 border-b">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
-              <TabsTrigger value="informacoes">InformaÁıes</TabsTrigger>
+              <TabsTrigger value="informacoes">Informa√ß√µes</TabsTrigger>
               <TabsTrigger value="ingressos">Ingressos</TabsTrigger>
               <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
               <TabsTrigger value="datas_status">Datas & Status</TabsTrigger>
@@ -559,7 +553,7 @@ export function EventDetailsEditorModal({
             {!!saveError && (
               <Alert className="mb-4 border-red-300 text-red-800">
                 <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Falha de validaÁ„o</AlertTitle>
+                <AlertTitle>Falha de valida√ß√£o</AlertTitle>
                 <AlertDescription>{saveError}</AlertDescription>
               </Alert>
             )}
@@ -576,7 +570,7 @@ export function EventDetailsEditorModal({
               <TabsContent value="informacoes" className="mt-0 space-y-4">
                 <div className="grid grid-cols-1 gap-4">
                   <div>
-                    <Label htmlFor="event-title">TÌtulo</Label>
+                    <Label htmlFor="event-title">T√≠tulo</Label>
                     <Input
                       id="event-title"
                       aria-invalid={!!fieldErrors.title}
@@ -589,7 +583,7 @@ export function EventDetailsEditorModal({
                   </div>
 
                   <div>
-                    <Label htmlFor="event-description">DescriÁ„o</Label>
+                    <Label htmlFor="event-description">Descri√ß√£o</Label>
                     <Textarea
                       id="event-description"
                       aria-invalid={!!fieldErrors.description}
@@ -663,7 +657,7 @@ export function EventDetailsEditorModal({
                     <p className="text-lg font-semibold">{metrics.capacity || 'Ilimitado'}</p>
                   </div>
                   <div className="rounded-lg border p-3">
-                    <p className="text-xs text-muted-foreground">DisponÌveis</p>
+                    <p className="text-xs text-muted-foreground">Dispon√≠veis</p>
                     <p className="text-lg font-semibold">{metrics.capacity ? metrics.available : '-'}</p>
                   </div>
                   <div className="rounded-lg border p-3">
@@ -692,7 +686,7 @@ export function EventDetailsEditorModal({
                           </Badge>
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
-                          PreÁo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(ticket.price) || 0)}
+                          Pre√ßo: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(ticket.price) || 0)}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
                           Vendidos: {ticket.quantity_sold} / {ticket.quantity_available}
@@ -704,27 +698,9 @@ export function EventDetailsEditorModal({
               </TabsContent>
 
               <TabsContent value="financeiro" className="mt-0 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <div>
-                    <Label htmlFor="event-price">PreÁo base (R$)</Label>
-                    <Input
-                      id="event-price"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      aria-invalid={!!fieldErrors.price}
-                      value={form.price}
-                      onChange={(e) => onFieldChange('price', Number(e.target.value))}
-                      readOnly={readOnly}
-                    />
-                    {fieldErrors.price && <p className="text-xs text-red-600 mt-1">{fieldErrors.price}</p>}
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Organizadores visualizam somente o valor base do ingresso.
-                    </p>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="event-max">Capacidade m·xima</Label>
+                    <Label htmlFor="event-max">Capacidade m√°xima</Label>
                     <Input
                       id="event-max"
                       type="number"
@@ -785,7 +761,7 @@ export function EventDetailsEditorModal({
                                     />
                                   </div>
                                   <div>
-                                    <Label>Preco (R$)</Label>
+                                    <Label>Pre√ßo (R$)</Label>
                                     <Input
                                       type="number"
                                       min="0"
@@ -805,7 +781,7 @@ export function EventDetailsEditorModal({
                                       disabled={savingTicketId === ticket.id}
                                     />
                                     <p className="text-xs text-muted-foreground mt-1">
-                                      Minimo permitido: {ticket.quantity_sold}
+                                      M√≠nimo permitido: {ticket.quantity_sold}
                                     </p>
                                   </div>
                                   <div>
@@ -857,7 +833,7 @@ export function EventDetailsEditorModal({
                                   <div>
                                     <p className="font-medium">{ticket.name}</p>
                                     <p className="text-sm text-muted-foreground">
-                                      {ticket.description || 'Sem descricao'}
+                                      {ticket.description || 'Sem descri√ß√£o'}
                                     </p>
                                   </div>
                                   <Badge variant={ticket.is_active ? 'default' : 'secondary'}>
@@ -866,7 +842,7 @@ export function EventDetailsEditorModal({
                                 </div>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                                   <div>
-                                    <p className="text-muted-foreground">Preco</p>
+                                    <p className="text-muted-foreground">Pre√ßo</p>
                                     <p className="font-medium">
                                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(ticket.price) || 0)}
                                     </p>
@@ -880,7 +856,7 @@ export function EventDetailsEditorModal({
                                     <p className="font-medium">{ticket.quantity_sold}</p>
                                   </div>
                                   <div>
-                                    <p className="text-muted-foreground">Disponiveis</p>
+                    <p className="text-xs text-muted-foreground">Dispon√≠veis</p>
                                     <p className="font-medium">{Math.max(0, ticket.quantity_available - ticket.quantity_sold)}</p>
                                   </div>
                                 </div>
@@ -931,7 +907,7 @@ export function EventDetailsEditorModal({
                         />
                       </div>
                       <div>
-                        <Label>Preco (R$)</Label>
+                        <Label>Pre√ßo (R$)</Label>
                         <Input
                           type="number"
                           min="0"
@@ -979,7 +955,7 @@ export function EventDetailsEditorModal({
               <TabsContent value="datas_status" className="mt-0 space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="event-start">InÌcio</Label>
+                    <Label htmlFor="event-start">In√≠cio</Label>
                     <Input
                       id="event-start"
                       type="datetime-local"
@@ -992,7 +968,7 @@ export function EventDetailsEditorModal({
                   </div>
 
                   <div>
-                    <Label htmlFor="event-end">TÈrmino</Label>
+                    <Label htmlFor="event-end">T√©rmino</Label>
                     <Input
                       id="event-end"
                       type="datetime-local"
@@ -1034,7 +1010,7 @@ export function EventDetailsEditorModal({
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <div>
                     <p className="text-sm font-medium">Vendas habilitadas</p>
-                    <p className="text-xs text-muted-foreground">Controle r·pido para eventos pagos.</p>
+                    <p className="text-xs text-muted-foreground">Controle r√°pido para ativar ou pausar vendas.</p>
                   </div>
                   <Switch
                     checked={form.sales_enabled}
@@ -1044,7 +1020,7 @@ export function EventDetailsEditorModal({
                         onFieldChange('ui_status', checked ? 'ativo' : 'esgotado');
                       }
                     }}
-                    disabled={readOnly || Number(form.price) <= 0}
+                    disabled={readOnly}
                     aria-label="Alternar vendas habilitadas"
                   />
                 </div>
@@ -1084,6 +1060,7 @@ export function EventDetailsEditorModal({
     </Dialog>
   );
 }
+
 
 
 

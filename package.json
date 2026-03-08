@@ -13,7 +13,11 @@
     "preview:dev": "npm run build:dev && npm run preview",
     "deploy:functions": "npx supabase functions deploy",
     "test:edge-functions": "cd supabase/edge_function && deno task test",
-    "uptimerobot:sync-monitors": "node scripts/uptimerobot-sync-monitors.mjs"
+    "uptimerobot:sync-monitors": "node scripts/uptimerobot-sync-monitors.mjs",
+    "encoding:check": "node scripts/fix-encoding.mjs --check",
+    "encoding:fix": "node scripts/fix-encoding.mjs --fix",
+    "prebuild": "npm run encoding:check",
+    "hooks:install": "git config core.hooksPath .githooks"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

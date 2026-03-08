@@ -59,6 +59,18 @@ export interface EventImage {
   updated_at: string;
 }
 
+export interface EventScanLog {
+  id: string;
+  event_id?: string;
+  ticket_id?: string;
+  participant_id?: string;
+  scanner_user_id?: string;
+  scan_status?: string;
+  scanned_at?: string;
+  created_at?: string;
+  [key: string]: any;
+}
+
 export interface TicketTypeDB {
   id: string;
   event_id: string;
@@ -99,52 +111,57 @@ export interface TicketTypeCreateData {
 
 // Helper to calculate display price
 export const calculateEventDisplayPrice = (tickets: TicketTypeDB[]) => {
-  // 1. Filter visible tickets (valid for display)
-  // Ignorar: is_test, is_internal, is_hidden, !is_active
-  const visibleTickets = tickets.filter(t => 
-    t.is_active && 
-    !t.is_test && 
-    !t.is_internal && 
-    !t.is_hidden
-  );
+  const now = new Date();
 
-  // 2. Filter paid tickets (price > 0)
-  const paidTickets = visibleTickets.filter(t => Number(t.price) > 0);
+  // Lotes ativos para exibicao publica:
+  // - ativo
+  // - visivel (nao interno/teste/oculto)
+  // - dentro da janela de venda
+  // - com disponibilidade
+  const activeTickets = tickets.filter((ticket) => {
+    const isVisible =
+      (ticket.is_active ?? true) &&
+      !ticket.is_test &&
+      !ticket.is_internal &&
+      !ticket.is_hidden;
 
-  let display_price_label = '';
-  let display_price_value: number | undefined = undefined;
-  let is_free_event = false;
+    const hasInventory =
+      Number(ticket.quantity_available || 0) > Number(ticket.quantity_sold || 0);
 
-  if (paidTickets.length > 0) {
-    // 3. Exist paid tickets -> Show "From R$ XX"
-    const minPrice = Math.min(...paidTickets.map(t => Number(t.price)));
-    
-    // Format currency
-    const formattedPrice = new Intl.NumberFormat('pt-BR', { 
-      style: 'currency', 
-      currency: 'BRL' 
-    }).format(minPrice);
+    const saleStarted = !ticket.sale_start_date || new Date(ticket.sale_start_date) <= now;
+    const saleNotEnded = !ticket.sale_end_date || new Date(ticket.sale_end_date) >= now;
 
-    display_price_label = `Ingressos a partir de ${formattedPrice}`;
-    display_price_value = minPrice;
-    is_free_event = false;
-  } else {
-    // 4. No paid tickets
-    // Check if ALL visible tickets are free
-    if (visibleTickets.length > 0 && visibleTickets.every(t => Number(t.price) === 0)) {
-      display_price_label = 'Gr·tis';
-      display_price_value = 0;
-      is_free_event = true;
-    } else {
-      // Fallback: No visible tickets or unknown state
-      // Use "Consultar" or empty, or fallback to event.price if needed (but user said avoid it)
-      // Leaving empty allows frontend to handle or show nothing
-      display_price_label = '';
-      display_price_value = undefined;
-    }
+    return isVisible && hasInventory && saleStarted && saleNotEnded;
+  });
+
+  if (activeTickets.length === 0) {
+    return {
+      display_price_label: '',
+      display_price_value: undefined,
+      is_free_event: false,
+    };
   }
 
-  return { display_price_label, display_price_value, is_free_event };
+  const minPrice = Math.min(...activeTickets.map((ticket) => Number(ticket.price) || 0));
+
+  if (minPrice > 0) {
+    const formattedPrice = new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(minPrice);
+
+    return {
+      display_price_label: `Ingressos a partir de ${formattedPrice}`,
+      display_price_value: minPrice,
+      is_free_event: false,
+    };
+  }
+
+  return {
+    display_price_label: 'Evento gratuito',
+    display_price_value: 0,
+    is_free_event: true,
+  };
 };
 
 export interface EventParticipant {
@@ -214,7 +231,7 @@ export class EventService {
   // Criar novo evento
   async createEvent(eventData: CreateEventData, creatorId: string): Promise<Event> {
     
-    // Converter event_date para manter o hor·rio local correto
+    // Converter event_date para manter o hor√°rio local correto
     let eventDateToSave = eventData.event_date;
     
     if (eventData.event_date && !eventData.event_date.includes('Z') && !eventData.event_date.includes('+')) {
@@ -236,9 +253,9 @@ export class EventService {
       endAtToSave = `${eventData.end_at}:00${offsetSign}${offsetHours}:${offsetMins}`;
     }
 
-    // Gerar slug ˙nico
+    // Gerar slug √∫nico
     let slug = generateSlug(eventData.title);
-    // Verificar se slug j· existe e adicionar sufixo se necess·rio
+    // Verificar se slug j√° existe e adicionar sufixo se necess√°rio
     const { count } = await supabase
       .from('events')
       .select('id', { count: 'exact', head: true })
@@ -304,10 +321,30 @@ export class EventService {
     return data;
   }
 
-  // Buscar tipos de ingressos disponÌveis para um evento
+  // Buscar tipos de ingressos dispon√≠veis para um evento
   async getEventTicketTypes(eventId: string): Promise<TicketTypeDB[]> {
     const now = new Date().toISOString();
     
+    const { data: eventRow, error: eventError } = await supabase
+      .from('events')
+      .select('event_date, end_at, sales_enabled, status, is_active')
+      .eq('id', eventId)
+      .single();
+
+    if (eventError) throw eventError;
+
+    const normalizedStatus = String((eventRow as any)?.status || '').toLowerCase();
+    const isCanceled = normalizedStatus === 'cancelado' || normalizedStatus === 'canceled' || normalizedStatus === 'cancelled';
+    const eventEndAt = new Date(((eventRow as any)?.end_at || (eventRow as any)?.event_date || now) as string).getTime();
+
+    if ((eventRow as any)?.is_active === false || isCanceled || (eventRow as any)?.sales_enabled === false) {
+      return [];
+    }
+
+    if (!Number.isNaN(eventEndAt) && Date.now() >= eventEndAt) {
+      return [];
+    }
+
     const { data, error } = await supabase
       .from('ticket_types')
       .select('*')
@@ -319,7 +356,7 @@ export class EventService {
 
     if (error) throw error;
     
-    // Filtrar ingressos que ainda tÍm quantidade disponÌvel
+    // Filtrar ingressos que ainda t√™m quantidade dispon√≠vel
     return (data || []).filter(ticket => 
       ticket.quantity_sold < ticket.quantity_available
     );
@@ -429,7 +466,7 @@ export class EventService {
 
         if (error) throw error;
         
-        // Mapear eventos para incluir campos calculados de preÁo
+        // Mapear eventos para incluir campos calculados de pre√ßo
         const eventsWithPrice = (data || []).map((event: any) => {
           const tickets = event.ticket_types as TicketTypeDB[] || [];
           const priceInfo = calculateEventDisplayPrice(tickets);
@@ -452,7 +489,7 @@ export class EventService {
     return [];
   }
 
-  // Listar eventos disponÌveis (n„o lotados e futuros)
+  // Listar eventos dispon√≠veis (n√£o lotados e futuros)
   async getAvailableEvents(): Promise<Event[]> {
     const now = new Date().toISOString();
     
@@ -466,14 +503,14 @@ export class EventService {
 
     if (error) throw error;
     
-    // Mapear eventos com preÁo calculado
+    // Mapear eventos com pre√ßo calculado
     const eventsWithPrice = (data || []).map((event: any) => {
       const tickets = event.ticket_types as TicketTypeDB[] || [];
       const priceInfo = calculateEventDisplayPrice(tickets);
       return { ...event, ...priceInfo };
     });
     
-    // Filtrar eventos n„o lotados
+    // Filtrar eventos n√£o lotados
     return eventsWithPrice.filter(event => 
       !event.max_participants || event.current_participants < event.max_participants
     );
@@ -581,7 +618,36 @@ export class EventService {
 
     return (inserted || []) as EventImage[];
   }
-  // Buscar eventos criados por um organizador especÌfico (com estatÌsticas b·sicas)
+  async getManagedOrganizerId(userId: string): Promise<string> {
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('roles')
+      .eq('id', userId)
+      .single();
+
+    if (profileError) throw profileError;
+
+    const roles = ((profile as any)?.roles || []).map((role: string) => String(role).toUpperCase());
+    const isEquipeOnly = roles.includes('EQUIPE') && !roles.includes('ORGANIZER') && !roles.includes('ADMIN');
+
+    if (!isEquipeOnly) return userId;
+
+    const { data: teamRow, error: teamError } = await supabase
+      .from('team_members')
+      .select('organizer_id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (teamError) throw teamError;
+    return (teamRow as any)?.organizer_id || userId;
+  }
+
+  async getManagedEventsByUser(userId: string): Promise<(Event & { revenue?: number; ticketsSold?: number; totalTicketsConfigured?: number })[]> {
+    const organizerId = await this.getManagedOrganizerId(userId);
+    return this.getEventsByCreator(organizerId);
+  }
+
+  // Buscar eventos criados por um organizador espec√≠fico (com estat√≠sticas b√°sicas)
   async getEventsByCreator(creatorId: string): Promise<(Event & { revenue?: number; ticketsSold?: number; totalTicketsConfigured?: number })[]> {
     const { data: events, error } = await supabase
       .from('events')
@@ -684,13 +750,13 @@ export class EventService {
     return data.map((p: any) => ({
       id: p.id, // Usando ID do ingresso para garantir unicidade
       userId: p.user.id,
-      name: p.user.full_name || 'Usu·rio',
+      name: p.user.full_name || 'Usu√°rio',
       avatar_url: p.user.avatar_url,
       status: p.status
     }));
   }
 
-  // Listar eventos que o usu·rio participa
+  // Listar eventos que o usu√°rio participa
   async getEventsByParticipant(userId: string): Promise<Event[]> {
     const { data, error } = await supabase
       .from('event_participants')
@@ -738,7 +804,7 @@ export class EventService {
     const galleryImages = await this.getEventImages(eventId).catch(() => [] as EventImage[]);
     const galleryImageUrls = galleryImages.map((img) => img.image_url).filter(Boolean);
 
-    // ADMIN: permitir exclus„o apenas se n„o houver ingressos vendidos.
+    // ADMIN: permitir exclus√£o apenas se n√£o houver ingressos vendidos.
     // Se existirem tickets pendentes/reservados, removemos em cadeia para evitar bloqueio de FK.
     const { data: ticketRows, error: ticketRowsError } = await supabase
       .from('tickets')
@@ -752,7 +818,7 @@ export class EventService {
     ).length;
     if (soldTicketsCount > 0) {
       throw new Error(
-        'N„o È possÌvel excluir este evento porque j· houve ingressos vendidos. ' +
+        'N√£o √© poss√≠vel excluir este evento porque j√° houve ingressos vendidos. ' +
           'Use desativar para deixar o evento totalmente offline.'
       );
     }
@@ -817,14 +883,14 @@ export class EventService {
     if (error) {
       if ((error as any).code === '23503' && String((error as any).message || '').includes('tickets_event_id_fkey')) {
         throw new Error(
-          'N„o È possÌvel excluir este evento porque j· existem ingressos vinculados. ' +
-          'Desative o evento para deix·-lo totalmente offline (sem visualizaÁ„o p˙blica e sem compras).'
+          'N√£o √© poss√≠vel excluir este evento porque j√° existem ingressos vinculados. ' +
+          'Desative o evento para deix√°-lo totalmente offline (sem visualiza√ß√£o p√∫blica e sem compras).'
         );
       }
       throw error;
     }
     
-    // Limpar imagens do storage (capa + galeria), sem bloquear exclus„o do evento.
+    // Limpar imagens do storage (capa + galeria), sem bloquear exclus√£o do evento.
     const allImageUrls = Array.from(
       new Set([event.image_url, ...galleryImageUrls].filter((url): url is string => !!url))
     );
@@ -834,7 +900,7 @@ export class EventService {
       try {
         await storageService.deleteImage(imageUrl);
       } catch {
-        // N„o falha a operaÁ„o se alguma imagem n„o puder ser deletada
+        // N√£o falha a opera√ß√£o se alguma imagem n√£o puder ser deletada
       }
     }
   }
@@ -872,7 +938,7 @@ export class EventService {
     return data;
   }
 
-  // Inscrever usu·rio em evento
+  // Inscrever usu√°rio em evento
   async joinEvent(
     eventId: string, 
     userId: string, 
@@ -880,7 +946,7 @@ export class EventService {
     ticketTypeId?: string,
     totalPaid?: number
   ): Promise<EventParticipant> {
-    // Verificar se j· est· inscrito
+    // Verificar se j√° est√° inscrito
     const { data: existing } = await supabase
       .from('event_participants')
       .select('*')
@@ -892,8 +958,25 @@ export class EventService {
       return existing;
     }
 
-    // Verificar se o evento est· disponÌvel
+    // Verificar se o evento est√° dispon√≠vel
     const event = await this.getEventById(eventId);
+
+    const now = Date.now();
+    const eventEndDate = new Date((event.end_at || event.event_date) as string).getTime();
+    const normalizedStatus = String((event as any).status || '').toLowerCase();
+    const isCanceled = normalizedStatus === 'cancelado' || normalizedStatus === 'canceled' || normalizedStatus === 'cancelled';
+
+    if (isCanceled || event.is_active === false) {
+      throw new Error('Evento cancelado.');
+    }
+
+    if (event.sales_enabled === false) {
+      throw new Error('Vendas desativadas para este evento.');
+    }
+
+    if (!Number.isNaN(eventEndDate) && now >= eventEndDate) {
+      throw new Error('Venda de ingressos encerrada');
+    }
     
     if (event.max_participants && 
         event.current_participants + ticketQuantity > event.max_participants) {
@@ -912,7 +995,7 @@ export class EventService {
 
       const availableQuantity = ticketType.quantity_available - ticketType.quantity_sold;
       if (availableQuantity < ticketQuantity) {
-        throw new Error('Quantidade de ingressos indisponÌvel para este tipo');
+        throw new Error('Quantidade de ingressos indispon√≠vel para este tipo');
       }
     }
 
@@ -934,7 +1017,7 @@ export class EventService {
     return data;
   }
 
-  // Cancelar participaÁ„o em evento
+  // Cancelar participa√ß√£o em evento
   async leaveEvent(eventId: string, userId: string): Promise<void> {
     const { error } = await supabase
       .from('event_participants')
@@ -945,7 +1028,7 @@ export class EventService {
     if (error) throw error;
   }
 
-  // Verificar se usu·rio est· inscrito no evento
+  // Verificar se usu√°rio est√° inscrito no evento
   async isUserParticipating(eventId: string, userId: string): Promise<boolean> {
     const { data, error } = await supabase
       .from('event_participants')
@@ -971,7 +1054,7 @@ export class EventService {
     return data || [];
   }
 
-  // Buscar eventos por localizaÁ„o
+  // Buscar eventos por localiza√ß√£o
   async getEventsByLocation(location: string): Promise<Event[]> {
     const { data, error } = await supabase
       .from('events')
@@ -1032,7 +1115,7 @@ export class EventService {
 
     if (error) throw error;
     
-    // Mapear com preÁo calculado
+    // Mapear com pre√ßo calculado
     return (data || []).map((event: any) => {
       const priceInfo = calculateEventDisplayPrice(event.ticket_types || []);
       return { ...event, ...priceInfo };
@@ -1073,7 +1156,7 @@ export class EventService {
     }));
   }
 
-  // Buscar eventos do usu·rio (eventos em que est· inscrito)
+  // Buscar eventos do usu√°rio (eventos em que est√° inscrito)
   async getUserEvents(userId: string): Promise<Event[]> {
     const { data, error } = await supabase
       .from('event_participants')
@@ -1087,7 +1170,7 @@ export class EventService {
     return events;
   }
 
-  // Buscar participantes de um evento que est„o com single_mode/match_enabled ativo
+  // Buscar participantes de um evento que est√£o com single_mode/match_enabled ativo
   async getEventSingles(eventId: string): Promise<any[]> {
     // console.log('?? [EventService] Buscando participantes com match ativo para evento:', eventId);
     
@@ -1129,14 +1212,14 @@ export class EventService {
           return profile;
         }
 
-        // Se match inativo, retorna vers„o anÙnima
+        // Se match inativo, retorna vers√£o an√¥nima
         return {
           id: profile.id,
           full_name: 'Participante',
-          avatar_url: null, // Frontend usar· avatar genÈrico
+          avatar_url: null, // Frontend usar√° avatar gen√©rico
           match_enabled: false,
           bio: null,
-          // Limpar dados sensÌveis
+          // Limpar dados sens√≠veis
           match_intention: null,
           match_gender_preference: null,
           sexuality: null,
@@ -1181,13 +1264,13 @@ export class EventService {
     return data;
   }
 
-  // Buscar ingressos do usu·rio com detalhes do evento e token
+  // Buscar ingressos do usu√°rio com detalhes do evento e token
   async getUserTickets(userId: string): Promise<(EventParticipant & { event: Event })[]> {
     const { data, error } = await supabase
       .from('event_participants')
       .select('*, event:events(*)')
       .eq('user_id', userId)
-      // Removido filtro de status para mostrar histÛrico completo
+      // Removido filtro de status para mostrar hist√≥rico completo
       .order('joined_at', { ascending: false });
 
     if (error) throw error;
@@ -1196,7 +1279,7 @@ export class EventService {
     return rows;
   }
 
-  // Obter detalhes do ingresso para exibiÁ„o (incluindo token QR)
+  // Obter detalhes do ingresso para exibi√ß√£o (incluindo token QR)
   async getTicketDetails(ticketId: string): Promise<EventParticipant> {
     const { data, error } = await supabase
       .from('event_participants')
@@ -1236,19 +1319,35 @@ export class EventService {
   // Buscar eventos criados pelo organizador (para o Scanner)
   async getOrganizerEvents(organizerId: string): Promise<Event[]> {
     const today = new Date().toISOString().split('T')[0];
-    
+
     const { data, error } = await supabase
       .from('events')
       .select('*')
       .eq('creator_id', organizerId)
-      .gte('event_date', today) // Events from today onwards
+      .gte('event_date', today)
       .order('event_date', { ascending: true });
 
     if (error) throw error;
     return data || [];
   }
 
-  // Validar ingresso manualmente (CÛdigo)
+  async getScannerEvents(userId: string): Promise<Event[]> {
+    const organizerId = await this.getManagedOrganizerId(userId);
+    return this.getOrganizerEvents(organizerId);
+  }
+
+  async getEventScanLogs(eventId: string, limit = 50): Promise<EventScanLog[]> {
+    const { data, error } = await supabase
+      .from('check_in_logs')
+      .select('*')
+      .eq('event_id', eventId)
+      .limit(limit);
+
+    if (error) throw error;
+    return (data || []) as EventScanLog[];
+  }
+
+  // Validar ingresso manualmente (C√≥digo)
   async validateTicketManual(code: string, eventId: string, validatorId: string): Promise<any> {
     const { data, error } = await supabase.rpc('validate_ticket_manual', {
       p_code: code,
@@ -1260,7 +1359,7 @@ export class EventService {
     return data;
   }
 
-  // Buscar perfil p˙blico de um usu·rio (com filtro de privacidade)
+  // Buscar perfil p√∫blico de um usu√°rio (com filtro de privacidade)
   async getPublicProfile(userId: string): Promise<any> {
     const { data: profile, error } = await supabase
       .from('profiles')
@@ -1289,10 +1388,10 @@ export class EventService {
     if (error) throw error;
     if (!profile) return null;
 
-    // Se o perfil n„o estiver configurado para aparecer na lista ("meet_attendees"),
-    // ou se n„o tiver permiss„o explÌcita, tratar como privado.
-    // NOTA: A lÛgica exata de "privacidade" depende dos requisitos.
-    // Aqui assumimos que se meet_attendees for false, È privado.
+    // Se o perfil n√£o estiver configurado para aparecer na lista ("meet_attendees"),
+    // ou se n√£o tiver permiss√£o expl√≠cita, tratar como privado.
+    // NOTA: A l√≥gica exata de "privacidade" depende dos requisitos.
+    // Aqui assumimos que se meet_attendees for false, √© privado.
     const isVisible = profile.meet_attendees || profile.match_enabled || profile.single_mode;
 
     if (!isVisible) {
@@ -1318,7 +1417,7 @@ export class EventService {
         isOnline = lastSeenDate > fiveMinutesAgo;
     }
 
-    // Retornar perfil completo se visÌvel
+    // Retornar perfil completo se vis√≠vel
     return {
       id: profile.id,
       name: profile.full_name,
@@ -1342,7 +1441,7 @@ export class EventService {
 
   // Alternar like (curtir/descurtir)
   async toggleLike(eventId: string, userId: string): Promise<boolean> {
-    // Verificar se j· curtiu
+    // Verificar se j√° curtiu
     const hasLiked = await this.hasUserLiked(eventId, userId);
 
     if (hasLiked) {
@@ -1354,7 +1453,7 @@ export class EventService {
         .eq('user_id', userId);
       
       if (error) throw error;
-      return false; // Agora n„o est· curtido
+      return false; // Agora n√£o est√° curtido
     } else {
       // Adicionar like
       const { error } = await supabase
@@ -1365,11 +1464,11 @@ export class EventService {
         });
       
       if (error) throw error;
-      return true; // Agora est· curtido
+      return true; // Agora est√° curtido
     }
   }
 
-  // Verificar se usu·rio curtiu evento
+  // Verificar se usu√°rio curtiu evento
   async hasUserLiked(eventId: string, userId: string): Promise<boolean> {
     const { data, error } = await supabase
       .from('event_likes')
@@ -1385,7 +1484,7 @@ export class EventService {
     return !!data;
   }
 
-  // Obter eventos curtidos pelo usu·rio
+  // Obter eventos curtidos pelo usu√°rio
   async getUserLikedEvents(userId: string): Promise<Event[]> {
     const { data, error } = await supabase
       .from('event_likes')
@@ -1415,6 +1514,10 @@ export class EventService {
 }
 
 export const eventService = new EventService();
+
+
+
+
 
 
 

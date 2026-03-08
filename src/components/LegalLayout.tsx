@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { Layout } from '@/components/Layout';
 import { ScrollArea } from '@/components/ui/scroll-area';

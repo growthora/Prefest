@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Bell, Search, Menu, LogOut, Home } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -23,6 +23,8 @@ export function DashboardHeader({
   headerTitle = "Gestão"
 }: DashboardHeaderProps) {
   const { user, profile, signOut, isAdmin } = useAuth();
+  const roles = (profile?.roles || []).map((role) => String(role).toUpperCase());
+  const isEquipeOnly = roles.includes('EQUIPE') && !roles.includes('ORGANIZER') && !roles.includes('ADMIN');
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
@@ -147,7 +149,7 @@ export function DashboardHeader({
             </span>
             <div className="flex items-center gap-1 mt-1">
               <Badge variant="secondary" className="text-[10px] h-4 px-1">
-                {isAdmin ? 'Administrador' : 'Organizador'}
+                {isAdmin ? 'Administrador' : isEquipeOnly ? 'Equipe' : 'Organizador'}
               </Badge>
             </div>
           </div>
@@ -169,4 +171,5 @@ export function DashboardHeader({
     </header>
   );
 }
+
 

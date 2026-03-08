@@ -112,14 +112,14 @@ export const CreateEventForm = () => {
     setError(null);
 
     try {
-      const isPaid = formData.price > 0 || ticketTypes.some((t) => t.price > 0);
+      const isPaid = ticketTypes.some((t) => t.price > 0);
       const coverImage = galleryImages.find((img) => img.is_cover)?.image_url || galleryImages[0]?.image_url || '';
       const dataToSubmit = {
         ...formData,
         image_url: coverImage,
         status,
         is_paid_event: isPaid,
-        sales_enabled: status === 'published' ? isPaid : false,
+        sales_enabled: status === 'published',
         asaas_required: true,
       };
 

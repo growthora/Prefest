@@ -1,4 +1,4 @@
-﻿import { EMAIL_CONTEXT, AUTH_EMAIL_PROVIDER } from '@/lib/index';
+import { EMAIL_CONTEXT, AUTH_EMAIL_PROVIDER } from '@/lib/index';
 
 /**
  * Valida o contexto de envio de email.

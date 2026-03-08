@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { EventService, Event } from '@/services/event.service';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Scanner as QrScanner, IDetectedBarcode } from '@yudiel/react-qr-scanner';
+import { Scanner as QrScanner } from '@yudiel/react-qr-scanner';
 import { toast } from 'sonner';
 import { Loader2, CheckCircle2, XCircle, AlertCircle, QrCode, Keyboard } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -48,7 +48,7 @@ export function Scanner() {
     try {
       setLoading(true);
       if (!user?.id) return;
-      const data = await eventService.getOrganizerEvents(user.id);
+      const data = await eventService.getScannerEvents(user.id);
       setEvents(data);
       if (data.length > 0) {
         // Select the first event by default, or the one happening today
@@ -152,7 +152,7 @@ export function Scanner() {
         if (!validateTicketCodeFormat(normalizedCode)) {
           setScanResult({
             success: false,
-            message: `Formato de código inválido: ${normalizedCode || 'vazio'}`,
+            message: `Formato de codigo inválido: ${normalizedCode || 'vazio'}`,
             code: 'INVALID_FORMAT'
           });
           playErrorSound();
@@ -288,9 +288,9 @@ export function Scanner() {
       {!selectedEventId ? (
         <Alert>
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Atenção</AlertTitle>
+          <AlertTitle>Atencao</AlertTitle>
           <AlertDescription>
-            Selecione um evento acima para começar a validar ingressos.
+            Selecione um evento acima para comecar a validar ingressos.
           </AlertDescription>
         </Alert>
       ) : (
@@ -298,7 +298,7 @@ export function Scanner() {
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="scan">
               <QrCode className="mr-2 h-4 w-4" />
-              Câmera
+              Camera
             </TabsTrigger>
             <TabsTrigger value="manual">
               <Keyboard className="mr-2 h-4 w-4" />
@@ -329,12 +329,12 @@ export function Scanner() {
                            <p className="text-sm text-muted-foreground">{scanResult.message}</p>
                            {scanResult.used_at && (
                              <p className="text-xs text-yellow-600">
-                               Validado em: {format(new Date(scanResult.used_at), "dd/MM 'Ã s' HH:mm", { locale: ptBR })}
+                               Validado em: {format(new Date(scanResult.used_at), "dd/MM 'às' HH:mm", { locale: ptBR })}
                              </p>
                            )}
                          </div>
                          <Button onClick={resetScanner} className="w-full mt-2">
-                           Próximo Ingresso
+                           Proximo Ingresso
                          </Button>
                       </div>
                     ) : (
@@ -353,7 +353,7 @@ export function Scanner() {
                 )}
               </div>
               <p className="text-xs text-center text-muted-foreground">
-                Aponte a câmera para o QR Code do ingresso
+                Aponte a camera para o QR Code do ingresso
               </p>
             </TabsContent>
 
@@ -361,15 +361,15 @@ export function Scanner() {
               <Card>
                 <CardContent className="pt-6 space-y-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Código do Ingresso</label>
+                    <label className="text-sm font-medium">Codigo do Ingresso</label>
                     <Input 
-                      placeholder="Digite o código (ex: a1b2c3...)" 
+                      placeholder="Digite o codigo (ex: a1b2c3...)" 
                       value={manualCode}
                       onChange={(e) => setManualCode(e.target.value)}
                       className="uppercase"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Digite os primeiros 6 caracteres ou o código completo
+                      Digite os primeiros 6 caracteres ou o codigo completo
                     </p>
                   </div>
                   
@@ -379,7 +379,7 @@ export function Scanner() {
                         {getResultIcon()}
                         <div className="flex-1">
                           <h4 className="font-semibold text-sm">
-                            {scanResult.success ? 'Válido' : 'Inválido'}
+                            {scanResult.success ? 'Valido' : 'Invalido'}
                           </h4>
                           <p className="text-sm opacity-90">{scanResult.message}</p>
                           {scanResult.used_at && (
@@ -403,7 +403,7 @@ export function Scanner() {
                         Validando...
                       </>
                     ) : (
-                      'Validar Código'
+                      'Validar Codigo'
                     )}
                   </Button>
                 </CardContent>
@@ -417,4 +417,7 @@ export function Scanner() {
 }
 
 export default Scanner;
+
+
+
 

@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { eventService, type Event } from '@/services/event.service';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -116,11 +116,11 @@ export const EventList = () => {
           {events.map((event) => (
             <Card key={event.id} className="flex flex-col">
               {event.image_url && event.image_url !== 'undefined' && event.image_url !== 'null' && event.image_url.trim() !== '' && (
-                <div className="w-full h-48 overflow-hidden rounded-t-lg">
+                <div className="relative w-full aspect-video max-h-56 overflow-hidden rounded-t-lg bg-muted/20">
                   <img 
                     src={event.image_url} 
                     alt={event.title}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover object-center"
                   />
                 </div>
               )}
@@ -142,7 +142,7 @@ export const EventList = () => {
                 
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold">📍</span>
+                    <span className="font-semibold">-</span>
                     <span>
                       {event.city && event.state 
                         ? `${event.city} - ${event.state}` 
@@ -158,29 +158,32 @@ export const EventList = () => {
                   
                   {event.display_price_label ? (
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold">💰</span>
+                      <span className="font-semibold">-</span>
                       <span>{event.display_price_label}</span>
                     </div>
                   ) : (
                     event.is_free_event ? (
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold">💰</span>
-                        <span>Grátis</span>
+                        <span className="font-semibold">-</span>
+                        <span>Evento gratuito</span>
+                      </div>
+                    ) : event.display_price_value !== undefined ? (
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">-</span>
+                        <span>Ingressos a partir de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(event.display_price_value)}</span>
                       </div>
                     ) : (
-                      event.price > 0 && (
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold">💰</span>
-                          <span>A partir de {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(event.price)}</span>
-                        </div>
-                      )
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">-</span>
+                        <span>Consulte os lotes</span>
+                      </div>
                     )
                   )}
                   
                   {(typeof event.confirmed_users_count === 'number' ||
                     typeof event.current_participants === 'number') && (
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold">🔥</span>
+                      <span className="font-semibold">-</span>
                       <span>
                         {event.confirmed_users_count ?? event.current_participants} pessoas confirmadas
                       </span>
@@ -189,7 +192,7 @@ export const EventList = () => {
 
                   {typeof event.available_for_match_count === 'number' && (
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold">💞</span>
+                      <span className="font-semibold">-</span>
                       <span>
                         {event.available_for_match_count} disponíveis para match
                       </span>
@@ -198,7 +201,7 @@ export const EventList = () => {
 
                   {event.max_participants && (
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold">👥</span>
+                      <span className="font-semibold">-</span>
                       <span>
                         {event.current_participants} / {event.max_participants} inscritos
                       </span>
@@ -223,5 +226,6 @@ export const EventList = () => {
     </div>
   );
 };
+
 
 

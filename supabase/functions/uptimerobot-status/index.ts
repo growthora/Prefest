@@ -1,4 +1,4 @@
-﻿import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
+import { getCorsHeaders, handleCors } from "../_shared/cors.ts";
 
 interface UptimeRequest {
   scope?: "prefest" | "readonly" | "main";

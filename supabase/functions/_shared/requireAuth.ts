@@ -1,4 +1,4 @@
-﻿
+
 import { createClient, SupabaseClient, User } from 'https://esm.sh/@supabase/supabase-js@2'
 
 export async function requireAuth(req: Request): Promise<{ user: User; supabase: SupabaseClient }> {

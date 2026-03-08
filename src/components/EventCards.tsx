@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, MapPin, Ticket, Heart, Share2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -46,7 +46,7 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
     e.stopPropagation();
 
     if (!user) {
-      toast.error("Faça login para curtir este evento! ❤️");
+      toast.error("Faça login para curtir este evento! ??");
       return;
     }
 
@@ -63,7 +63,7 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
       setIsLoadingLike(true);
       const newStatus = await eventService.toggleLike(event.id, user.id);
       setIsLiked(newStatus); // Confirm state from server
-      toast.success(newStatus ? "Evento favoritado! ❤️" : "Removido dos favoritos");
+      toast.success(newStatus ? "Evento favoritado! ??" : "Removido dos favoritos");
       if (onLikeToggle) {
         onLikeToggle(newStatus);
       }
@@ -84,7 +84,7 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
     
     try {
       await navigator.clipboard.writeText(shareUrl);
-      toast.success("Link copiado! 📎");
+      toast.success("Link copiado! ??");
     } catch (err) {
       // console.error("Failed to copy: ", err);
       toast.error("Erro ao copiar link");
@@ -104,16 +104,16 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
       )}
     >
       {/* Image Container with Overlay */}
-      <div className="relative w-full overflow-hidden bg-gray-900">
+      <div className="relative w-full aspect-video overflow-hidden bg-gray-900">
         {/* Main Image Layer */}
         {(event.image && typeof event.image === 'string' && event.image.trim() !== '' && event.image !== 'undefined' && event.image !== 'null') ? (
           <img
             src={event.image}
             alt={event.title}
-            className="relative h-auto w-full object-contain z-10 transition-transform duration-700 scale-100 group-hover:scale-105"
+            className="absolute inset-0 h-full w-full object-cover object-center z-10 transition-transform duration-700 scale-100 group-hover:scale-105"
           />
         ) : (
-          <div className="w-full aspect-video bg-gray-800 flex items-center justify-center">
+          <div className="w-full h-full bg-gray-800 flex items-center justify-center">
             <Calendar className="w-12 h-12 text-gray-600" />
           </div>
         )}
@@ -135,7 +135,7 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
                   : "bg-pink-500/40 text-white"
               )}
             >
-              {event.event_type === 'formal' ? '💼 Networking' : '🎉 Match'}
+              {event.event_type === 'formal' ? '?? Networking' : '?? Match'}
             </Badge>
           )}
           {event.tags.slice(0, 1).map((tag) => (
@@ -206,19 +206,19 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
             ) : (
               event.is_free_event ? (
                 <span className="text-lg font-mono font-bold text-foreground">
-                  Grátis
+                  Evento gratuito
                 </span>
-              ) : (
+              ) : event.display_price_value !== undefined ? (
                 <>
                   <span className="text-[10px] uppercase tracking-tighter text-muted-foreground font-semibold">
                     A partir de
                   </span>
                   <span className="text-lg font-mono font-bold text-foreground">
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-                      event.display_price_value !== undefined ? event.display_price_value : event.price
-                    )}
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(event.display_price_value)}
                   </span>
                 </>
+              ) : (
+                <span className="text-sm font-semibold text-muted-foreground">Consulte os lotes</span>
               )
             )}
           </div>
@@ -267,7 +267,7 @@ export function EventGrid({ events, className, onLikeToggle }: EventGridProps) {
 export function HorizontalEventCard({ event, className }: { event: Event; className?: string }) {
   const eventLink = ROUTE_PATHS.EVENT_DETAILS.replace(':slug', event.slug || event.id);
 
-  // Formatar data estilo Sympla: "Sábado, 28 de Mar Ã s 17:00"
+  // Formatar data estilo Sympla: "Sábado, 28 de Mar às 17:00"
   const dateObj = new Date(event.date || Date.now());
   // Se a data vier como string "DD/MM/YYYY", precisamos tratar, mas assumindo ISO ou Date object
   // O frontend mock converte para string "DD/MM/YYYY", então vamos tentar parsear ou usar o que tem
@@ -321,6 +321,8 @@ export function HorizontalEventCard({ event, className }: { event: Event; classN
     </Link>
   );
 }
+
+
 
 
 

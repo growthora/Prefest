@@ -1,4 +1,4 @@
-﻿import { invokeEdgeFunction } from '@/services/apiClient';
+import { invokeEdgeFunction } from '@/services/apiClient';
 
 export interface UptimeRobotMonitor {
   id: number;

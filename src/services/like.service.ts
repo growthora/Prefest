@@ -1,4 +1,4 @@
-Ôªøimport { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 export interface LikeResult {
   status: 'liked' | 'match' | 'already_liked' | 'error';
@@ -8,7 +8,7 @@ export interface LikeResult {
 }
 
 class LikeService {
-  // Dar like em um usu√°rio via RPC
+  // Dar like em um usu·rio via RPC
   async likeUser(toUserId: string, eventId: string): Promise<LikeResult> {
     
     const { data, error } = await supabase.rpc('like_user', {
@@ -72,8 +72,8 @@ class LikeService {
   async getUnreadLikes(userId: string): Promise<any[]> {
     
     try {
-      // Busca os √∫ltimos 20 likes recebidos pelo usu√°rio
-      // Ordenados por data de cria√ß√£o (mais recentes primeiro)
+      // Busca os ˙ltimos 20 likes recebidos pelo usu·rio
+      // Ordenados por data de criaÁ„o (mais recentes primeiro)
       const { data, error } = await supabase
         .from('likes')
         .select(`
@@ -106,11 +106,9 @@ class LikeService {
     }
   }
 
-  // Buscar usu√°rios para dar match (fila)
+  // Buscar usu·rios para dar match (fila)
   async getPotentialMatches(eventId: string, currentUserId: string): Promise<any[]> {
-    
-    try {
-      // 1. Buscar IDs j√° avaliados (likes)
+      // 1. Buscar IDs j· avaliados (likes)
       const { data: evaluatedData, error: evaluatedError } = await supabase
           .from('likes')
           .select('to_user_id')
@@ -120,9 +118,9 @@ class LikeService {
       if (evaluatedError) throw evaluatedError;
       
       const evaluatedIds = (evaluatedData || []).map(l => l.to_user_id);
-      evaluatedIds.push(currentUserId); // Excluir o pr√≥prio usu√°rio
+      evaluatedIds.push(currentUserId); // Excluir o prÛprio usu·rio
 
-      // 2. Buscar participantes eleg√≠veis
+      // 2. Buscar participantes elegÌveis
       // Precisamos fazer query na tabela de participantes e join com profiles
       
       const { data, error } = await supabase
@@ -169,11 +167,9 @@ class LikeService {
         });
 
       return candidates;
-    } catch (error) {
-      throw error;
-    }
   }
 }
 
 export const likeService = new LikeService();
+
 

@@ -1,10 +1,16 @@
-﻿import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import type { Profile } from './auth.service';
 import { invokeEdgeFunction } from './apiClient';
 
 export interface UserWithStats extends Profile {
   total_events: number;
   total_spent: number;
+}
+
+export interface OrganizerOption {
+  id: string;
+  full_name: string;
+  email: string;
 }
 
 export interface CreateUserData {
@@ -230,7 +236,7 @@ class UserService {
 
   // Atualizar usuario
   async updateUser(userId: string, updates: UpdateUserData): Promise<Profile> {
-    let normalizedUpdates = this.removeUndefined(updates as any);
+    const normalizedUpdates = this.removeUndefined(updates as any);
     let { data, error } = await supabase
       .from('profiles')
       .update(normalizedUpdates as any)
@@ -269,7 +275,64 @@ class UserService {
       throw new Error((data as any)?.error || 'Falha ao atualizar senha do usuário');
     }
   }
+  async getOrganizerOptions(): Promise<OrganizerOption[]> {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, email, roles, organizer_status, account_type')
+      .order('full_name', { ascending: true });
 
+    if (error) throw error;
+
+    return (data || [])
+      .filter((profile: any) => {
+        const roles = (profile.roles || []).map((role: string) => role.toUpperCase());
+        const accountType = String(profile.account_type || '').toLowerCase();
+        const isOrganizerRole = roles.includes('ORGANIZER');
+        const isOrganizerAccountType =
+          accountType === 'organizador' || accountType === 'comprador_organizador';
+        const isApproved = (profile.organizer_status || 'NONE') === 'APPROVED';
+        return (isOrganizerRole || isOrganizerAccountType) && isApproved;
+      })
+      .map((profile: any) => ({
+        id: profile.id,
+        full_name: profile.full_name || profile.email || 'Organizador sem nome',
+        email: profile.email || '',
+      }));
+  }
+
+  async getTeamOrganizerForUser(userId: string): Promise<string | null> {
+    const { data, error } = await supabase
+      .from('team_members')
+      .select('organizer_id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data?.organizer_id || null;
+  }
+
+  async upsertTeamMemberLink(userId: string, organizerId: string): Promise<void> {
+    const { error } = await supabase
+      .from('team_members')
+      .upsert(
+        {
+          user_id: userId,
+          organizer_id: organizerId,
+        },
+        { onConflict: 'user_id' }
+      );
+
+    if (error) throw error;
+  }
+
+  async removeTeamMemberLink(userId: string): Promise<void> {
+    const { error } = await supabase
+      .from('team_members')
+      .delete()
+      .eq('user_id', userId);
+
+    if (error) throw error;
+  }
   // Deletar usuario
   async deleteUser(userId: string): Promise<void> {
     const { error } = await supabase

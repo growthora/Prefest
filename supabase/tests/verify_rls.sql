@@ -1,4 +1,4 @@
-﻿-- Teste de RLS para sistema de Match
+-- Teste de RLS para sistema de Match
 
 -- 1. Setup: Criar usuários de teste (simulado, pois não podemos criar auth users via SQL puro facilmente sem extensão, mas podemos testar as policies com SET ROLE e auth.uid())
 

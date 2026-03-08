@@ -7,9 +7,10 @@ import { ROUTE_PATHS } from '@/lib/index';
 interface ProtectedRouteProps {
   allowedRoles?: string[];
   requireOrganizerApproved?: boolean;
+  allowEquipeBypass?: boolean;
 }
 
-export function ProtectedRoute({ allowedRoles, requireOrganizerApproved }: ProtectedRouteProps) {
+export function ProtectedRoute({ allowedRoles, requireOrganizerApproved, allowEquipeBypass = false }: ProtectedRouteProps) {
   const { user, profile, isLoading, isRecoveryMode } = useAuth();
   const location = useLocation();
 
@@ -17,40 +18,29 @@ export function ProtectedRoute({ allowedRoles, requireOrganizerApproved }: Prote
     return <DashboardLoader />;
   }
 
-  // If in recovery mode, block access to all protected routes and redirect to reset password
   if (isRecoveryMode) {
     return <Navigate to={ROUTE_PATHS.UPDATE_PASSWORD} replace />;
   }
 
   if (!user) {
-    // Redirect to login page, but save the current location they were trying to access
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Role-based access control
-  if (allowedRoles && allowedRoles.length > 0) {
-    const userRoles = profile?.roles || [];
-    // Check if user has at least one of the allowed roles
-    // Case-insensitive check (admin vs ADMIN)
-    const hasRole = allowedRoles.some(role => 
-      userRoles.map(r => r.toUpperCase()).includes(role.toUpperCase())
-    );
+  const normalizedRoles = (profile?.roles || []).map((role) => String(role).toUpperCase());
 
+  if (allowedRoles && allowedRoles.length > 0) {
+    const hasRole = allowedRoles.some((role) => normalizedRoles.includes(role.toUpperCase()));
     if (!hasRole) {
-      // console.warn(`Access denied: User ${user.email} missing roles [${allowedRoles.join(', ')}]`);
       return <Navigate to="/" replace />;
     }
   }
 
-  // Organizer status check
   if (requireOrganizerApproved) {
     const isApproved = (profile?.organizer_status || 'NONE').toUpperCase() === 'APPROVED';
-    
-    // Admin bypass: Check strictly against roles array
-    const isAdmin = profile?.roles?.some(r => r.toUpperCase() === 'ADMIN');
+    const isAdmin = normalizedRoles.includes('ADMIN');
+    const isEquipe = normalizedRoles.includes('EQUIPE');
 
-    if (!isApproved && !isAdmin) {
-      // console.warn(`Access denied: User ${user.email} is not an approved organizer`);
+    if (!isApproved && !isAdmin && !(allowEquipeBypass && isEquipe)) {
       return <Navigate to="/" replace />;
     }
   }

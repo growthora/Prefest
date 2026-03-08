@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import Cropper from 'react-easy-crop';
 import { getCroppedImg } from '@/utils/canvasUtils';
 import { storageService } from '@/services/storage.service';

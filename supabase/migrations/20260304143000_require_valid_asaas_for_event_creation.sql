@@ -1,4 +1,4 @@
-﻿-- Enforce mandatory and valid Asaas organizer account before event creation.
+-- Enforce mandatory and valid Asaas organizer account before event creation.
 -- Rules:
 -- 1) Non-admin creators must have organizer_asaas_accounts row.
 -- 2) Account must be active and approved.

@@ -1,4 +1,4 @@
-﻿-- Create system_settings table
+-- Create system_settings table
 CREATE TABLE IF NOT EXISTS public.system_settings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     theme_mode TEXT CHECK (theme_mode IN ('system', 'light', 'dark')) DEFAULT 'system',

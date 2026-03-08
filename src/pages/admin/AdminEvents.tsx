@@ -69,7 +69,7 @@ export default function AdminEvents() {
     sale_end_date?: string;
   }>>([
     {
-      name: '1º Lote',
+      name: '1Âº Lote',
       description: 'Ingresso promocional do primeiro lote',
       price: 0,
       quantity_available: 100,
@@ -132,7 +132,7 @@ export default function AdminEvents() {
 
     for (const ticket of ticketTypes) {
       if (!ticket.name || ticket.price < 0 || ticket.quantity_available <= 0) {
-        toast.error('Todos os tipos de ingressos devem ter nome, preço válido e quantidade disponível');
+        toast.error('Todos os tipos de ingressos devem ter nome, preÃ§o vÃ¡lido e quantidade disponÃ­vel');
         return;
       }
     }
@@ -219,7 +219,7 @@ export default function AdminEvents() {
   const handleDeleteEvent = async (eventId: string) => {
     if (!await confirm({
       title: 'Deletar Evento',
-      description: 'Tem certeza que deseja deletar este evento? Esta ação não pode ser desfeita e a imagem será removida.',
+      description: 'Tem certeza que deseja deletar este evento? Esta aÃ§Ã£o nÃ£o pode ser desfeita e a imagem serÃ¡ removida.',
       variant: 'destructive',
       confirmText: 'Deletar',
     })) return;
@@ -315,7 +315,7 @@ export default function AdminEvents() {
                       <img 
                         src={event.image_url} 
                         alt={event.title}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-110"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-secondary">
@@ -386,9 +386,9 @@ export default function AdminEvents() {
                       <div className="flex items-center gap-1.5 text-muted-foreground">
                         <DollarSign className="w-4 h-4 text-green-500" />
                         <span>
-                          {event.is_free_event ? 'Grátis' : 
+                          {event.is_free_event ? 'GrÃ¡tis' : 
                            (event.display_price_value && event.display_price_value > 0) ? `A partir de R$ ${event.display_price_value.toFixed(2)}` :
-                           (event.price > 0 ? `R$ ${event.price.toFixed(2)}` : 'Grátis')
+                           (event.price > 0 ? `R$ ${event.price.toFixed(2)}` : 'GrÃ¡tis')
                           }
                         </span>
                       </div>
@@ -419,7 +419,7 @@ export default function AdminEvents() {
           <form onSubmit={handleCreateEvent} className="space-y-6 py-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="new-title">Título *</Label>
+                <Label htmlFor="new-title">TÃ­tulo *</Label>
                 <Input
                   id="new-title"
                   value={newEvent.title}
@@ -441,7 +441,7 @@ export default function AdminEvents() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="new-description">Descrição</Label>
+              <Label htmlFor="new-description">DescriÃ§Ã£o</Label>
               <Textarea
                 id="new-description"
                 value={newEvent.description}
@@ -502,19 +502,19 @@ export default function AdminEvents() {
                   id="new-city"
                   value={newEvent.city}
                   onChange={(e) => setNewEvent({ ...newEvent, city: e.target.value })}
-                  placeholder="Ex: São Paulo"
+                  placeholder="Ex: SÃ£o Paulo"
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="new-location">Endereço *</Label>
+                <Label htmlFor="new-location">EndereÃ§o *</Label>
                 <Input
                   id="new-location"
                   value={newEvent.location}
                   onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
                   required
-                  placeholder="Rua, Número"
+                  placeholder="Rua, NÃºmero"
                 />
               </div>
             </div>
@@ -531,7 +531,7 @@ export default function AdminEvents() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="new-price">Preço Inicial (R$) *</Label>
+                <Label htmlFor="new-price">PreÃ§o Inicial (R$) *</Label>
                 <Input
                   id="new-price"
                   type="number"
@@ -544,7 +544,7 @@ export default function AdminEvents() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="new-max">Capacidade Máxima</Label>
+                <Label htmlFor="new-max">Capacidade MÃ¡xima</Label>
                 <Input
                   id="new-max"
                   type="number"
@@ -602,12 +602,12 @@ export default function AdminEvents() {
                             newTickets[index].name = e.target.value;
                             setTicketTypes(newTickets);
                           }}
-                          placeholder="Ex: 1º Lote"
+                          placeholder="Ex: 1Âº Lote"
                           required
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Preço (R$)</Label>
+                        <Label>PreÃ§o (R$)</Label>
                         <Input
                           type="number"
                           step="0.01"
@@ -636,7 +636,7 @@ export default function AdminEvents() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Descrição</Label>
+                        <Label>DescriÃ§Ã£o</Label>
                         <Input
                           value={ticket.description}
                           onChange={(e) => {
@@ -670,13 +670,13 @@ export default function AdminEvents() {
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Editar Evento</DialogTitle>
-            <DialogDescription>Atualize as informações do evento.</DialogDescription>
+            <DialogDescription>Atualize as informaÃ§Ãµes do evento.</DialogDescription>
           </DialogHeader>
           
           {editingEvent && (
             <form onSubmit={handleUpdateEvent} className="space-y-6 py-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-title">Título *</Label>
+                <Label htmlFor="edit-title">TÃ­tulo *</Label>
                 <Input
                   id="edit-title"
                   value={editingEvent.title}
@@ -686,7 +686,7 @@ export default function AdminEvents() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="edit-description">Descrição</Label>
+                <Label htmlFor="edit-description">DescriÃ§Ã£o</Label>
                 <Textarea
                   id="edit-description"
                   value={editingEvent.description || ''}
@@ -718,7 +718,7 @@ export default function AdminEvents() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="edit-location">Localização *</Label>
+                <Label htmlFor="edit-location">LocalizaÃ§Ã£o *</Label>
                 <Input
                   id="edit-location"
                   value={editingEvent.location}
@@ -739,7 +739,7 @@ export default function AdminEvents() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-price">Preço (R$) *</Label>
+                  <Label htmlFor="edit-price">PreÃ§o (R$) *</Label>
                   <Input
                     id="edit-price"
                     type="number"
@@ -752,7 +752,7 @@ export default function AdminEvents() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="edit-max">Capacidade Máxima</Label>
+                  <Label htmlFor="edit-max">Capacidade MÃ¡xima</Label>
                   <Input
                     id="edit-max"
                     type="number"
@@ -769,7 +769,7 @@ export default function AdminEvents() {
                   Cancelar
                 </Button>
                 <Button type="submit" disabled={isLoading}>
-                  {isLoading ? 'Salvando...' : 'Salvar Alterações'}
+                  {isLoading ? 'Salvando...' : 'Salvar AlteraÃ§Ãµes'}
                 </Button>
               </DialogFooter>
             </form>
@@ -779,6 +779,7 @@ export default function AdminEvents() {
     </motion.div>
   );
 }
+
 
 
 

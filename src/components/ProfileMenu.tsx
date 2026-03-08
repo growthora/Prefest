@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Ticket, 
@@ -51,6 +51,7 @@ export const ProfileMenu = () => {
   if (!profile) return null;
 
   const isOrganizer = profile.roles?.some(r => r.toUpperCase() === 'ORGANIZER') ?? false;
+  const isEquipe = profile.roles?.some(r => r.toUpperCase() === 'EQUIPE') ?? false;
   const normalizedOrganizerStatus = (profile.organizer_status || 'NONE').toUpperCase();
   const isPending = normalizedOrganizerStatus === 'PENDING';
   const isApproved = normalizedOrganizerStatus === 'APPROVED';
@@ -58,9 +59,11 @@ export const ProfileMenu = () => {
   // Determine header role text
   let roleText = 'Comprador';
   if (isApproved) {
-    roleText = 'Organizador • Comprador';
+    roleText = 'Organizador / Comprador';
   } else if (isPending) {
-    roleText = 'Organizador (em análise)';
+    roleText = 'Organizador (em analise)';
+  } else if (isEquipe) {
+    roleText = 'Equipe / Comprador';
   }
 
   const handleLogout = async () => {
@@ -84,8 +87,8 @@ export const ProfileMenu = () => {
     try {
       await userService.requestOrganizerAccess(user.id);
       toast({
-        title: "Solicitação enviada!",
-        description: "Sua solicitação para se tornar organizador foi enviada com sucesso e está em análise.",
+        title: "Solicitacao enviada!",
+        description: "Sua solicitacao para se tornar organizador foi enviada com sucesso e esta em analise.",
       });
       setShowOrganizerModal(false);
       // O profile deve atualizar automaticamente via AuthContext/subscription ou refresh
@@ -94,8 +97,8 @@ export const ProfileMenu = () => {
       // console.error('Erro ao solicitar acesso:', error);
       toast({
         variant: "destructive",
-        title: "Erro ao enviar solicitação",
-        description: "Ocorreu um erro ao processar sua solicitação. Tente novamente.",
+        title: "Erro ao enviar solicitacao",
+        description: "Ocorreu um erro ao processar sua solicitacao. Tente novamente.",
       });
     } finally {
       setIsRequesting(false);
@@ -168,11 +171,11 @@ export const ProfileMenu = () => {
           <DropdownMenuSeparator />
           
           <DropdownMenuGroup>
-            {isApproved ? (
+            {isApproved || isEquipe ? (
               <DropdownMenuItem asChild>
                 <Link to={ROUTE_PATHS.ORGANIZER_DASHBOARD} className="cursor-pointer font-medium text-primary">
                   <LayoutDashboard className="mr-2 h-4 w-4" />
-                  <span>Dashboard do Organizador</span>
+                  <span>{isEquipe ? 'Dashboard da Equipe' : 'Dashboard do Organizador'}</span>
                 </Link>
               </DropdownMenuItem>
             ) : isPending ? (
@@ -182,13 +185,13 @@ export const ProfileMenu = () => {
                     <div className="relative">
                       <DropdownMenuItem disabled className="cursor-not-allowed opacity-70">
                         <LayoutDashboard className="mr-2 h-4 w-4" />
-                        <span>Dashboard (em análise)</span>
+                        <span>Dashboard (em analise)</span>
                         <Lock className="ml-auto h-3 w-3" />
                       </DropdownMenuItem>
                     </div>
                   </TooltipTrigger>
                   <TooltipContent side="left">
-                    <p>Sua solicitação está em análise pelo administrador.</p>
+                    <p>Sua solicitacao esta em analise pelo administrador.</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -219,7 +222,7 @@ export const ProfileMenu = () => {
             <LogOut className="mr-2 h-4 w-4" />
             <div className="flex flex-col">
               <span>Sair</span>
-              <span className="text-[10px] text-muted-foreground font-normal">Não é você? Sair agora</span>
+              <span className="text-[10px] text-muted-foreground font-normal">Nao e voce? Sair agora</span>
             </div>
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -230,7 +233,7 @@ export const ProfileMenu = () => {
           <DialogHeader>
             <DialogTitle>Torne-se um Organizador</DialogTitle>
             <DialogDescription>
-              Para acessar o dashboard de organizador e criar seus próprios eventos, é necessário solicitar aprovação da nossa equipe.
+              Para acessar o dashboard de organizador e criar seus proprios eventos, e necessario solicitar aprovacao da nossa equipe.
             </DialogDescription>
           </DialogHeader>
           
@@ -257,5 +260,10 @@ export const ProfileMenu = () => {
     </>
   );
 };
+
+
+
+
+
 
 

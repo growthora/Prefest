@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+set -e
+
+echo "[pre-commit] Checking UTF-8/encoding integrity..."
+node scripts/fix-encoding.mjs --check

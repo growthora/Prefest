@@ -1,4 +1,4 @@
-﻿import React, { Suspense, lazy, useEffect } from "react";
+import React, { Suspense, lazy, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -72,6 +72,8 @@ const Participants = lazy(() => import("@/pages/dashboard/Participants"));
 const Payments = lazy(() => import("@/pages/dashboard/Payments"));
 const Settings = lazy(() => import("@/pages/dashboard/Settings"));
 const Scanner = lazy(() => import("@/pages/dashboard/organizer/Scanner"));
+const TeamOverview = lazy(() => import("@/pages/dashboard/team/TeamOverview"));
+const TeamManagement = lazy(() => import("@/pages/dashboard/TeamManagement"));
 const CompleteProfile = lazy(() => import("@/pages/CompleteProfile"));
 const NotFound = lazy(() => import("./pages/not-found/Index"));
 import { NotificationManager } from "@/components/NotificationManager";
@@ -123,6 +125,18 @@ const ChatMobileRoute = () => {
   }
 
   return <ChatMobile />;
+};
+
+const DashboardIndexRoute = () => {
+  const { profile } = useAuth();
+  const roles = (profile?.roles || []).map((role) => String(role).toUpperCase());
+  const isEquipeOnly = roles.includes('EQUIPE') && !roles.includes('ORGANIZER') && !roles.includes('ADMIN');
+
+  if (isEquipeOnly) {
+    return <TeamOverview />;
+  }
+
+  return <Overview />;
 };
 
 const AppRoutes = () => {
@@ -220,19 +234,31 @@ const AppRoutes = () => {
       <Route path="/update-password" element={<Navigate to={ROUTE_PATHS.UPDATE_PASSWORD} replace />} />
       <Route path="/evento/:slug" element={<RedirectToEventDetails />} />
 
-      {/* Organizer Dashboard Routes */}
-      <Route element={<ProtectedRoute requireOrganizerApproved={true} />}>
+            {/* Organizer Dashboard Routes */}
+      <Route
+        element={
+          <ProtectedRoute
+            allowedRoles={['ORGANIZER', 'EQUIPE', 'ADMIN']}
+            requireOrganizerApproved={true}
+            allowEquipeBypass={true}
+          />
+        }
+      >
         <Route path={ROUTE_PATHS.ORGANIZER_DASHBOARD} element={<DashboardLayout />}>
-          <Route index element={<Overview />} />
-          <Route path="eventos" element={<OrganizerEvents />} />
-          <Route path="vendas" element={<Sales />} />
-          <Route path="participantes" element={<Participants />} />
-          <Route path="pagamentos" element={<Payments />} />
-          <Route path="configuracoes" element={<Settings />} />
+          <Route index element={<DashboardIndexRoute />} />
           <Route path="scanner" element={<Scanner />} />
+
+          <Route element={<ProtectedRoute allowedRoles={['ORGANIZER', 'ADMIN']} />}>
+            <Route path="eventos" element={<OrganizerEvents />} />
+            <Route path="vendas" element={<Sales />} />
+            <Route path="participantes" element={<Participants />} />
+            <Route path="pagamentos" element={<Payments />} />
+            <Route path="configuracoes" element={<Settings />} />
+            <Route path="equipe" element={<TeamManagement />} />
+          </Route>
         </Route>
       </Route>
-      
+
       <Route path="*" element={<NotFound />} />
     </Routes>
     </>
@@ -294,6 +320,9 @@ const App = () => {
 };
 
 export default App;
+
+
+
 
 
 

@@ -1,4 +1,4 @@
-﻿import { NavigateFunction } from 'react-router-dom';
+import { NavigateFunction } from 'react-router-dom';
 
 /**
  * Interface for user object that contains slug information

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { eventService, type Event } from '@/services/event.service';
 
@@ -74,7 +74,7 @@ export function OrganizerEvents() {
     if (!user) return;
     try {
       setLoading(true);
-      const data = await eventService.getEventsByCreator(user.id);
+      const data = await eventService.getManagedEventsByUser(user.id);
       setEvents(data);
     } catch (error) {
       // console.error('Failed to load events', error);
@@ -134,7 +134,7 @@ export function OrganizerEvents() {
 
   const handleAction = (event: Event, action: 'view' | 'edit' | 'delete') => {
     if (action === 'edit') {
-      const isPaid = event.price > 0;
+      const isPaid = !!event.is_paid_event;
       if (isPaid && asaasStatus !== 'approved') {
         toast({
           title: "Conta Asaas necessária",
@@ -303,24 +303,18 @@ export function OrganizerEvents() {
                   </Badge>
                 </TableCell>
                 <TableCell>
-                    {event.is_paid_event ? (
-                        <div className="flex items-center gap-2">
-                             {togglingEventId === event.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                             ) : (
-                                <Switch
-                                    checked={event.sales_enabled}
-                                    onCheckedChange={(checked) => handleToggleSales(event, checked)}
-                                    disabled={togglingEventId === event.id}
-                                />
-                             )}
-                             <span className="text-sm text-muted-foreground">
-                                {event.sales_enabled ? 'On' : 'Off'}
-                             </span>
-                        </div>
+                  <div className="flex items-center gap-2">
+                    {togglingEventId === event.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                     ) : (
-                        <span className="text-xs text-muted-foreground">Gratuito</span>
+                      <Switch
+                        checked={event.sales_enabled}
+                        onCheckedChange={(checked) => handleToggleSales(event, checked)}
+                        disabled={togglingEventId === event.id}
+                      />
                     )}
+                    <span className="text-sm text-muted-foreground">{event.sales_enabled ? 'On' : 'Off'}</span>
+                  </div>
                 </TableCell>
                 <TableCell>
                   {event.current_participants} / {event.totalTicketsConfigured ?? event.max_participants ?? '∞'}
@@ -424,22 +418,20 @@ export function OrganizerEvents() {
                  </div>
 
                  {/* Sales Toggle for Mobile */}
-                 {event.is_paid_event && (
-                    <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/20 border border-secondary/30">
-                        <span className="text-sm font-medium flex items-center gap-2">
-                            Vendas {event.sales_enabled ? 'Habilitadas' : 'Desabilitadas'}
-                        </span>
-                        {togglingEventId === event.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                        ) : (
-                            <Switch
-                                checked={event.sales_enabled}
-                                onCheckedChange={(checked) => handleToggleSales(event, checked)}
-                                disabled={togglingEventId === event.id}
-                            />
-                        )}
-                    </div>
-                 )}
+                 <div className="flex items-center justify-between p-2 rounded-lg bg-secondary/20 border border-secondary/30">
+                    <span className="text-sm font-medium flex items-center gap-2">
+                      Vendas {event.sales_enabled ? 'Habilitadas' : 'Desabilitadas'}
+                    </span>
+                    {togglingEventId === event.id ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    ) : (
+                      <Switch
+                        checked={event.sales_enabled}
+                        onCheckedChange={(checked) => handleToggleSales(event, checked)}
+                        disabled={togglingEventId === event.id}
+                      />
+                    )}
+                 </div>
               </CardContent>
               <CardFooter className="p-4 pt-0 grid grid-cols-4 gap-2">
                  <Button variant="outline" size="sm" className="w-full h-9 hover:bg-primary/5 hover:text-primary transition-colors" onClick={() => handleAction(event, 'view')}>
