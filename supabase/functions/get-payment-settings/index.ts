@@ -40,7 +40,11 @@ Deno.serve(async (req) => {
       })
     }
 
-    return new Response(JSON.stringify(config), {
+    return new Response(JSON.stringify({
+      ...config,
+      platform_fee_type: 'percentage',
+      platform_fee_value: 10,
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
       status: 200
     })
@@ -53,5 +57,3 @@ Deno.serve(async (req) => {
     })
   }
 })
-
-

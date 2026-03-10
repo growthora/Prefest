@@ -298,7 +298,7 @@ Deno.serve(async (req) => {
     const totalPrice = recalculatedTotalPrice;
     const platformFee = netServiceFee;
     const organizerValue = organizerBaseValue;
-    const organizerSplitProjected = Number((totalPrice * 0.9).toFixed(2));
+    const organizerSplitProjected = organizerValue;
     
     // console.log(`V3 Financials: Base ${basePrice} | Fee ${serviceFee} | Discount ${discountAmount} | Total ${totalPrice} | Org ${organizerValue}`);
 
@@ -414,7 +414,7 @@ Deno.serve(async (req) => {
         if (organizerValue > 0) {
             const splitItem = { 
                 walletId: destinationWalletId, 
-                percentualValue: 90
+                fixedValue: organizerValue
             };
             split.push(splitItem);
             
@@ -486,20 +486,38 @@ Deno.serve(async (req) => {
     // 17.5 Record Payment Split (MANDATORY)
     if (splitConfigForDb && paymentRecord) {
         // console.log('V3: Recording Payment Split in Database...');
-        const { error: splitError } = await adminClient
-            .from('payment_splits')
-            .insert({
+        const splitRows = [
+            {
+                payment_id: paymentRecord.id,
+                recipient_type: 'platform',
+                asaas_account_id: platformWalletId || null,
+                wallet_id: platformWalletId || null,
+                fee_type: 'percentage',
+                fee_value: 10,
+                value: platformFee,
+                status: 'pending',
+                split_rule: {
+                    platformFeeType: 'percentage',
+                    platformFeeValue: 10
+                }
+            },
+            {
                 payment_id: paymentRecord.id,
                 recipient_type: 'organizer',
                 recipient_user_id: ticket.events.creator_id,
                 asaas_account_id: splitConfigForDb.walletId,
                 wallet_id: splitConfigForDb.walletId,
-                fee_type: 'percentage',
-                fee_value: 90,
+                fee_type: 'fixed',
+                fee_value: organizerValue,
                 value: organizerSplitProjected,
                 status: 'pending',
                 split_rule: splitConfigForDb
-            });
+            }
+        ];
+
+        const { error: splitError } = await adminClient
+            .from('payment_splits')
+            .insert(splitRows);
             
         if (splitError) {
              // console.error('CRITICAL V3 ERROR: Failed to insert payment_splits', splitError);
@@ -565,5 +583,3 @@ Deno.serve(async (req) => {
     });
   }
 })
-
-

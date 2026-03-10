@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
       // Asaas restriction: do not split to master wallet itself.
       split.push({
         walletId: destinationWalletId,
-        percentualValue: 90
+        fixedValue: organizerValue
       });
     }
 
@@ -270,11 +270,16 @@ Deno.serve(async (req) => {
         splitInserts.push({
             payment_id: paymentRecord.id,
             recipient_type: 'platform',
-            asaas_account_id: platformWalletId,
+            asaas_account_id: platformWalletId || null,
+            wallet_id: platformWalletId || null,
             fee_type: 'percentage',
             fee_value: 10,
             value: platformFee,
-            status: 'pending'
+            status: 'pending',
+            split_rule: {
+                platformFeeType: 'percentage',
+                platformFeeValue: 10
+            }
         });
 
         // Organizer Split
@@ -283,8 +288,15 @@ Deno.serve(async (req) => {
             recipient_type: 'organizer',
             recipient_user_id: event.creator_id,
             asaas_account_id: destinationWalletId,
+            wallet_id: destinationWalletId,
+            fee_type: 'fixed',
+            fee_value: organizerValue,
             value: organizerValue,
-            status: 'pending'
+            status: 'pending',
+            split_rule: {
+                walletId: destinationWalletId,
+                fixedValue: organizerValue
+            }
         });
 
         await adminClient.from('payment_splits').insert(splitInserts);
@@ -331,4 +343,3 @@ Deno.serve(async (req) => {
     });
   }
 });
-

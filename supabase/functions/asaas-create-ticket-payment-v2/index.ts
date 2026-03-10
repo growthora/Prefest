@@ -195,8 +195,40 @@ Deno.serve(async (req) => {
     const split = [];
     if (organizerValue > 0) {
       // Asaas restriction: do not split to master wallet itself.
-      split.push({ walletId: destinationWalletId, percentualValue: 90 });
+      split.push({ walletId: destinationWalletId, fixedValue: organizerValue });
     }
+
+    const splitRows = (paymentRecord: { id: string }) => ([
+      {
+        payment_id: paymentRecord.id,
+        recipient_type: 'platform',
+        asaas_account_id: platformWalletId || null,
+        wallet_id: platformWalletId || null,
+        fee_type: 'percentage',
+        fee_value: 10,
+        value: platformFee,
+        status: 'pending',
+        split_rule: {
+          platformFeeType: 'percentage',
+          platformFeeValue: 10
+        }
+      },
+      {
+        payment_id: paymentRecord.id,
+        recipient_type: 'organizer',
+        recipient_user_id: ticket.events.creator_id,
+        asaas_account_id: destinationWalletId,
+        wallet_id: destinationWalletId,
+        fee_type: 'fixed',
+        fee_value: organizerValue,
+        value: organizerValue,
+        status: 'pending',
+        split_rule: {
+          walletId: destinationWalletId,
+          fixedValue: organizerValue
+        }
+      }
+    ]);
 
     const paymentBody: any = {
         customer: customerId,
@@ -264,6 +296,10 @@ Deno.serve(async (req) => {
         .select()
         .single();
 
+    if (paymentRecord) {
+        await adminClient.from('payment_splits').insert(splitRows(paymentRecord));
+    }
+
     // 11. Handle PIX
     let pixQrCode = null;
     let pixQrCodeText = null;
@@ -300,4 +336,3 @@ Deno.serve(async (req) => {
     });
   }
 });
-

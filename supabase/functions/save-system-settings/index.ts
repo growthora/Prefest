@@ -35,6 +35,18 @@ Deno.serve(async (req) => {
     }
     
     const { system, notifications, smtp, integrations } = body;
+    const normalizedIntegrations = Array.isArray(integrations)
+      ? integrations.map((integration: any) => {
+          if (integration?.provider !== 'asaas') return integration;
+
+          return {
+            ...integration,
+            split_enabled: true,
+            platform_fee_type: 'percentage',
+            platform_fee_value: 10,
+          };
+        })
+      : integrations;
 
     // console.log('Saving settings for user:', user.id);
 
@@ -44,7 +56,7 @@ Deno.serve(async (req) => {
       p_system: system,
       p_notifications: notifications,
       p_smtp: smtp,
-      p_integrations: integrations
+      p_integrations: normalizedIntegrations
     });
 
     if (rpcError) {
