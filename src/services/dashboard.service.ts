@@ -187,15 +187,15 @@ export const dashboardService = {
 
     const totalEvents = events?.length || 0;
     const now = new Date().toISOString();
-    const activeEvents = events?.filter(e => e.event_date > now).length || 0;
-
-    const eventIds = events?.map(e => e.id) || [];
+    const activeEvents = events?.filter((event) => event.event_date > now).length || 0;
+    const eventIds = events?.map((event) => event.id) || [];
 
     let totalSales = 0;
     let totalTicketsSold = 0;
     let totalGross = 0;
     let totalPlatformFees = 0;
     let totalNet = 0;
+    let pendingNet = 0;
     let currentMonthRevenue = 0;
     let previousMonthRevenue = 0;
     let currentMonthTickets = 0;
@@ -218,26 +218,27 @@ export const dashboardService = {
         { ticketQuantity: number; totalPaid: number; joinedAt: string | null }
       >();
 
-      (validParticipants || []).forEach((p: any) => {
-        if (!p.ticket_id) return;
-        validTicketIds.add(p.ticket_id);
-        participantByTicketId.set(p.ticket_id, {
-          ticketQuantity: Number(p.ticket_quantity) || 0,
-          totalPaid: Number(p.total_paid) || 0,
-          joinedAt: p.joined_at || null,
+      (validParticipants || []).forEach((participant: any) => {
+        if (!participant.ticket_id) return;
+        validTicketIds.add(participant.ticket_id);
+        participantByTicketId.set(participant.ticket_id, {
+          ticketQuantity: Number(participant.ticket_quantity) || 0,
+          totalPaid: Number(participant.total_paid) || 0,
+          joinedAt: participant.joined_at || null,
         });
       });
 
-      const { data: confirmedPayments, error: payError } = await supabase
+      const { data: organizerPayments, error: payError } = await supabase
         .from('payments')
         .select('id, status, value, asaas_net_value, created_at, ticket_id, ticket:ticket_id(event_id, unit_price, quantity, discount_amount)')
         .eq('organizer_user_id', organizerId)
-        .in('status', [...CONFIRMED_PAYMENT_STATUSES]);
+        .in('status', [...CONFIRMED_PAYMENT_STATUSES, 'pending']);
 
       if (payError) throw payError;
 
-      const paymentIds = (confirmedPayments || []).map((p: any) => p.id).filter(Boolean);
+      const paymentIds = (organizerPayments || []).map((payment: any) => payment.id).filter(Boolean);
       const splitByPaymentId = new Map<string, PaymentSplitRow>();
+
       if (paymentIds.length > 0) {
         const { data: splitRows, error: splitError } = await supabase
           .from('payment_splits')
@@ -260,7 +261,8 @@ export const dashboardService = {
       const startPreviousMonth = new Date(nowDate.getFullYear(), nowDate.getMonth() - 1, 1);
 
       let skippedPaymentsWithoutValidTicket = 0;
-      (confirmedPayments || []).forEach((payment: any) => {
+
+      (organizerPayments || []).forEach((payment: any) => {
         if (payment.ticket_id && validTicketIds.size > 0 && !validTicketIds.has(payment.ticket_id)) {
           skippedPaymentsWithoutValidTicket += 1;
           return;
@@ -277,7 +279,13 @@ export const dashboardService = {
           splitByPaymentId.get(payment.id) || null,
           payment.asaas_net_value
         );
+
         if (breakdown.customerTotal <= 0) return;
+
+        if (payment.status === 'pending') {
+          pendingNet += breakdown.organizerRevenue;
+          return;
+        }
 
         totalSales += 1;
         totalTicketsSold += participant?.ticketQuantity ?? breakdown.quantity;
@@ -285,10 +293,9 @@ export const dashboardService = {
         totalPlatformFees += breakdown.platformFee;
         totalNet += breakdown.organizerRevenue;
 
-        const referenceDate =
-          participant?.joinedAt && participant.joinedAt.length > 0
-            ? participant.joinedAt
-            : payment.created_at;
+        const referenceDate = participant?.joinedAt && participant.joinedAt.length > 0
+          ? participant.joinedAt
+          : payment.created_at;
         const paymentDate = referenceDate ? new Date(referenceDate) : null;
         if (!paymentDate) return;
 
@@ -305,29 +312,31 @@ export const dashboardService = {
 
       if (SHOULD_LOG_FINANCE) {
         const validTicketsCount = (validParticipants || []).reduce(
-          (sum: number, p: any) => sum + (Number(p.ticket_quantity) || 0),
+          (sum: number, participant: any) => sum + (Number(participant.ticket_quantity) || 0),
           0
         );
 
         console.info('[FinanceAudit][OrganizerDashboard][Reconciliation]', {
           organizerId,
-          paidPaymentsCount: (confirmedPayments || []).length,
+          paidPaymentsCount: (organizerPayments || []).filter((payment: any) =>
+            CONFIRMED_PAYMENT_STATUSES.includes(payment.status)
+          ).length,
           skippedPaymentsWithoutValidTicket,
           validTicketsCount,
           grossTotal: Number(totalGross.toFixed(2)),
           netTotal: Number(totalNet.toFixed(2)),
           platformFeesTotal: Number(totalPlatformFees.toFixed(2)),
+          pendingNet: Number(pendingNet.toFixed(2)),
         });
       }
     }
 
     const totalWithdrawn = 0;
     const availableBalance = totalNet - totalWithdrawn;
-    const pendingBalance = 0;
+    const pendingBalance = Number(pendingNet.toFixed(2));
 
     if (SHOULD_LOG_FINANCE) {
       const ticketAverage = totalTicketsSold > 0 ? totalNet / totalTicketsSold : 0;
-      // Temporary finance audit log
       console.info('[FinanceAudit][OrganizerDashboard]', {
         organizerId,
         totalSales,
@@ -362,6 +371,97 @@ export const dashboardService = {
     };
   },
 
+  async getFinancialTransactions(organizerId: string): Promise<OrganizerFinancialTransaction[]> {
+    const { data: events, error: eventsError } = await supabase
+      .from('events')
+      .select('id')
+      .eq('creator_id', organizerId);
+
+    if (eventsError) throw eventsError;
+
+    const eventIds = events?.map((event) => event.id) || [];
+    if (eventIds.length === 0) return [];
+
+    const { data: participants, error: participantsError } = await supabase
+      .from('event_participants')
+      .select('ticket_id, ticket_quantity, total_paid, joined_at, user:profiles!event_participants_user_id_fkey(full_name, email)')
+      .in('event_id', eventIds);
+
+    if (participantsError) throw participantsError;
+
+    const participantByTicketId = new Map<string, {
+      ticketQuantity: number;
+      totalPaid: number;
+      joinedAt: string | null;
+      buyerName: string;
+      buyerEmail: string;
+    }>();
+
+    (participants || []).forEach((participant: any) => {
+      if (!participant?.ticket_id) return;
+      participantByTicketId.set(participant.ticket_id, {
+        ticketQuantity: Number(participant.ticket_quantity) || 0,
+        totalPaid: Number(participant.total_paid) || 0,
+        joinedAt: participant.joined_at || null,
+        buyerName: participant.user?.full_name || 'Usuario',
+        buyerEmail: participant.user?.email || '-',
+      });
+    });
+
+    const { data: payments, error: paymentsError } = await supabase
+      .from('payments')
+      .select('id, status, value, created_at, payment_method, asaas_net_value, ticket_id, ticket:ticket_id(event_id, unit_price, quantity, discount_amount, event:events(title))')
+      .eq('organizer_user_id', organizerId)
+      .order('created_at', { ascending: false });
+
+    if (paymentsError) throw paymentsError;
+
+    const paymentIds = (payments || []).map((payment: any) => payment.id).filter(Boolean);
+    const splitByPaymentId = new Map<string, PaymentSplitRow>();
+
+    if (paymentIds.length > 0) {
+      const { data: splitRows, error: splitError } = await supabase
+        .from('payment_splits')
+        .select('payment_id, recipient_type, fee_type, fee_value, value, status')
+        .in('payment_id', paymentIds)
+        .eq('recipient_type', 'organizer');
+
+      if (splitError) throw splitError;
+
+      (splitRows || []).forEach((row: any) => {
+        if (row?.payment_id && !splitByPaymentId.has(row.payment_id)) {
+          splitByPaymentId.set(row.payment_id, row);
+        }
+      });
+    }
+
+    return (payments || [])
+      .map((payment: any) => {
+        const ticket = payment.ticket as (SaleTicket & { event?: { title?: string | null } }) | null;
+        const participant = payment.ticket_id ? participantByTicketId.get(payment.ticket_id) : null;
+        const breakdown = getFinancialBreakdown(
+          payment.value,
+          ticket,
+          participant?.ticketQuantity ?? ticket?.quantity,
+          splitByPaymentId.get(payment.id) || null,
+          payment.asaas_net_value
+        );
+
+        return {
+          id: payment.id,
+          date: participant?.joinedAt || payment.created_at,
+          eventName: ticket?.event?.title || 'Evento',
+          buyerName: participant?.buyerName || 'Usuario',
+          buyerEmail: participant?.buyerEmail || '-',
+          paymentMethod: String(payment.payment_method || 'unknown'),
+          grossAmount: breakdown.customerTotal,
+          platformFee: breakdown.platformFee,
+          netAmount: breakdown.organizerRevenue,
+          status: String(payment.status || 'pending'),
+        };
+      })
+      .filter((payment) => payment.grossAmount > 0);
+  },
   async getSalesChart(organizerId: string, period: 'day' | 'week' | 'month' = 'week'): Promise<SalesChartData[]> {
     const { data: events } = await supabase
       .from('events')

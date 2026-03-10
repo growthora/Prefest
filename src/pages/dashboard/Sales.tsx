@@ -1,38 +1,77 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TrendingUp, Ticket, CreditCard } from 'lucide-react';
+import { Wallet, Clock3, TrendingUp, Receipt, ArrowLeft, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { dashboardService } from '@/services/dashboard.service';
+import { dashboardService, type OrganizerFinancialTransaction } from '@/services/dashboard.service';
 import { DashboardLoader } from '@/components/dashboard/DashboardLoader';
+import { Button } from '@/components/ui/button';
+
+type SalesStats = {
+  totalGrossRevenue: number;
+  totalNetRevenue: number;
+  totalPlatformFees: number;
+  availableBalance: number;
+  pendingBalance: number;
+};
+
+const PAGE_SIZE = 8;
+const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+
+function formatDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+function formatPaymentMethod(value: string) {
+  const normalized = value.toLowerCase();
+  if (normalized === 'credit_card') return 'Cartao de credito';
+  if (normalized === 'debit_card') return 'Cartao de debito';
+  if (normalized === 'boleto') return 'Boleto';
+  if (normalized === 'pix') return 'Pix';
+  return value;
+}
+
+function formatStatus(value: string) {
+  const normalized = value.toLowerCase();
+  if (normalized === 'paid' || normalized === 'received' || normalized === 'confirmed') return 'Recebido';
+  if (normalized === 'pending') return 'Pendente';
+  if (normalized === 'overdue') return 'Vencido';
+  if (normalized === 'refunded') return 'Estornado';
+  return value;
+}
 
 export function Sales() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<{
-    totalGrossRevenue: number;
-    totalNetRevenue: number;
-    totalTickets: number;
-    averageTicketPrice: number;
-  } | null>(null);
+  const [stats, setStats] = useState<SalesStats | null>(null);
+  const [transactions, setTransactions] = useState<OrganizerFinancialTransaction[]>([]);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     async function loadSales() {
       if (!user) return;
       try {
         setLoading(true);
-
-        const dashboardStats = await dashboardService.getStats(user.id);
-        const totalGrossRevenue = dashboardStats.totalGrossRevenue;
-        const totalNetRevenue = dashboardStats.totalNetRevenue;
-        const totalTickets = dashboardStats.totalTicketsSold;
-        const averageTicketPrice = totalTickets > 0 ? totalGrossRevenue / totalTickets : 0;
+        const [dashboardStats, financialTransactions] = await Promise.all([
+          dashboardService.getStats(user.id),
+          dashboardService.getFinancialTransactions(user.id),
+        ]);
 
         setStats({
-          totalGrossRevenue,
-          totalNetRevenue,
-          totalTickets,
-          averageTicketPrice,
+          totalGrossRevenue: dashboardStats.totalGrossRevenue,
+          totalNetRevenue: dashboardStats.totalNetRevenue,
+          totalPlatformFees: dashboardStats.totalPlatformFees,
+          availableBalance: dashboardStats.availableBalance,
+          pendingBalance: dashboardStats.pendingBalance,
         });
+        setTransactions(financialTransactions);
       } finally {
         setLoading(false);
       }
@@ -41,96 +80,155 @@ export function Sales() {
     loadSales();
   }, [user]);
 
+  const totalPages = Math.max(1, Math.ceil(transactions.length / PAGE_SIZE));
+  const paginatedTransactions = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return transactions.slice(start, start + PAGE_SIZE);
+  }, [page, transactions]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
   if (loading) return <DashboardLoader />;
   if (!stats) return null;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <h1 className="text-3xl font-bold tracking-tight">Vendas</h1>
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight">Financeiro</h1>
+        <p className="text-sm text-muted-foreground">
+          Painel financeiro compatível com o split atual do Asaas. O repasse do organizador continua sendo calculado
+          a partir do split registrado no pagamento. Nao foi implementado saque porque o modelo atual nao garante
+          transferencia segura para todas as carteiras vinculadas sem revisar a integracao de contas.
+        </p>
+      </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Receita Bruta Total</CardTitle>
+            <CardTitle className="text-sm font-medium">Saldo disponivel</CardTitle>
+            <Wallet className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{currencyFormatter.format(stats.availableBalance)}</div>
+            <p className="text-xs text-muted-foreground">
+              Baseado nos pagamentos confirmados e no split aplicado ao organizador.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Saldo pendente</CardTitle>
+            <Clock3 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{currencyFormatter.format(stats.pendingBalance)}</div>
+            <p className="text-xs text-muted-foreground">
+              Valor previsto para pagamentos ainda pendentes no fluxo atual.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total vendido</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.totalGrossRevenue)}
-            </div>
+            <div className="text-2xl font-bold">{currencyFormatter.format(stats.totalGrossRevenue)}</div>
             <p className="text-xs text-muted-foreground">
-              Total pago pelos clientes (ingresso + taxa)
+              Valor bruto pago pelos clientes, incluindo taxa da plataforma.
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Receita Líquida Organizador</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Taxas aplicadas</CardTitle>
+            <Receipt className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.totalNetRevenue)}
-            </div>
+            <div className="text-2xl font-bold">{currencyFormatter.format(stats.totalPlatformFees)}</div>
             <p className="text-xs text-muted-foreground">
-              Repasse estimado com base no split configurado no pagamento
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ingressos Vendidos</CardTitle>
-            <Ticket className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalTickets}</div>
-            <p className="text-xs text-muted-foreground">
-              Quantidade total de ingressos validos
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ticket Medio</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.averageTicketPrice)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Ticket medio pago pelo cliente por ingresso valido
+              Taxa fixa da plataforma conforme split atual, sem alterar checkout ou webhook.
             </p>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="border-amber-200 bg-amber-50/60">
-        <CardContent className="pt-6">
-          <p className="text-sm text-amber-900">
-            O valor líquido do organizador é calculado pelo split aplicado na cobrança. Taxas operacionais do Asaas
-            podem reduzir o valor efetivamente creditado na carteira em relação ao valor bruto pago pelo cliente.
+      <Card>
+        <CardHeader>
+          <CardTitle>Historico de transacoes</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Lista interna conciliada com pagamentos e splits ja registrados no sistema.
           </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {transactions.length === 0 ? (
+            <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+              Nenhuma transacao financeira encontrada para este organizador.
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto rounded-md border">
+                <table className="w-full min-w-[960px] text-sm">
+                  <thead className="bg-muted/50 text-left">
+                    <tr>
+                      <th className="px-4 py-3 font-medium">Data</th>
+                      <th className="px-4 py-3 font-medium">Evento</th>
+                      <th className="px-4 py-3 font-medium">Comprador</th>
+                      <th className="px-4 py-3 font-medium">Metodo</th>
+                      <th className="px-4 py-3 font-medium">Bruto</th>
+                      <th className="px-4 py-3 font-medium">Taxa</th>
+                      <th className="px-4 py-3 font-medium">Liquido</th>
+                      <th className="px-4 py-3 font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedTransactions.map((transaction) => (
+                      <tr key={transaction.id} className="border-t">
+                        <td className="px-4 py-3">{formatDate(transaction.date)}</td>
+                        <td className="px-4 py-3">{transaction.eventName}</td>
+                        <td className="px-4 py-3">
+                          <div className="font-medium">{transaction.buyerName}</div>
+                          <div className="text-xs text-muted-foreground">{transaction.buyerEmail}</div>
+                        </td>
+                        <td className="px-4 py-3">{formatPaymentMethod(transaction.paymentMethod)}</td>
+                        <td className="px-4 py-3">{currencyFormatter.format(transaction.grossAmount)}</td>
+                        <td className="px-4 py-3">{currencyFormatter.format(transaction.platformFee)}</td>
+                        <td className="px-4 py-3 font-medium">{currencyFormatter.format(transaction.netAmount)}</td>
+                        <td className="px-4 py-3">{formatStatus(transaction.status)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">
+                  Pagina {page} de {totalPages}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page === 1}>
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Anterior
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={page === totalPages}>
+                    Proxima
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
-
-      <div className="rounded-md border bg-card p-8 text-center text-muted-foreground">
-        {stats.totalTickets > 0 ? (
-          <div className="flex flex-col items-center justify-center space-y-4">
-            <TrendingUp className="w-10 h-10 text-muted-foreground/50" />
-            <p>Graficos detalhados de vendas serao disponibilizados em breve.</p>
-          </div>
-        ) : (
-          <p>Nenhuma venda registrada ainda.</p>
-        )}
-      </div>
     </div>
   );
 }
 
 export default Sales;
-
-
