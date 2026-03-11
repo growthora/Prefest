@@ -114,10 +114,12 @@ export default function TeamManagement() {
         description: 'Conta de equipe criada com as roles COMPRADOR e EQUIPE.',
       });
     } catch (error: any) {
+      const friendlyError = getFriendlyCreateError(String(error?.message || ''));
+      const duplicateEmail = friendlyError.includes('Esse e-mail ja e um usuario nosso');
       toast({
         variant: 'destructive',
-        title: 'Erro ao criar membro',
-        description: getFriendlyCreateError(String(error?.message || '')),
+        title: duplicateEmail ? 'E-mail indisponivel para equipe' : 'Erro ao criar membro',
+        description: friendlyError,
       });
     } finally {
       setSubmitting(false);

@@ -14,7 +14,7 @@ export const translateAuthError = (message: string): string => {
 
   // Auth/Login
   if (lowerMsg.includes('invalid login credentials')) {
-    return 'Email ou senha incorretos.';
+    return 'E-mail ou senha est� incorreto, tente novamente.';
   }
   if (lowerMsg.includes('email not confirmed')) {
     return 'Seu e-mail ainda não foi confirmado.';

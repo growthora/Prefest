@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
 
     const { data: callerProfile, error: callerProfileError } = await adminClient
       .from("profiles")
-      .select("id, roles")
+      .select("*")
       .eq("id", user.id)
       .single();
 
@@ -244,7 +244,7 @@ Deno.serve(async (req) => {
 
       const { data: memberProfile, error: memberProfileError } = await adminClient
         .from("profiles")
-        .select("id, roles")
+        .select("*")
         .eq("id", memberUserId)
         .maybeSingle();
 
@@ -257,37 +257,13 @@ Deno.serve(async (req) => {
         nextRoles.unshift("BUYER");
       }
 
-      const { error: teamDeleteError } = await adminClient
-        .from("team_members")
-        .delete()
-        .eq("id", teamRow.id)
-        .eq("organizer_id", user.id);
+      const { error: removeAccessError } = await adminClient.rpc("remove_team_member_access", {
+        p_organizer_id: user.id,
+        p_member_user_id: memberUserId,
+      });
 
-      if (teamDeleteError) {
-        return asJson(400, { ok: false, error: `team_delete: ${teamDeleteError.message}` }, corsHeaders);
-      }
-
-      const { error: profileUpdateError } = await adminClient
-        .from("profiles")
-        .update({
-          roles: nextRoles,
-          organizer_status: "NONE",
-          role: "user",
-          account_type: "comprador",
-          updated_at: new Date().toISOString(),
-        } as any)
-        .eq("id", memberUserId);
-
-      if (profileUpdateError) {
-        return asJson(400, { ok: false, error: `profile_update: ${profileUpdateError.message}` }, corsHeaders);
-      }
-
-      const { error: deleteAuthError } = await adminClient.auth.admin.deleteUser(memberUserId);
-      if (deleteAuthError) {
-        return asJson(200, {
-          ok: true,
-          warning: `auth_delete_skipped: ${deleteAuthError.message}`,
-        }, corsHeaders);
+      if (removeAccessError) {
+        return asJson(400, { ok: false, error: `remove_access: ${removeAccessError.message}` }, corsHeaders);
       }
 
       return asJson(200, { ok: true }, corsHeaders);
