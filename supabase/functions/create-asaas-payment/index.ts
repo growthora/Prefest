@@ -41,16 +41,16 @@ Deno.serve(async (req) => {
       .rpc('get_decrypted_asaas_config')
       .single();
 
-    if (configError || !config?.api_key) {
+    if (configError || !config) {
       // console.error('Config Error:', configError);
-      throw new Error('Asaas configuration not found or invalid');
+      throw new Error(`Asaas configuration not found or invalid: ${configError?.message || 'empty config'}`);
     }
 
     const { api_key: rawApiKey, wallet_id: platformWalletId, split_enabled, platform_fee_type, platform_fee_value } = config;
-    const apiKey = String(rawApiKey || '').trim();
+    const apiKey = String(rawApiKey || (config as any).secret_key || '').trim();
     const env = String(config.env || config.environment || 'sandbox').toLowerCase();
     if (!apiKey) {
-      throw new Error('Asaas API key is empty');
+      throw new Error('Asaas API key is empty or unavailable in decrypted config');
     }
     const baseUrl = env === 'production' 
       ? 'https://api.asaas.com/v3' 

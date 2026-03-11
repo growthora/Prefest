@@ -3,7 +3,7 @@ import { getCorsHeaders, handleCors } from "../_shared/cors.ts"
 import { requireAuth } from "../_shared/requireAuth.ts"
 
 Deno.serve(async (req) => {
-  // FASE 1: PROVA DEFINITIVA - DIAGNÓSTICO (Logo na entrada)
+  // FASE 1: PROVA DEFINITIVA - DIAGN�STICO (Logo na entrada)
   const authProbe = req.headers.get("Authorization") ?? ""
   // console.log("[ENTRY-PROBE] Auth present:", Boolean(authProbe))
   // console.log("[ENTRY-PROBE] Auth prefix:", authProbe.slice(0, 18)) 
@@ -109,8 +109,8 @@ Deno.serve(async (req) => {
       .rpc('get_decrypted_asaas_config')
       .single();
 
-    if (configError || !config?.api_key) {
-      throw new Error('Asaas configuration not found');
+    if (configError || !config) {
+      throw new Error(`Asaas configuration not found: ${configError?.message || 'empty config'}`);
     }
 
     const {
@@ -121,11 +121,11 @@ Deno.serve(async (req) => {
       platform_fee_type,
       platform_fee_value
     } = config;
-    const apiKey = String(rawApiKey || '').trim();
+    const apiKey = String(rawApiKey || (config as any).secret_key || '').trim();
     const runtimeEnv = String(env || (config as any).environment || 'sandbox').toLowerCase();
 
     if (!apiKey) {
-      throw new Error('Asaas API key is empty');
+      throw new Error('Asaas API key is empty or unavailable in decrypted config');
     }
 
     // 7.5 Apply Coupon Logic (Server-Side Recalculation)

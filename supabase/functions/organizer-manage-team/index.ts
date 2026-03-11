@@ -236,15 +236,58 @@ Deno.serve(async (req) => {
         .select("id, organizer_id, user_id")
         .eq("organizer_id", user.id)
         .eq("user_id", memberUserId)
-        .single();
+        .maybeSingle();
 
       if (teamRowError || !teamRow) {
         return asJson(404, { ok: false, error: "Team member not found" }, corsHeaders);
       }
 
+      const { data: memberProfile, error: memberProfileError } = await adminClient
+        .from("profiles")
+        .select("id, roles")
+        .eq("id", memberUserId)
+        .maybeSingle();
+
+      if (memberProfileError) {
+        return asJson(400, { ok: false, error: `profile_read: ${memberProfileError.message}` }, corsHeaders);
+      }
+
+      const nextRoles = normalizeRoles(memberProfile?.roles).filter((role) => role !== "EQUIPE");
+      if (!nextRoles.includes("BUYER")) {
+        nextRoles.unshift("BUYER");
+      }
+
+      const { error: teamDeleteError } = await adminClient
+        .from("team_members")
+        .delete()
+        .eq("id", teamRow.id)
+        .eq("organizer_id", user.id);
+
+      if (teamDeleteError) {
+        return asJson(400, { ok: false, error: `team_delete: ${teamDeleteError.message}` }, corsHeaders);
+      }
+
+      const { error: profileUpdateError } = await adminClient
+        .from("profiles")
+        .update({
+          roles: nextRoles,
+          organizer_status: "NONE",
+          role: "user",
+          account_type: "comprador",
+          updated_at: new Date().toISOString(),
+        } as any)
+        .eq("id", memberUserId);
+
+      if (profileUpdateError) {
+        return asJson(400, { ok: false, error: `profile_update: ${profileUpdateError.message}` }, corsHeaders);
+      }
+
       const { error: deleteAuthError } = await adminClient.auth.admin.deleteUser(memberUserId);
       if (deleteAuthError) {
-        return asJson(400, { ok: false, error: `delete_user: ${deleteAuthError.message}` }, corsHeaders);
+        return asJson(200, {
+          ok: true,
+          warning: `auth_delete_skipped: ${deleteAuthError.message}`,
+        }, corsHeaders);
       }
 
       return asJson(200, { ok: true }, corsHeaders);

@@ -79,8 +79,8 @@ Deno.serve(async (req) => {
       .rpc('get_decrypted_asaas_config')
       .single();
 
-    if (configError || !config?.api_key) {
-      throw new Error('Asaas configuration not found');
+    if (configError || !config) {
+      throw new Error(`Asaas configuration not found: ${configError?.message || 'empty config'}`);
     }
 
     const {
@@ -90,9 +90,9 @@ Deno.serve(async (req) => {
       platform_fee_type,
       platform_fee_value
     } = config;
-    const apiKey = String(rawApiKey || '').trim();
+    const apiKey = String(rawApiKey || (config as any).secret_key || '').trim();
     const env = String(config.env || config.environment || 'sandbox').toLowerCase();
-    if (!apiKey) throw new Error('Asaas API key is empty');
+    if (!apiKey) throw new Error('Asaas API key is empty or unavailable in decrypted config');
     const baseUrl = env === 'production' ? 'https://api.asaas.com/v3' : 'https://sandbox.asaas.com/api/v3';
     const headers = { 'access_token': apiKey, 'Content-Type': 'application/json; charset=utf-8' };
 
