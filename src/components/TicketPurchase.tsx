@@ -32,9 +32,10 @@ interface SingleModeToggleProps {
   enabled: boolean;
   onToggle: (val: boolean) => void;
   isLocked?: boolean;
+  isBot?: boolean;
 }
 
-export function SingleModeToggle({ enabled, onToggle, isLocked = false }: SingleModeToggleProps) {
+export function SingleModeToggle({ enabled, onToggle, isLocked = false, isBot = false }: SingleModeToggleProps) {
   if (isBot) {
     // Silent fail for bots
     return null;
@@ -223,7 +224,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   const handleToggleSingleMode = (val: boolean) => {
     if (val) {
       if (age && parseInt(age) < 18) {
-        toast.error("É necessário ter mais de 18 anos para ativar o modo Match");
+        toast.error("�0 necessário ter mais de 18 anos para ativar o modo Match");
         return;
       }
       setShowMatchGuidelines(true);
@@ -600,7 +601,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         .from('payments')
         .select('status')
         .eq('ticket_id', ticketId)
-        .single();
+        .maybeSingle();
         
       if (data && data.status === 'paid') {
         handlePaymentSuccess();
@@ -898,6 +899,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
                 enabled={singleMode} 
                 onToggle={handleToggleSingleMode}
                 isLocked={!!(age && parseInt(age) < 18)} 
+                isBot={isBot}
               />
             </div>
           </div>
@@ -910,6 +912,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
                 enabled={singleMode} 
                 onToggle={handleToggleSingleMode}
                 isLocked={!!(age && parseInt(age) < 18)} 
+                isBot={isBot}
               />
             </div>
 

@@ -954,7 +954,7 @@ export class EventService {
       .select('*')
       .eq('event_id', eventId)
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
     if (existing) {
       return existing;
@@ -1037,7 +1037,7 @@ export class EventService {
       .select('id')
       .eq('event_id', eventId)
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
     return !error && !!data;
   }
@@ -1477,7 +1477,7 @@ export class EventService {
       .select('id')
       .eq('event_id', eventId)
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
     if (error && error.code !== 'PGRST116') { // PGRST116 = not found
       // console.error('Erro ao verificar like:', error);
