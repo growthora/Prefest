@@ -107,11 +107,13 @@ export interface Event {
   image: string;
   images?: string[];
   category: string;
+  tags?: string[];
+  event_type?: 'festive' | 'formal';
   price?: string | number;
   display_price_label?: string;
   display_price_value?: number;
   is_free_event?: boolean;
-  organizer: {
+  organizer?: {
     id: string;
     name: string;
     avatar: string;

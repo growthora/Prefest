@@ -23,7 +23,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Layout } from '@/components/Layout';
 import { TicketPurchase } from '@/components/TicketPurchase';
 import { MatchInterface } from '@/components/MatchCards';
-import { AttendeesList, Attendee } from '@/components/AttendeesList';
+import { AttendeesList } from '@/components/AttendeesList';
 import { Event, ROUTE_PATHS } from '@/lib/index';
 import { eventService, type Event as SupabaseEvent, MatchCandidate } from '@/services/event.service';
 import { likeService } from '@/services/like.service';
@@ -43,6 +43,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import confetti from 'canvas-confetti';
 import { differenceInYears, parseISO } from 'date-fns';
+import { toUserFriendlyErrorMessage } from '@/lib/appErrors';
 
 import { goToPublicProfile } from '@/utils/navigation';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
@@ -423,7 +424,7 @@ export default function EventDetails() {
           hour12: false
         });
         
-        const galleryRows = await eventService.getEventImages(supabaseEvent.id).catch(() => []);
+        const galleryRows = await eventService.getEventImages(supabaseEvent.id).catch((): any[] => []);
         const orderedGallery = galleryRows
           .slice()
           .sort((a, b) => Number(a.display_order) - Number(b.display_order));
@@ -504,7 +505,7 @@ export default function EventDetails() {
         return;
       }
 
-      if (likeResult.status === 'match' || likeResult.is_match) {
+      if (likeResult.status === 'match') {
         // É um match!
         
         // Disparar confetes
@@ -651,7 +652,7 @@ export default function EventDetails() {
         setActiveTab('attendees');
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao comprar ingresso');
+      toast.error(toUserFriendlyErrorMessage(err));
     }
   };
 

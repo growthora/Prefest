@@ -45,6 +45,7 @@ const Home = () => {
           title: event.title,
           date: new Date(event.event_date).toLocaleDateString('pt-BR'),
           time: new Date(event.event_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          end_at: event.end_at ?? null,
           location: event.location,
           address: event.location,
           city: event.city,

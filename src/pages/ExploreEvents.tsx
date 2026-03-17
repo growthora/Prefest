@@ -151,7 +151,7 @@ const ExploreEvents = () => {
     setSearchParams(searchParams);
   };
 
-  const categories = ['Todas', 'Festas e shows', 'Teatros e espet·culos', 'Congressos e palestras', 'Passeios e tours', 'Gastronomia', 'Gr·tis'];
+  const categories = ['Todas', 'Festas e shows', 'Teatros e espet√°culos', 'Congressos e palestras', 'Passeios e tours', 'Gastronomia', 'Gr√°tis'];
   
   const stateLabel = BRAZIL_STATES.find(s => s.value === stateParam)?.label;
   const displayTitle = categoryParam || (stateLabel ? `Eventos em ${stateLabel}` : 'Explore eventos');
@@ -166,7 +166,7 @@ const ExploreEvents = () => {
             
             {/* Breadcrumb */}
             <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
-              <Link to={ROUTE_PATHS.HOME} className="hover:text-primary transition-colors">P·gina inicial</Link>
+              <Link to={ROUTE_PATHS.HOME} className="hover:text-primary transition-colors">P√°gina inicial</Link>
               <ChevronRight size={14} />
               <span className="text-gray-900 font-medium">
                 {displayTitle}
@@ -254,7 +254,7 @@ const ExploreEvents = () => {
                 <div className="mb-6">
                   <label className="text-sm font-semibold text-gray-700 mb-3 block">Data</label>
                   <div className="space-y-2">
-                    {['Hoje', 'Amanh„', 'Esta semana', 'Este fim de semana', 'PrÛximo mÍs'].map((date) => (
+                    {['Hoje', 'Amanh√£√£', 'Esta semana', 'Este fim de semana', 'Pr√≥ximo m√™s'].map((date) => (
                       <label key={date} className="flex items-center gap-3 cursor-pointer group">
                         <div className="w-4 h-4 rounded-full border border-gray-300 group-hover:border-primary flex items-center justify-center transition-colors"></div>
                         <span className="text-gray-600 group-hover:text-primary transition-colors text-sm">{date}</span>
@@ -265,7 +265,7 @@ const ExploreEvents = () => {
 
                  {/* Price (Mock) */}
                  <div>
-                  <label className="text-sm font-semibold text-gray-700 mb-3 block">PreÁo</label>
+                  <label className="text-sm font-semibold text-gray-700 mb-3 block">Pre√ßo</label>
                   <div className="space-y-2">
                     {['Pago', 'Gratuito'].map((price) => (
                       <label key={price} className="flex items-center gap-3 cursor-pointer group">
@@ -283,8 +283,8 @@ const ExploreEvents = () => {
             <div className="lg:col-span-3">
               {/* Mobile Quick Filters */}
               <div className="lg:hidden flex gap-3 overflow-x-auto pb-4 scrollbar-hide mb-6">
-                 {['Filtrar', 'Data', 'PreÁo', 'Categoria'].map((filter, idx) => {
-                   const isActive = (filter === 'Data' && sortBy === 'date') || (filter === 'PreÁo' && sortBy === 'price_asc');
+                 {['Filtrar', 'Data', 'Pre√ßo', 'Categoria'].map((filter, idx) => {
+                   const isActive = (filter === 'Data' && sortBy === 'date') || (filter === 'Pre√ßo' && sortBy === 'price_asc');
                    return (
                      <Button 
                        key={filter} 
@@ -299,7 +299,7 @@ const ExploreEvents = () => {
                            else params.set('sort', newValue);
                            setSearchParams(params);
                          }
-                         if (filter === 'PreÁo') {
+                         if (filter === 'Pre√ßo') {
                            const newValue = sortBy === 'price_asc' ? 'relevance' : 'price_asc';
                            setSortBy(newValue);
                            const params = new URLSearchParams(searchParams);
@@ -331,9 +331,9 @@ const ExploreEvents = () => {
                     onChange={handleSortChange}
                     className="text-sm font-medium text-gray-800 bg-transparent border-none cursor-pointer focus:ring-0 outline-none"
                   >
-                    <option value="relevance">Relev‚ncia</option>
-                    <option value="date">Data (prÛximos)</option>
-                    <option value="price_asc">Menor preÁo</option>
+                    <option value="relevance">Relev√¢ncia</option>
+                    <option value="date">Data (pr√≥ximos)</option>
+                    <option value="price_asc">Menor pre√ßo</option>
                   </select>
                 </div>
               </div>
@@ -370,7 +370,7 @@ const ExploreEvents = () => {
                     <h3 className="text-lg font-bold text-gray-800 mb-1">Nenhum evento encontrado</h3>
                     <p className="text-gray-500 text-center max-w-xs">
                       {categoryParam 
-                        ? `N„o encontramos eventos na categoria "${categoryParam}".` 
+                        ? `N√£o encontramos eventos na categoria "${categoryParam}".` 
                         : "Tente ajustar seus termos de busca ou filtros para encontrar o que procura."}
                     </p>
                     <Button 

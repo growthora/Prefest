@@ -14,6 +14,7 @@ import { useConfirm } from '@/contexts/ConfirmContext';
 import { Users, Pencil, Trash2, Plus, Search, Calendar, DollarSign, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toUserFriendlyErrorMessage } from '@/lib/appErrors';
 
 export default function AdminUsers() {
   const { isAdmin } = useAuth();
@@ -165,7 +166,7 @@ export default function AdminUsers() {
       });
       await loadUsers();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao criar usuário');
+      toast.error(toUserFriendlyErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -226,7 +227,7 @@ export default function AdminUsers() {
       setUserUpdate({});
       await loadUsers();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar usuário');
+      toast.error(toUserFriendlyErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -246,7 +247,7 @@ export default function AdminUsers() {
       toast.success('Usuário deletado com sucesso!');
       await loadUsers();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao deletar usuário');
+      toast.error(toUserFriendlyErrorMessage(err));
     } finally {
       setIsLoading(false);
     }

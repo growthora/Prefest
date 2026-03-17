@@ -22,6 +22,9 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [isLoadingLike, setIsLoadingLike] = useState(false);
 
+  const eventEndTimestamp = new Date((event.event_end_at || event.end_at || event.event_start_at || '') as string).getTime();
+  const isEnded = !Number.isNaN(eventEndTimestamp) && Date.now() >= eventEndTimestamp;
+
   useEffect(() => {
     if (user && event.id) {
       checkLikeStatus();
@@ -125,6 +128,11 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
           <Badge className="bg-background/80 backdrop-blur-md text-foreground border-none font-medium">
             {event.category}
           </Badge>
+          {isEnded && (
+            <Badge variant="destructive" className="bg-amber-500/80 text-white border-none">
+              Encerrado
+            </Badge>
+          )}
           {event.event_type && (
             <Badge 
               variant="outline" 
@@ -138,7 +146,7 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
               {event.event_type === 'formal' ? '?? Networking' : '?? Match'}
             </Badge>
           )}
-          {event.tags.slice(0, 1).map((tag) => (
+          {(event.tags || []).slice(0, 1).map((tag: string) => (
             <Badge key={tag} variant="outline" className="bg-black/40 backdrop-blur-sm border-white/10 text-white/80">
               {tag}
             </Badge>
@@ -224,13 +232,20 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
           </div>
           
           <Button
-            asChild
             className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-[0_0_15px_rgba(255,0,127,0.3)] hover:shadow-[0_0_25px_rgba(255,0,127,0.5)] transition-all px-6"
+            disabled={isEnded}
           >
-            <Link to={eventLink}>
-              Comprar
-              <Ticket className="ml-2 w-4 h-4" />
-            </Link>
+            {isEnded ? (
+              <span className="flex items-center">
+                Indisponível
+                <Ticket className="ml-2 w-4 h-4" />
+              </span>
+            ) : (
+              <Link to={eventLink}>
+                Comprar
+                <Ticket className="ml-2 w-4 h-4" />
+              </Link>
+            )}
           </Button>
         </div>
       </div>

@@ -84,11 +84,11 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
 
   const categories = [
     { name: "Festas e shows", icon: Music },
-    { name: "Teatros e espetaculos", icon: Theater },
+    { name: "Teatros e espetáculos", icon: Theater },
     { name: "Congressos e palestras", icon: Mic },
     { name: "Passeios e tours", icon: Compass },
     { name: "Gastronomia", icon: Utensils },
-    { name: "Gratis", icon: Star }
+    { name: "Grátis", icon: Star }
   ];
 
   return (

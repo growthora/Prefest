@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Loader2, User, Phone, Calendar as CalendarIcon, ShieldCheck } from 'lucide-react';
+import { toUserFriendlyErrorMessage } from '@/lib/appErrors';
 import { Layout } from '@/components/Layout';
 
 export default function CompleteProfile() {
@@ -111,7 +112,7 @@ export default function CompleteProfile() {
 
     } catch (error: any) {
       // console.error('Erro ao atualizar perfil:', error);
-      toast.error(error.message || 'Erro ao atualizar perfil');
+      toast.error(toUserFriendlyErrorMessage(error));
     } finally {
       setLoading(false);
     }

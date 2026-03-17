@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useConfirm } from '@/contexts/ConfirmContext';
 import { Users, CheckCircle, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { toUserFriendlyErrorMessage } from '@/lib/appErrors';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AdminOrganizers() {
@@ -36,7 +37,7 @@ export default function AdminOrganizers() {
       toast.success('Organizador aprovado com sucesso!');
       await loadPendingOrganizers();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao aprovar organizador');
+      toast.error(toUserFriendlyErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -56,7 +57,7 @@ export default function AdminOrganizers() {
       toast.success('Organizador rejeitado com sucesso!');
       await loadPendingOrganizers();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao rejeitar organizador');
+      toast.error(toUserFriendlyErrorMessage(err));
     } finally {
       setIsLoading(false);
     }

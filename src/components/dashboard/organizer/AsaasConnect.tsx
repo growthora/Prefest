@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, CheckCircle2, AlertTriangle, XCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { toUserFriendlyErrorMessage } from '@/lib/appErrors';
 
 interface AsaasAccount {
   id: string;
@@ -127,7 +128,7 @@ export function AsaasConnect() {
       setAccount(data);
       toast.success('Wallet externa conectada com sucesso!');
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao conectar wallet externa');
+      toast.error(toUserFriendlyErrorMessage(error));
     } finally {
       setSubmitting(false);
     }
@@ -162,7 +163,7 @@ export function AsaasConnect() {
       if (errorMessage.toLowerCase().includes('email') && errorMessage.toLowerCase().includes('uso')) {
           toast.error('Este e-mail já está cadastrado no Asaas. Por favor, use outro e-mail ou entre em contato com o suporte.');
       } else {
-          toast.error(errorMessage);
+          toast.error(toUserFriendlyErrorMessage(error));
       }
     } finally {
       setSubmitting(false);
@@ -189,7 +190,7 @@ export function AsaasConnect() {
       }
     } catch (error: any) {
       // console.error('Refresh error:', error);
-      toast.error('Erro ao atualizar status: ' + (error.message || 'Erro desconhecido'));
+      toast.error(toUserFriendlyErrorMessage(error));
     } finally {
       setSubmitting(false);
     }

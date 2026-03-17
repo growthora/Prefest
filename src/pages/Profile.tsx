@@ -27,7 +27,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ImageCropUploader } from "@/components/ImageCropUploader";
 import { eventService } from "@/services/event.service";
 import { Event, ROUTE_PATHS } from "@/lib/index";
-import { toast } from "sonner";
+import { toast } from 'sonner';
+import { toUserFriendlyErrorMessage } from '@/lib/appErrors';
+
 import { MatchGuidelinesModal } from "@/components/MatchGuidelinesModal";
 
 export default function Profile() {
@@ -233,7 +235,7 @@ export default function Profile() {
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
     } catch (err) {
       // console.error(err);
-      toast.error(err instanceof Error ? err.message : "Erro ao alterar senha");
+      toast.error(toUserFriendlyErrorMessage(err));
     } finally {
       setIsChangingPassword(false);
     }

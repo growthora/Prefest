@@ -491,14 +491,11 @@ export class EventService {
 
   // Listar eventos disponíveis (não lotados e futuros)
   async getAvailableEvents(): Promise<Event[]> {
-    const now = new Date().toISOString();
-    
     const { data, error } = await supabase
       .from('events')
       .select('*, ticket_types(*)')
       .eq('status', 'published') // Apenas eventos publicados
       .eq('is_active', true)
-      .gte('event_date', now)
       .order('event_date', { ascending: true });
 
     if (error) throw error;

@@ -128,9 +128,18 @@ export const EventList = () => {
               <CardHeader>
                 <div className="flex items-start justify-between gap-2">
                   <CardTitle className="line-clamp-2">{event.title}</CardTitle>
-                  {event.category && (
-                    <Badge variant="secondary">{event.category}</Badge>
-                  )}
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
+                    {(() => {
+                      const endTs = new Date((event.end_at || event.event_date || '') as string).getTime();
+                      const isEnded = !Number.isNaN(endTs) && Date.now() >= endTs;
+                      return isEnded ? (
+                        <Badge variant="destructive">Encerrado</Badge>
+                      ) : null;
+                    })()}
+                    {event.category && (
+                      <Badge variant="secondary">{event.category}</Badge>
+                    )}
+                  </div>
                 </div>
                 <CardDescription>{formatDate(event.event_date)}</CardDescription>
               </CardHeader>
@@ -211,13 +220,19 @@ export const EventList = () => {
               </CardContent>
 
               <CardFooter>
+                {(() => {
+                  const endTs = new Date((event.end_at || event.event_date || '') as string).getTime();
+                  const isEnded = !Number.isNaN(endTs) && Date.now() >= endTs;
+                  return (
                 <Button 
                   className="w-full" 
                   onClick={() => handleJoinEvent(event.id)}
-                  disabled={joiningEventId === event.id || !user}
+                  disabled={joiningEventId === event.id || !user || isEnded}
                 >
-                  {joiningEventId === event.id ? 'Inscrevendo...' : 'Quero ir'}
+                  {joiningEventId === event.id ? 'Inscrevendo...' : isEnded ? 'Indisponível' : 'Quero ir'}
                 </Button>
+                  );
+                })()}
               </CardFooter>
             </Card>
           ))}

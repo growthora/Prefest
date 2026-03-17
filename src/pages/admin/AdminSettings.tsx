@@ -12,6 +12,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { invokeEdgeFunction } from '@/services/apiClient';
+import { toUserFriendlyErrorMessage } from '@/lib/appErrors';
 
 // Types
 interface SystemSettings {
@@ -163,7 +164,7 @@ export default function AdminSettings() {
 
     } catch (error: any) {
     // console.error('Error saving settings:', error);
-    toast.error(`Erro ao salvar: ${error.message}`);
+    toast.error(toUserFriendlyErrorMessage(error));
     } finally {
       setIsSaving(false);
     }
@@ -187,13 +188,13 @@ export default function AdminSettings() {
       
       toast.dismiss();
       if (error || data?.error) {
-        toast.error(`Falha na conexao: ${error?.message || data?.error}`);
+        toast.error(toUserFriendlyErrorMessage(error || data?.error));
       } else {
         toast.success('Conexao SMTP estabelecida com sucesso!');
       }
     } catch (error) {
         toast.dismiss();
-        toast.error('Erro ao testar SMTP');
+        toast.error(toUserFriendlyErrorMessage(error));
     }
   };
 

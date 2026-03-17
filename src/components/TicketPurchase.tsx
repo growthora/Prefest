@@ -1,24 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Flame, Ticket, CreditCard, ShieldCheck, Info, Tag, X, Ban } from 'lucide-react';
-import { Event } from '@/lib/index';
-import { useAuth } from '@/hooks/useAuth';
+import { Check, Lock, CreditCard, QrCode, Ticket, Users, User, AlertCircle, Sparkles, Flame, Info, Tag, ShieldCheck, Ban, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
+import { toast } from 'sonner';
+import { toUserFriendlyErrorMessage } from '@/lib/appErrors';
+import { PixPaymentModal } from './payment/PixPaymentModal';
 import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Separator } from '@/components/ui/separator';
 import { springPresets } from '@/lib/motion';
-import { cn } from '@/lib/utils';
 import { couponService } from '@/services/coupon.service';
-import { toast } from 'sonner';
+import type { Event } from '@/lib/index';
+import { useAuth } from '@/hooks/useAuth';
 import { invokeEdgeFunction } from '@/services/apiClient';
 import { TicketSelector } from './TicketSelector';
 import { MatchGuidelinesModal } from './MatchGuidelinesModal';
 import { CreditCardForm, CreditCardData } from './payment/CreditCardForm';
-import { PixPaymentModal } from './payment/PixPaymentModal';
 import type { TicketTypeDB } from '@/services/event.service';
 import { supabase } from '@/lib/supabase';
 import { Honeypot } from './security/Honeypot';
@@ -224,7 +225,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   const handleToggleSingleMode = (val: boolean) => {
     if (val) {
       if (age && parseInt(age) < 18) {
-        toast.error("�0 necessário ter mais de 18 anos para ativar o modo Match");
+        toast.error("É necessário ter mais de 18 anos para ativar o modo Match");
         return;
       }
       setShowMatchGuidelines(true);
@@ -539,23 +540,13 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
 
     } catch (error: any) {
     // console.error('Purchase error:', error);
-    let errorMessage = error.message || 'Erro inesperado ao processar o pagamento';
-    const errorStr = errorMessage.toLowerCase();
-      
-      if (errorMessage.includes('SALES_DISABLED') || error.context?.status === 403) {
-          errorMessage = 'As vendas para este evento ainda não foram abertas.';
-      } else if (errorStr.includes('invalid jwt') || errorStr.includes('401') || errorStr.includes('unauthorized')) {
-          errorMessage = 'Sessão inválida. Tente fazer login novamente.';
-      } else if (errorMessage.includes('menor que R$ 5,00') || errorMessage.includes('valor da cobrança')) {
-          errorMessage = 'O valor mínimo para pagamento é de R$ 5,00. Por favor, escolha outro ingresso.';
-      }
-      toast.error(errorMessage);
+      toast.error(toUserFriendlyErrorMessage(error));
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const basePrice = selectedTicketType?.price ?? event.price;
+  const basePrice = Number(selectedTicketType?.price ?? (event as any).price ?? 0);
   
   // Dynamic Service Fee Calculation
   let serviceFee = 0;
@@ -572,9 +563,9 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   
   if (appliedCoupon) {
     if (appliedCoupon.discount_type === 'percentage') {
-      discount = basePrice * (appliedCoupon.discount_value / 100);
+      discount = basePrice * (Number(appliedCoupon.discount_value) / 100);
     } else {
-      discount = appliedCoupon.discount_value;
+      discount = Number(appliedCoupon.discount_value);
     }
   }
   
@@ -584,7 +575,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   const isSalesClosedByDate = !Number.isNaN(eventEndTimestamp) && Date.now() >= eventEndTimestamp;
   const normalizedStatus = String((event as any).status || '').toLowerCase();
   const isEventCanceled = normalizedStatus === 'cancelado' || normalizedStatus === 'canceled' || normalizedStatus === 'cancelled';
-  const isSalesDisabled = event.sales_enabled === false;
+  const isSalesDisabled = (event as any).sales_enabled === false;
   const isCheckoutBlocked = isSalesClosedByDate || isEventCanceled || isSalesDisabled;
 
   const handlePaymentSuccess = React.useCallback(() => {
