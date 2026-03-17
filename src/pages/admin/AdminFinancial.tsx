@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DollarSign, ArrowUpRight, ArrowDownLeft, Wallet, CreditCard, Download, Search, Calendar, Filter, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
+import { toUserFriendlyErrorMessage } from '@/lib/appErrors';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, BarChart, Bar } from 'recharts';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
@@ -146,12 +147,7 @@ export default function AdminFinancial() {
 
     } catch (error: any) {
       // console.error('Erro detalhado ao carregar dados financeiros:', error);
-      const isConnectionError = error.message?.includes('Failed to send a request') || error.message?.includes('Failed to fetch');
-      const msg = isConnectionError 
-        ? 'Falha na conexão com o servidor (Edge Function offline ou bloqueada).' 
-        : (error.message || 'Erro desconhecido');
-      
-      toast.error(`Erro ao carregar dados: ${msg}`);
+      toast.error(toUserFriendlyErrorMessage(error));
     } finally {
       setIsLoading(false);
     }

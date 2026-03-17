@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Ticket, Plus, Search, Trash2, Power, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toUserFriendlyErrorMessage } from '@/lib/appErrors';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -94,7 +95,7 @@ export default function AdminCoupons() {
       await loadCoupons();
       toast.success('Cupom criado com sucesso!');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao criar cupom');
+      toast.error(toUserFriendlyErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -114,7 +115,7 @@ export default function AdminCoupons() {
       setCoupons(coupons.map(c => 
         c.id === couponId ? { ...c, active: currentStatus } : c
       ));
-      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar cupom');
+      toast.error(toUserFriendlyErrorMessage(err));
     }
   };
 
@@ -132,7 +133,7 @@ export default function AdminCoupons() {
       toast.success('Cupom deletado com sucesso!');
       await loadCoupons();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao deletar cupom');
+      toast.error(toUserFriendlyErrorMessage(err));
     } finally {
       setIsLoading(false);
     }

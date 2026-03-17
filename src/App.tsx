@@ -108,7 +108,9 @@ const ChatDesktopRoute = () => {
   const { matchId } = useParams();
 
   if (isMobile) {
-    const target = matchId ? `/m/chat/${matchId}` : "/m/chat";
+    const target = matchId
+      ? ROUTE_PATHS.MOBILE_CHAT.replace(':matchId', matchId)
+      : ROUTE_PATHS.MOBILE_CHAT_LIST;
     return <Navigate to={target} replace />;
   }
 
@@ -120,7 +122,9 @@ const ChatMobileRoute = () => {
   const { matchId } = useParams();
 
   if (!isMobile) {
-    const target = matchId ? `/chat/${matchId}` : "/chat";
+    const target = matchId
+      ? ROUTE_PATHS.CHAT.replace(':matchId', matchId)
+      : ROUTE_PATHS.CHAT_LIST;
     return <Navigate to={target} replace />;
   }
 
@@ -170,7 +174,7 @@ const AppRoutes = () => {
       <Route path={ROUTE_PATHS.UPDATE_PASSWORD} element={<ResetPassword />} />
       <Route path={ROUTE_PATHS.AUTH_ERROR} element={<AuthError />} />
       <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
-        <Route path="/admin" element={<AdminLayout />}>
+        <Route path={ROUTE_PATHS.ADMIN_DASHBOARD} element={<AdminLayout />}>
           <Route index element={<AdminOverview />} />
           <Route path="eventos" element={<AdminEvents />} />
           <Route path="cupons" element={<AdminCoupons />} />
@@ -196,33 +200,30 @@ const AppRoutes = () => {
       <Route path={ROUTE_PATHS.TERMS} element={<TermsOfUse />} />
       <Route path={ROUTE_PATHS.STATUS} element={<StatusPage />} />
       <Route path={ROUTE_PATHS.SUPPORT} element={<SupportHub />} />
-      <Route
-        path={ROUTE_PATHS.HELP_CENTER}
-        element={<Navigate to={ROUTE_PATHS.FAQ} replace />}
-      />
+      <Route path={ROUTE_PATHS.HELP_CENTER} element={<HelpCenter />} />
       <Route path={ROUTE_PATHS.CONTACT_US} element={<ContactUs />} />
       <Route path={ROUTE_PATHS.FAQ} element={<FAQ />} />
       <Route path={ROUTE_PATHS.EVENTS} element={<EventList />} />
       <Route path={ROUTE_PATHS.EVENT_DETAILS} element={<EventDetails />} />
       <Route path={ROUTE_PATHS.PUBLIC_PROFILE} element={<PublicProfile />} />
-      <Route path="/perfil/completar-cadastro" element={<CompleteProfile />} />
-      <Route path="/debug-auth" element={<DebugAuth />} />
+      <Route path={ROUTE_PATHS.COMPLETE_PROFILE} element={<CompleteProfile />} />
+      <Route path={ROUTE_PATHS.DEBUG_AUTH} element={<DebugAuth />} />
       
       {/* Protected Routes */}
       <Route element={<ProtectedRoute />}>
         <Route path={ROUTE_PATHS.CREATE_EVENT} element={<CreateEventForm />} />
         <Route path={ROUTE_PATHS.MY_EVENTS} element={<MyEvents />} />
-        <Route path="/ingressos/:ticketId" element={<TicketDetails />} />
-        <Route path="/eventos/:eventId/matchs" element={<EventMatches />} />
+        <Route path={ROUTE_PATHS.TICKET_DETAILS} element={<TicketDetails />} />
+        <Route path={ROUTE_PATHS.EVENT_MATCHES} element={<EventMatches />} />
         <Route path={ROUTE_PATHS.PROFILE} element={<Profile />} />
         <Route path={ROUTE_PATHS.DELETE_ACCOUNT} element={<DeletarConta />} />
         <Route path={ROUTE_PATHS.TICKET_SCANNER} element={<TicketScanner />} />
         
         {/* Chat Routes */}
-        <Route path="/chat" element={<ChatDesktopRoute />} />
+        <Route path={ROUTE_PATHS.CHAT_LIST} element={<ChatDesktopRoute />} />
         <Route path={ROUTE_PATHS.CHAT} element={<ChatDesktopRoute />} />
-        <Route path="/m/chat" element={<ChatMobileRoute />} />
-        <Route path="/m/chat/:matchId" element={<ChatMobileRoute />} />
+        <Route path={ROUTE_PATHS.MOBILE_CHAT_LIST} element={<ChatMobileRoute />} />
+        <Route path={ROUTE_PATHS.MOBILE_CHAT} element={<ChatMobileRoute />} />
       </Route>
 
       {/* Redirects for old routes */}

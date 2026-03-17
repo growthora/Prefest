@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Pencil, Trash2, Calendar, Plus, Search, MapPin, DollarSign, Users, Power } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toUserFriendlyErrorMessage } from '@/lib/appErrors';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -174,7 +175,7 @@ export default function AdminEvents() {
       setNewEventImages([]);
       await loadEvents();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao criar evento');
+      toast.error(toUserFriendlyErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -210,7 +211,7 @@ export default function AdminEvents() {
       setEditingEvent(null);
       await loadEvents();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar evento');
+      toast.error(toUserFriendlyErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -230,9 +231,7 @@ export default function AdminEvents() {
       toast.success('Evento deletado com sucesso!');
       await loadEvents();
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : (err as any)?.message || 'Erro ao deletar evento';
-      toast.error(message);
+      toast.error(toUserFriendlyErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -250,7 +249,7 @@ export default function AdminEvents() {
       }
       await loadEvents();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar status do evento');
+      toast.error(toUserFriendlyErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
