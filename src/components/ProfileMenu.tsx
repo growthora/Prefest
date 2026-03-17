@@ -229,7 +229,7 @@ export const ProfileMenu = () => {
       </DropdownMenu>
 
       <Dialog open={showOrganizerModal} onOpenChange={setShowOrganizerModal}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Torne-se um Organizador</DialogTitle>
             <DialogDescription>
@@ -237,7 +237,7 @@ export const ProfileMenu = () => {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="py-4 space-y-4">
+          <div className="py-2 sm:py-4 space-y-4">
             <div className="flex items-start gap-3 p-3 bg-muted rounded-lg">
               <LayoutDashboard className="w-5 h-5 text-primary mt-0.5" />
               <div className="text-sm">
@@ -248,10 +248,10 @@ export const ProfileMenu = () => {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowOrganizerModal(false)}>
+            <Button variant="outline" onClick={() => setShowOrganizerModal(false)} className="w-full sm:w-auto">
               Cancelar
             </Button>
-            <Button onClick={handleRequestOrganizer} disabled={isRequesting}>
+            <Button onClick={handleRequestOrganizer} disabled={isRequesting} className="w-full sm:w-auto">
               {isRequesting ? "Enviando..." : "Solicitar acesso como organizador"}
             </Button>
           </DialogFooter>
@@ -260,9 +260,6 @@ export const ProfileMenu = () => {
     </>
   );
 };
-
-
-
 
 
 

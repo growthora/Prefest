@@ -66,13 +66,13 @@ export function DeleteEventDialog({ event, isOpen, onClose, onSuccess }: DeleteE
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>Cancelar</AlertDialogCancel>
+          <AlertDialogCancel disabled={isLoading} className="w-full sm:w-auto">Cancelar</AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();
               handleDelete();
             }}
-            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            className="w-full sm:w-auto bg-red-600 hover:bg-red-700 focus:ring-red-600"
             disabled={isLoading}
           >
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

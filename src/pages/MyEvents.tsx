@@ -147,7 +147,7 @@ export default function MyEvents() {
             </div>
             <h3 className="text-lg font-medium">Nenhum evento encontrado</h3>
             <p className="text-muted-foreground mt-2 mb-6 max-w-xs">
-              Você ainda não comprou ingressos para nenhum evento.
+              VocÃª ainda nÃ£o comprou ingressos para nenhum evento.
             </p>
             <Button onClick={() => navigate('/explorar-eventos')}>
               Explorar Eventos
@@ -156,8 +156,8 @@ export default function MyEvents() {
       ) : (
         <Tabs defaultValue="upcoming" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="upcoming">Próximos</TabsTrigger>
-            <TabsTrigger value="history">Histórico</TabsTrigger>
+            <TabsTrigger value="upcoming">PrÃ³ximos</TabsTrigger>
+            <TabsTrigger value="history">HistÃ³rico</TabsTrigger>
           </TabsList>
 
           <TabsContent value="upcoming" className="space-y-4">
@@ -167,7 +167,7 @@ export default function MyEvents() {
               ))
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                <p>Nenhum evento próximo.</p>
+                <p>Nenhum evento prÃ³ximo.</p>
                 <Button variant="link" onClick={() => navigate('/explorar-eventos')}>
                   Explorar novos eventos
                 </Button>

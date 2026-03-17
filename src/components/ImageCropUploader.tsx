@@ -178,14 +178,14 @@ export function ImageCropUploader({
         {/* Cropper Modal */}
         <Dialog open={isCropping} onOpenChange={(open) => !open && handleCancel()}>
           <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden bg-background">
-            <DialogHeader className="p-6 pb-2">
+            <DialogHeader className="p-4 sm:p-6 pb-2">
               <DialogTitle>Ajustar Imagem</DialogTitle>
               <DialogDescription>
                 Arraste e aplique zoom para enquadrar a imagem corretamente.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="relative w-full h-[400px] bg-black/90">
+            <div className="relative w-full h-[280px] sm:h-[400px] bg-black/90">
               {imageSrc && (
                 <Cropper
                   image={imageSrc}
@@ -201,7 +201,7 @@ export function ImageCropUploader({
               )}
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
               <div className="flex items-center gap-4">
                 <ZoomIn className="w-4 h-4 text-muted-foreground" />
                 <Slider
@@ -215,10 +215,10 @@ export function ImageCropUploader({
               </div>
 
               <DialogFooter className="gap-2 sm:gap-0">
-                <Button variant="outline" onClick={handleCancel}>
+                <Button variant="outline" onClick={handleCancel} className="w-full sm:w-auto">
                   Cancelar
                 </Button>
-                <Button onClick={handleSave} disabled={isUploading}>
+                <Button onClick={handleSave} disabled={isUploading} className="w-full sm:w-auto">
                   {isUploading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -305,14 +305,14 @@ export function ImageCropUploader({
       {/* Cropper Modal */}
       <Dialog open={isCropping} onOpenChange={(open) => !open && handleCancel()}>
         <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden bg-background">
-          <DialogHeader className="p-6 pb-2">
+          <DialogHeader className="p-4 sm:p-6 pb-2">
             <DialogTitle>Ajustar Imagem</DialogTitle>
             <DialogDescription>
               Arraste e aplique zoom para enquadrar a imagem corretamente.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="relative w-full h-[400px] bg-black/90">
+          <div className="relative w-full h-[280px] sm:h-[400px] bg-black/90">
             {imageSrc && (
               <Cropper
                 image={imageSrc}
@@ -328,7 +328,7 @@ export function ImageCropUploader({
             )}
           </div>
 
-          <div className="p-6 space-y-6">
+          <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
             <div className="flex items-center gap-4">
               <ZoomIn className="w-4 h-4 text-muted-foreground" />
               <Slider

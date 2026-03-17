@@ -32,7 +32,7 @@ export const LocationPopup = () => {
           animate={{ opacity: 1, y: 0, x: "-50%" }}
           exit={{ opacity: 0, y: -20, x: "-50%" }}
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
-          className="fixed top-24 left-1/2 z-[60] flex items-center gap-4 bg-white p-4 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100 max-w-[90vw] md:max-w-md w-fit"
+          className="fixed top-20 sm:top-24 left-1/2 z-[60] flex items-start sm:items-center gap-3 sm:gap-4 bg-white p-3 sm:p-4 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100 w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] sm:max-w-md"
         >
           {/* Icon wrapper */}
           <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -40,7 +40,7 @@ export const LocationPopup = () => {
           </div>
 
           {/* Content */}
-          <div className="flex flex-col gap-0.5">
+          <div className="flex min-w-0 flex-col gap-0.5">
             <span className="text-sm font-bold text-gray-900">Novidade!</span>
             <span className="text-sm text-gray-600 leading-tight">
               Descubra o que fazer perto de você
@@ -51,7 +51,7 @@ export const LocationPopup = () => {
           <button
             type="button"
             onClick={handleClose}
-            className="ml-2 p-1.5 hover:bg-gray-100 text-gray-400 hover:text-gray-600 rounded-full transition-colors cursor-pointer flex-shrink-0"
+            className="ml-auto p-1.5 hover:bg-gray-100 text-gray-400 hover:text-gray-600 rounded-full transition-colors cursor-pointer flex-shrink-0"
             aria-label="Fechar aviso"
           >
             <X size={16} />

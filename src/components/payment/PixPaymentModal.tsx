@@ -35,16 +35,16 @@ export function PixPaymentModal({ isOpen, onClose, qrCodeImage, copyPasteCode, a
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-background/80 backdrop-blur-sm">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="relative w-full max-w-md bg-card border border-border rounded-xl shadow-2xl overflow-hidden"
+            className="relative w-full max-w-md max-h-[calc(100vh-1rem)] sm:max-h-[calc(100vh-3rem)] bg-card border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col"
           >
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-5 sm:space-y-6 overflow-y-auto">
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
+                <div className="space-y-1 pr-2">
                   <h2 className="text-lg font-bold tracking-tight flex items-center gap-2">
                     <QrCode className="w-5 h-5 text-primary" />
                     Pagamento via Pix
@@ -58,16 +58,16 @@ export function PixPaymentModal({ isOpen, onClose, qrCodeImage, copyPasteCode, a
                 </Button>
               </div>
 
-              <div className="flex flex-col items-center justify-center p-4 bg-white rounded-xl border-2 border-primary/20">
+              <div className="flex flex-col items-center justify-center p-3 sm:p-4 bg-white rounded-xl border-2 border-primary/20">
                  {/* QR Code Image - usually comes as base64 from Asaas */}
                  {qrCodeImage ? (
                    <img 
                       src={`data:image/png;base64,${qrCodeImage}`} 
                       alt="QR Code Pix" 
-                      className="w-48 h-48 object-contain"
+                      className="w-40 h-40 sm:w-48 sm:h-48 object-contain"
                    />
                  ) : (
-                   <div className="w-48 h-48 flex items-center justify-center text-muted-foreground text-xs">
+                   <div className="w-40 h-40 sm:w-48 sm:h-48 flex items-center justify-center text-muted-foreground text-xs text-center">
                      QR Code indisponível
                    </div>
                  )}
@@ -90,11 +90,11 @@ export function PixPaymentModal({ isOpen, onClose, qrCodeImage, copyPasteCode, a
                 <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   Pix Copia e Cola
                 </p>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 p-3 bg-muted/50 rounded-lg font-mono text-xs truncate border border-border">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <div className="flex-1 p-3 bg-muted/50 rounded-lg font-mono text-xs break-all border border-border max-h-24 overflow-y-auto">
                     {copyPasteCode}
                   </div>
-                  <Button size="icon" variant="outline" onClick={handleCopy} className="shrink-0">
+                  <Button size="icon" variant="outline" onClick={handleCopy} className="shrink-0 self-end sm:self-auto">
                     <Copy className="w-4 h-4" />
                   </Button>
                 </div>
@@ -108,17 +108,18 @@ export function PixPaymentModal({ isOpen, onClose, qrCodeImage, copyPasteCode, a
               </div>
             </div>
             
-            <div className="p-4 bg-muted/30 border-t border-border flex justify-end gap-2">
+            <div className="p-4 bg-muted/30 border-t border-border flex flex-col-reverse sm:flex-row justify-end gap-2">
                 {onCheckStatus && (
                     <Button 
                         onClick={handleCheckStatus} 
                         variant="outline"
                         disabled={isChecking}
+                        className="w-full sm:w-auto"
                     >
                         {isChecking ? 'Verificando...' : 'Já paguei'}
                     </Button>
                 )}
-                <Button onClick={onClose}>
+                <Button onClick={onClose} className="w-full sm:w-auto">
                     Fechar e Aguardar
                 </Button>
             </div>

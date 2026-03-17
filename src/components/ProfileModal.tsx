@@ -25,13 +25,13 @@ export function ProfileModal({ isOpen, onClose, user, onLike, onSkip }: ProfileM
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="bottom" className="h-[85vh] rounded-t-[2rem] border-t border-white/10 bg-zinc-950 p-0 overflow-hidden focus:outline-none">
+      <SheetContent side="bottom" className="h-[90vh] sm:h-[85vh] rounded-t-[2rem] border-t border-white/10 bg-zinc-950 p-0 overflow-hidden focus:outline-none">
         <VisuallyHidden>
           <SheetTitle>Perfil de {user.name}</SheetTitle>
         </VisuallyHidden>
         <div className="h-full overflow-y-auto">
           {/* Header Image */}
-          <div className="relative h-64 w-full bg-zinc-900">
+          <div className="relative h-56 sm:h-64 w-full bg-zinc-900">
             <img 
               src={user.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'User')}`} 
               alt={user.name} 
@@ -56,11 +56,11 @@ export function ProfileModal({ isOpen, onClose, user, onLike, onSkip }: ProfileM
             )}
           </div>
 
-          <div className="px-6 -mt-12 relative z-10 space-y-6 pb-20">
+          <div className="px-4 sm:px-6 -mt-12 relative z-10 space-y-5 sm:space-y-6 pb-20">
             {/* Title Section */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h2 className="text-3xl font-bold text-white">
+              <div className="flex items-start gap-3 justify-between">
+                <h2 className="text-2xl sm:text-3xl font-bold text-white min-w-0 break-words">
                   {user.name}
                   {!isPrivate && user.age && `, ${user.age}`}
                 </h2>
@@ -162,10 +162,10 @@ export function ProfileModal({ isOpen, onClose, user, onLike, onSkip }: ProfileM
 
             {/* Action Buttons */}
             {(onLike || onSkip) && !isPrivate && (
-              <div className="flex gap-4 pt-4">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4">
                 {onSkip && (
                   <Button 
-                    className="flex-1 h-14 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-white border-2 border-transparent hover:border-zinc-600 transition-all text-lg font-medium"
+                    className="flex-1 h-14 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-white border-2 border-transparent hover:border-zinc-600 transition-all text-base sm:text-lg font-medium"
                     onClick={() => onSkip(user.id!)}
                   >
                     <X className="mr-2" />
@@ -174,7 +174,7 @@ export function ProfileModal({ isOpen, onClose, user, onLike, onSkip }: ProfileM
                 )}
                 {onLike && (
                   <Button 
-                    className="flex-1 h-14 rounded-2xl bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25 transition-all text-lg font-medium"
+                    className="flex-1 h-14 rounded-2xl bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/25 transition-all text-base sm:text-lg font-medium"
                     onClick={() => onLike(user.id!)}
                   >
                     <Heart className="mr-2 fill-current" />

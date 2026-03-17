@@ -533,17 +533,17 @@ export default function AdminUsers() {
               whileHover={{ y: -5, transition: { duration: 0.2 } }}
             >
               <Card className="h-full overflow-hidden hover:shadow-xl transition-all duration-300 border-l-4 border-l-primary/20 hover:border-l-primary">
-                <CardHeader className="pb-2">
-                  <div className="flex justify-between items-start">
+                <CardHeader className="pb-2 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
                     {(() => {
                       const role = getRoleFromUser(user);
                       const accountType = getAccountTypeFromUser(user);
                       return (
-                        <div className="mb-2 flex gap-2">
-                          <Badge variant={role === 'admin' ? 'default' : 'outline'}>
+                        <div className="flex min-w-0 flex-1 flex-wrap gap-2">
+                          <Badge variant={role === 'admin' ? 'default' : 'outline'} className="max-w-full whitespace-normal text-center leading-tight">
                             {role === 'admin' ? 'Administrador' : 'Usuário'}
                           </Badge>
-                          <Badge variant="secondary">
+                          <Badge variant="secondary" className="max-w-full whitespace-normal text-center leading-tight">
                             {accountType === 'comprador'
                               ? 'Comprador'
                               : accountType === 'organizador'
@@ -551,12 +551,12 @@ export default function AdminUsers() {
                               : 'Comprador e Organizador'}
                           </Badge>
                           {isTeamMemberFromUser(user) && (
-                            <Badge variant="outline">Equipe</Badge>
+                            <Badge variant="outline" className="max-w-full whitespace-normal text-center leading-tight">Equipe</Badge>
                           )}
                         </div>
                       );
                     })()}
-                    <div className="flex gap-1">
+                    <div className="flex shrink-0 gap-1">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -575,25 +575,27 @@ export default function AdminUsers() {
                       </Button>
                     </div>
                   </div>
-                  <CardTitle className="text-lg line-clamp-1" title={user.full_name || ''}>
+                  <div className="space-y-1 min-w-0">
+                  <CardTitle className="text-lg leading-tight break-words" title={user.full_name || ''}>
                     {user.full_name || 'Sem nome'}
                   </CardTitle>
-                  <CardDescription className="line-clamp-1" title={user.email}>
+                  <CardDescription className="break-all leading-snug" title={user.email}>
                     {user.email}
                   </CardDescription>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 gap-4 mt-2">
-                    <div className="flex flex-col items-center p-2 bg-muted/30 rounded-lg">
+                  <div className="grid grid-cols-2 gap-3 mt-2">
+                    <div className="flex min-w-0 flex-col items-center p-3 bg-muted/30 rounded-lg text-center">
                       <span className="text-xs text-muted-foreground">Eventos</span>
-                      <span className="font-bold flex items-center gap-1">
+                      <span className="font-bold flex items-center gap-1 text-lg leading-none">
                         <Calendar className="w-3 h-3" />
                         {user.total_events || 0}
                       </span>
                     </div>
-                    <div className="flex flex-col items-center p-2 bg-muted/30 rounded-lg">
+                    <div className="flex min-w-0 flex-col items-center p-3 bg-muted/30 rounded-lg text-center">
                       <span className="text-xs text-muted-foreground">Gastos</span>
-                      <span className="font-bold flex items-center gap-1">
+                      <span className="font-bold flex items-center gap-1 text-lg leading-none whitespace-nowrap">
                         <DollarSign className="w-3 h-3" />
                         R$ {user.total_spent?.toFixed(0) || '0'}
                       </span>

@@ -517,10 +517,10 @@ export function EventDetailsEditorModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="w-[calc(100vw-1rem)] max-w-[1000px] h-[90dvh] p-0 gap-0 overflow-hidden"
+        className="w-[calc(100vw-0.5rem)] sm:w-[calc(100vw-1rem)] max-w-[1000px] h-[calc(100vh-0.5rem)] sm:h-[90dvh] p-0 gap-0 overflow-hidden"
         aria-describedby="event-editor-description"
       >
-        <DialogHeader className="px-4 py-3 md:px-6 border-b">
+        <DialogHeader className="px-3 py-3 sm:px-4 md:px-6 border-b">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
               <DialogTitle className="truncate">{event.title}</DialogTitle>
@@ -537,9 +537,9 @@ export function EventDetailsEditorModal({
           </div>
         </DialogHeader>
 
-        <div className="px-4 py-3 md:px-6 border-b">
+        <div className="px-3 py-3 sm:px-4 md:px-6 border-b overflow-x-auto">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+            <TabsList className="grid w-full min-w-[520px] grid-cols-4 md:min-w-0">
               <TabsTrigger value="informacoes">Informações</TabsTrigger>
               <TabsTrigger value="ingressos">Ingressos</TabsTrigger>
               <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
@@ -549,7 +549,7 @@ export function EventDetailsEditorModal({
         </div>
 
         <ScrollArea className="flex-1">
-          <div className="p-4 md:p-6">
+          <div className="p-3 sm:p-4 md:p-6">
             {!!saveError && (
               <Alert className="mb-4 border-red-300 text-red-800">
                 <AlertTriangle className="h-4 w-4" />
@@ -622,7 +622,7 @@ export function EventDetailsEditorModal({
                     {fieldErrors.location && <p className="text-xs text-red-600 mt-1">{fieldErrors.location}</p>}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <Label htmlFor="event-city">Cidade</Label>
                       <Input
@@ -647,7 +647,7 @@ export function EventDetailsEditorModal({
               </TabsContent>
 
               <TabsContent value="ingressos" className="mt-0 space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                   <div className="rounded-lg border p-3">
                     <p className="text-xs text-muted-foreground">Vendidos</p>
                     <p className="text-lg font-semibold">{metrics.sold}</p>
@@ -803,16 +803,17 @@ export function EventDetailsEditorModal({
                                     />
                                   </div>
                                 </div>
-                                <div className="flex items-center justify-between">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                   <p className="text-xs text-muted-foreground">
                                     Vendidos: {ticket.quantity_sold} / {ticket.quantity_available}
                                   </p>
-                                  <div className="flex gap-2">
+                                  <div className="flex flex-col sm:flex-row gap-2">
                                     <Button
                                       type="button"
                                       variant="outline"
                                       onClick={() => cancelEditingTicket(ticket.id)}
                                       disabled={savingTicketId === ticket.id}
+                                      className="w-full sm:w-auto"
                                     >
                                       Cancelar
                                     </Button>
@@ -820,6 +821,7 @@ export function EventDetailsEditorModal({
                                       type="button"
                                       onClick={() => saveTicket(ticket)}
                                       disabled={savingTicketId === ticket.id}
+                                      className="w-full sm:w-auto"
                                     >
                                       {savingTicketId === ticket.id && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                                       Salvar lote
@@ -861,8 +863,8 @@ export function EventDetailsEditorModal({
                                   </div>
                                 </div>
                                 {!readOnly && (
-                                  <div className="flex justify-end gap-2">
-                                    <Button type="button" variant="outline" onClick={() => startEditingTicket(ticket)}>
+                                  <div className="flex flex-col sm:flex-row justify-end gap-2">
+                                    <Button type="button" variant="outline" onClick={() => startEditingTicket(ticket)} className="w-full sm:w-auto">
                                       Editar
                                     </Button>
                                     <Button
@@ -870,6 +872,7 @@ export function EventDetailsEditorModal({
                                       variant="outline"
                                       onClick={() => deleteTicket(ticket)}
                                       disabled={deletingTicketId === ticket.id}
+                                      className="w-full sm:w-auto"
                                     >
                                       {deletingTicketId === ticket.id && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                                       Excluir
@@ -943,7 +946,7 @@ export function EventDetailsEditorModal({
                       </div>
                     </div>
                     <div className="flex justify-end">
-                      <Button type="button" onClick={createTicket} disabled={creatingTicket}>
+                      <Button type="button" onClick={createTicket} disabled={creatingTicket} className="w-full sm:w-auto">
                         {creatingTicket && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                         Adicionar lote
                       </Button>
@@ -1029,29 +1032,28 @@ export function EventDetailsEditorModal({
           </div>
         </ScrollArea>
 
-        <DialogFooter className="px-4 py-3 md:px-6 border-t flex-row justify-between">
-          <div className="flex items-center gap-2">
+        <DialogFooter className="border-t px-3 py-3 sm:px-4 md:px-6 flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+          <div className="flex w-full flex-col sm:w-auto sm:flex-row items-stretch sm:items-center gap-2">
             {currentMode === 'view' ? (
-              <Button variant="outline" onClick={() => setCurrentMode('edit')}>
+              <Button variant="outline" onClick={() => setCurrentMode('edit')} className="w-full sm:w-auto">
                 <Pencil className="h-4 w-4 mr-2" />
                 Editar
               </Button>
             ) : (
-              <Button variant="outline" onClick={() => setCurrentMode('view')} disabled={saveState === 'loading'}>
+              <Button variant="outline" onClick={() => setCurrentMode('view')} disabled={saveState === 'loading'} className="w-full sm:w-auto">
                 <Eye className="h-4 w-4 mr-2" />
                 Visualizar
               </Button>
             )}
           </div>
-
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={onClose} disabled={saveState === 'loading'}>
+          <div className="flex w-full flex-col-reverse sm:w-auto sm:flex-row gap-2">
+            <Button type="button" variant="outline" onClick={onClose} className="w-full sm:w-auto">
               Fechar
             </Button>
             {currentMode === 'edit' && (
-              <Button onClick={handleSave} disabled={saveState === 'loading'}>
+              <Button type="button" onClick={handleSave} disabled={saveState === 'loading'} className="w-full sm:w-auto">
                 {saveState === 'loading' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Salvar
+                Salvar alterações
               </Button>
             )}
           </div>

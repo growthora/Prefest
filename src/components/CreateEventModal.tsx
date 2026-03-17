@@ -195,11 +195,10 @@ export function CreateEventModal({ trigger }: CreateEventModalProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4 py-4">
+        <div className="flex flex-col gap-4 py-2 sm:py-4">
           {renderContent()}
         </div>
       </DialogContent>
     </Dialog>
   );
 }
-

@@ -46,7 +46,7 @@ export function MatchGuidelinesModal({ isOpen, onClose, onAccept }: MatchGuideli
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 mb-4">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 mb-3 sm:mb-4">
             {isUnderage ? (
               <Ban className="h-6 w-6 text-red-600" />
             ) : (
@@ -64,7 +64,7 @@ export function MatchGuidelinesModal({ isOpen, onClose, onAccept }: MatchGuideli
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">
+        <div className="py-2 sm:py-4">
           {isUnderage ? (
             <div className="rounded-lg bg-destructive/10 p-4 border border-destructive/20 text-center">
               <p className="text-sm text-destructive font-medium">
@@ -105,7 +105,7 @@ export function MatchGuidelinesModal({ isOpen, onClose, onAccept }: MatchGuideli
 
         <DialogFooter className="sm:justify-center">
           <Button 
-            className="w-full sm:w-auto min-w-[150px]" 
+            className="w-full sm:w-auto sm:min-w-[150px]" 
             variant={isUnderage ? "destructive" : "default"}
             onClick={handleAction}
           >
