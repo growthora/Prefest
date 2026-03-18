@@ -278,8 +278,6 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     }
   }, [selectedTicketTypeId, ticketTypes, selectedTicketType]);
 
-  const isFreeCheckout = total === 0;
-
   const handleTicketSelect = (ticketTypeId: string, ticketType: TicketTypeDB) => {
     setSelectedTicketTypeId(ticketTypeId);
     setSelectedTicketType(ticketType);
@@ -579,6 +577,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   }
   
   const total = Math.max(0, basePrice + serviceFee - discount);
+  const isFreeCheckout = total === 0;
 
   const eventEndTimestamp = new Date((event.event_end_at || event.end_at || event.event_start_at || '') as string).getTime();
   const isSalesClosedByDate = !Number.isNaN(eventEndTimestamp) && Date.now() >= eventEndTimestamp;
