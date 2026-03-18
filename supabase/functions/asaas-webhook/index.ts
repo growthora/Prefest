@@ -187,6 +187,25 @@ serve(async (req) => {
                 } else {
                     // console.log(`Ticket ${updatedPayment.ticket_id} updated to ${ticketStatus}`)
 
+                    if (ticketStatus === 'refunded') {
+                        await adminClient
+                            .from('event_participants')
+                            .update({
+                                status: 'cancelled',
+                                total_paid: 0,
+                            })
+                            .eq('ticket_id', updatedPayment.ticket_id)
+
+                        await adminClient
+                            .from('refund_requests')
+                            .update({
+                                status: 'refunded',
+                                provider_refund_id: payment.id,
+                                reviewed_at: new Date().toISOString(),
+                            })
+                            .eq('payment_id', updatedPayment.id)
+                    }
+
                     // 5.1 Create Event Participant (for attendance) if PAID
                     if (ticketStatus === 'paid') {
                         const { data: existingParticipant } = await adminClient

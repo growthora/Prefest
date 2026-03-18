@@ -278,6 +278,8 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     }
   }, [selectedTicketTypeId, ticketTypes, selectedTicketType]);
 
+  const isFreeCheckout = total === 0;
+
   const handleTicketSelect = (ticketTypeId: string, ticketType: TicketTypeDB) => {
     setSelectedTicketTypeId(ticketTypeId);
     setSelectedTicketType(ticketType);
@@ -405,7 +407,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
       }
       
       // If paid, go to payment. If free, go to confirmation
-      if (selectedTicketType && selectedTicketType.price > 0) {
+      if (!isFreeCheckout) {
           setStep('payment');
       } else {
           setStep('free_confirmation');
@@ -459,7 +461,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     try {
       setIsProcessing(true);
 
-      if (total === 0) {
+      if (isFreeCheckout) {
         // FREE FLOW
         // 1. Save Profile (if data exists in state)
         if (fullName && cpf && email && phone) {
@@ -479,7 +481,8 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
             body: { 
                 event_id: event.id,
                 ticket_type_id: selectedTicketTypeId,
-                quantity: 1 
+                quantity: 1,
+                coupon_code: appliedCoupon ? appliedCoupon.code : undefined
             }
         });
 
@@ -524,6 +527,12 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         });
 
         if (error) throw error;
+
+        if (data.autoConfirmed === true) {
+            toast.success('Ingresso confirmado automaticamente! Você já pode acessar sua participação no evento.');
+            await onPurchase(singleMode, selectedTicketTypeId, 0);
+            return;
+        }
 
         if (data.pixQrCode || data.pixQrCodeText) {
             setPixData({

@@ -31,64 +31,79 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true); // Mantido para operações de login/update
   const [error, setError] = useState<string | null>(null);
 
+  const clearAuthState = () => {
+    setUser(null);
+    setProfile(null);
+    setAuthStatus('unauthenticated');
+  };
+
+  const signOutInvalidAccount = async () => {
+    try {
+      await authService.signOut();
+    } catch {
+    } finally {
+      clearAuthState();
+    }
+  };
+
+  const loadRequiredProfile = async (userId: string): Promise<Profile> => {
+    try {
+      const userProfile = await authService.getProfile(userId);
+
+      if (!userProfile) {
+        throw new Error('PROFILE_MISSING');
+      }
+
+      return userProfile;
+    } catch (profileError: any) {
+      const isMissingProfile =
+        profileError?.code === 'PGRST116' ||
+        profileError?.message?.includes('0 rows') ||
+        profileError?.message === 'PROFILE_MISSING';
+
+      const isAuthError =
+        profileError?.code === 'PGRST301' ||
+        profileError?.message?.includes('JWT') ||
+        profileError?.status === 401;
+
+      if (isMissingProfile || isAuthError) {
+        await signOutInvalidAccount();
+        throw new Error('ACCOUNT_UNAVAILABLE');
+      }
+
+      throw profileError;
+    }
+  };
+
   useEffect(() => {
-    
     // Check for recovery mode in session storage (persistence across reloads)
     const storedRecoveryMode = sessionStorage.getItem('auth_recovery_mode');
-    
     // Also check URL hash for recovery type
     const isRecoveryHash = window.location.hash.includes('type=recovery');
-    
     if (storedRecoveryMode === 'true' || isRecoveryHash) {
       setIsRecoveryMode(true);
       if (isRecoveryHash) {
         sessionStorage.setItem('auth_recovery_mode', 'true');
       }
     }
-    
+
     // Carregar sessão inicial
     const initAuth = async () => {
       try {
         setAuthStatus('checking');
-        
         const session = await authService.getSession();
-        
         if (session?.user) {
           // Validar o token com getUser() para garantir que não está expirado/inválido
           try {
             const user = await authService.getCurrentUser();
             if (!user) throw new Error('Token inválido ou expirado');
-            
+
+            const userProfile = await loadRequiredProfile(user.id);
             setUser(user);
-            
-            // Buscar perfil em paralelo se possível, ou sequencial
-            try {
-                const userProfile = await authService.getProfile(user.id);
-                setProfile(userProfile);
-              } catch (profileError: any) {
-                
-                // Se o erro for de autenticação (401/403), o token é inválido para o banco
-                // Mas cuidado com erros de RLS ou "não encontrado" (PGRST116)
-                if (profileError?.code === 'PGRST301' || profileError?.message?.includes('JWT') || profileError?.status === 401) {
-                   await authService.signOut();
-                   setUser(null);
-                   setProfile(null);
-                   setAuthStatus('unauthenticated');
-                   return;
-                }
-                
-                // Se o perfil não existe (PGRST116), não deslogamos. O usuário pode ter sido criado manualmente ou falha no trigger.
-                if (profileError?.code === 'PGRST116') {
-                  // Opcional: Tentar criar perfil aqui se não existir?
-                  // Por enquanto, apenas não deslogamos.
-                }
-              }
-              setAuthStatus('authenticated');
+            setProfile(userProfile);
+            setAuthStatus('authenticated');
           } catch (validationError) {
-            await authService.signOut();
-            setUser(null);
-            setProfile(null);
-            setAuthStatus('unauthenticated');
+            clearAuthState();
           }
         } else {
           setAuthStatus('unauthenticated');
@@ -104,7 +119,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listener para mudanças de autenticação
     const { data: { subscription } } = authService.onAuthStateChange(async (user, event) => {
-      
       if (event === 'PASSWORD_RECOVERY') {
         setIsRecoveryMode(true);
         sessionStorage.setItem('auth_recovery_mode', 'true');
@@ -114,20 +128,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (user) {
-        setUser(user);
-        setAuthStatus('authenticated'); // Assume autenticado assim que tem user
-        
-        // Atualizar perfil em background se necessário
         try {
-          const userProfile = await authService.getProfile(user.id);
+          const userProfile = await loadRequiredProfile(user.id);
+          setUser(user);
           setProfile(userProfile);
-        } catch (err) {
-          // Erro silencioso
+          setAuthStatus('authenticated');
+        } catch (err: any) {
+          if (err?.message !== 'ACCOUNT_UNAVAILABLE') {
+            clearAuthState();
+          }
         }
       } else {
-        setUser(null);
-        setProfile(null);
-        setAuthStatus('unauthenticated');
+        clearAuthState();
       }
     });
 
@@ -164,25 +176,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       setError(null);
       const { user: loggedUser } = await authService.signIn({ email, password });
-      
       if (loggedUser) {
+        const userProfile = await loadRequiredProfile(loggedUser.id);
         setUser(loggedUser);
+        setProfile(userProfile);
         setAuthStatus('authenticated');
-        
-        try {
-          const userProfile = await authService.getProfile(loggedUser.id);
-          setProfile(userProfile);
-        } catch (profileErr: any) {
-          // Não falhamos o login se o perfil não carregar, a sessão existe
-          if (profileErr?.code === 'PGRST116') {
-             // Perfil não existe
-          }
-        }
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao fazer login';
-      setError(errorMessage);
-      throw new Error(errorMessage);
+      const normalizedErrorMessage = errorMessage === 'ACCOUNT_UNAVAILABLE'
+        ? 'Esta conta foi removida ou desativada e não pode mais acessar a plataforma.'
+        : errorMessage;
+      setError(normalizedErrorMessage);
+      throw new Error(normalizedErrorMessage);
     } finally {
       setIsLoading(false);
     }

@@ -29,6 +29,7 @@ export const ROUTE_PATHS = {
   HELP_CENTER: '/central-de-ajuda',
   CONTACT_US: '/fale-conosco',
   FAQ: '/perguntas-frequentes',
+  REFUND_REQUESTS: '/reembolsos',
   STATUS: '/status',
   FORGOT_PASSWORD: '/esqueci-minha-senha',
   UPDATE_PASSWORD: '/reset-password',
@@ -53,6 +54,7 @@ export const ROUTE_PATHS = {
   ADMIN_FINANCIAL: '/admin/financeiro',
   ADMIN_SETTINGS: '/admin/configuracoes',
   ADMIN_SUPPORT: '/admin/suporte',
+  ADMIN_REFUNDS: '/admin/reembolsos',
 } as const;
 
 export function buildEventDetailsPath(slugOrId: string) {

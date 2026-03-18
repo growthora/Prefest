@@ -122,7 +122,7 @@ export function SupportHub() {
                   </Link>
                 </li>
                 <li>
-                  <Link to={ROUTE_PATHS.HELP_CENTER} className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2">
+                  <Link to={ROUTE_PATHS.REFUND_REQUESTS} className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-primary/50"></span>
                     Como pedir reembolso
                   </Link>

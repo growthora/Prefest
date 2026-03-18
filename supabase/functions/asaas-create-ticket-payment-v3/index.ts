@@ -251,6 +251,65 @@ Deno.serve(async (req) => {
     // Refresh ticket object locally
     ticket.total_price = finalPrice;
 
+    if (finalPrice === 0) {
+      const { error: issueTicketError } = await adminClient
+        .from('tickets')
+        .update({
+          status: 'paid',
+          total_price: 0,
+          discount_amount: discountAmount,
+          coupon_id: appliedCouponId,
+          is_free: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', ticket.id);
+
+      if (issueTicketError) {
+        throw new Error('Falha ao confirmar ingresso gratuito no checkout');
+      }
+
+      const { error: participantError } = await adminClient
+        .from('event_participants')
+        .upsert(
+          {
+            event_id: ticket.event_id,
+            user_id: user.id,
+            ticket_type_id: ticket.ticket_type_id,
+            ticket_quantity: ticket.quantity,
+            total_paid: 0,
+            status: 'valid',
+            ticket_token: ticket.id,
+            ticket_id: ticket.id,
+          },
+          { onConflict: 'ticket_id' }
+        );
+
+      if (participantError) {
+        throw new Error('Falha ao confirmar participante para ingresso gratuito');
+      }
+
+      const responseBody = {
+        success: true,
+        autoConfirmed: true,
+        ticketId: ticket.id,
+        amount: 0,
+      };
+
+      if (idempotencyKey) {
+        await adminClient.from('idempotency_keys').insert({
+          key: idempotencyKey,
+          response_body: responseBody,
+          response_status: 200,
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        });
+      }
+
+      return new Response(JSON.stringify(responseBody), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
+        status: 200
+      });
+    }
+
     // 8. Fetch Creator Profile (for name/cpf fallback)
     // const { data: creatorProfile } = await adminClient
     //   .from('profiles')

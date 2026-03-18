@@ -7,6 +7,7 @@ import {
   UserCog, 
   BarChart3,
   DollarSign,
+  Wallet,
   Settings,
   HeadphonesIcon
 } from 'lucide-react';
@@ -52,6 +53,11 @@ export const adminNavItems = [
     title: "Financeiro",
     href: ROUTE_PATHS.ADMIN_FINANCIAL,
     icon: DollarSign,
+  },
+  {
+    title: "Reembolsos",
+    href: ROUTE_PATHS.ADMIN_REFUNDS,
+    icon: Wallet,
   },
   {
     title: "Suporte",

@@ -37,6 +37,7 @@ const AdminRequests = lazy(() => import("@/pages/admin/AdminRequests"));
 const AdminOrganizers = lazy(() => import("@/pages/admin/AdminOrganizers"));
 const AdminUsers = lazy(() => import("@/pages/admin/AdminUsers"));
 const AdminFinancial = lazy(() => import("@/pages/admin/AdminFinancial"));
+const AdminRefunds = lazy(() => import("@/pages/admin/AdminRefunds"));
 const AdminSettings = lazy(() => import("@/pages/admin/AdminSettings"));
 const AdminSupport = lazy(() => import("@/pages/admin/AdminSupport"));
 const AdminStats = lazy(() => import("@/pages/admin/AdminStats"));
@@ -44,6 +45,7 @@ const SupportHub = lazy(() => import("./pages/Support/SupportHub"));
 const HelpCenter = lazy(() => import("./pages/Support/HelpCenter"));
 const ContactUs = lazy(() => import("./pages/Support/ContactUs"));
 const FAQ = lazy(() => import("./pages/Support/FAQ"));
+const RefundRequests = lazy(() => import("./pages/RefundRequests"));
 const LoginForm = lazy(() =>
   import("@/components/LoginForm").then((module) => ({ default: module.LoginForm })),
 );
@@ -182,6 +184,7 @@ const AppRoutes = () => {
           <Route path="organizadores" element={<AdminOrganizers />} />
           <Route path="usuarios" element={<AdminUsers />} />
           <Route path="financeiro" element={<AdminFinancial />} />
+          <Route path="reembolsos" element={<AdminRefunds />} />
           <Route path="configuracoes" element={<AdminSettings />} />
           <Route path="suporte" element={<AdminSupport />} />
           <Route path="estatisticas" element={<AdminStats />} />
@@ -217,6 +220,7 @@ const AppRoutes = () => {
         <Route path={ROUTE_PATHS.EVENT_MATCHES} element={<EventMatches />} />
         <Route path={ROUTE_PATHS.PROFILE} element={<Profile />} />
         <Route path={ROUTE_PATHS.DELETE_ACCOUNT} element={<DeletarConta />} />
+        <Route path={ROUTE_PATHS.REFUND_REQUESTS} element={<RefundRequests />} />
         <Route path={ROUTE_PATHS.TICKET_SCANNER} element={<TicketScanner />} />
         
         {/* Chat Routes */}

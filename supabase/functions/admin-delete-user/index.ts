@@ -35,6 +35,21 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
+    const { data: targetProfile, error: targetProfileError } = await adminClient
+      .from("profiles")
+      .select("id, roles")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (targetProfileError) throw targetProfileError;
+
+    if (!targetProfile) {
+      return new Response(
+        JSON.stringify({ ok: false, error: "Usuário não encontrado" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" } }
+      );
+    }
+
     const { data: ticketRows, error: ticketRowsError } = await adminClient
       .from("tickets")
       .select("id")
@@ -73,12 +88,6 @@ Deno.serve(async (req) => {
     const matchIds = (matchRows || []).map((match: any) => match.id);
 
     if (matchIds.length > 0) {
-      const { error: messagesError } = await adminClient
-        .from("messages")
-        .delete()
-        .in("match_id", matchIds as any);
-      if (messagesError) throw messagesError;
-
       const { error: matchesError } = await adminClient
         .from("matches")
         .delete()
@@ -105,6 +114,10 @@ Deno.serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" } }
     );
   } catch (error: any) {
+    if (error instanceof Response) {
+      return error;
+    }
+
     return new Response(
       JSON.stringify({ ok: false, error: error?.message || "Erro interno" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8" } }
