@@ -20,6 +20,12 @@ verify_jwt = false
 [functions.admin-financial-dashboard]
 verify_jwt = false
 
+[functions.admin-update-user-password]
+verify_jwt = false
+
+[functions.admin-delete-user]
+verify_jwt = false
+
 [functions.save-buyer-profile-v2]
 verify_jwt = false
 
@@ -71,10 +77,15 @@ verify_jwt = false
 [functions.delete-user-account]
 verify_jwt = false
 
+[functions.delete-event-safely]
+verify_jwt = false
+
+[functions.fix-team-user-state]
+verify_jwt = false
+
 [functions.uptimerobot-status]
 verify_jwt = false
 
 
 [functions.organizer-manage-team]
 verify_jwt = false
-
