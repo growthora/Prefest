@@ -60,20 +60,20 @@ export const CreateEventForm = () => {
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([
     {
       name: 'Entrada Gratuita',
-      description: 'Ingresso padrão',
+      description: 'Ingresso padrÃ£o',
       price: 0,
       quantity_available: 100,
     }
   ]);
 
   const validateForm = (isPublishing: boolean) => {
-    if (!formData.title) return 'O título do evento é obrigatório.';
-    if (!formData.event_date) return 'A data de início é obrigatória.';
-    if (!formData.location) return 'O local específico é obrigatório.';
-    if (!formData.state || !formData.city) return 'Estado e cidade são obrigatórios.';
+    if (!formData.title) return 'O tÃ­tulo do evento Ã© obrigatÃ³rio.';
+    if (!formData.event_date) return 'A data de inÃ­cio Ã© obrigatÃ³ria.';
+    if (!formData.location) return 'O local especÃ­fico Ã© obrigatÃ³rio.';
+    if (!formData.state || !formData.city) return 'Estado e cidade sÃ£o obrigatÃ³rios.';
     
     if (isPublishing) {
-      if (!formData.description) return 'Adicione uma descrição para publicar.';
+      if (!formData.description) return 'Adicione uma descriÃ§Ã£o para publicar.';
       if (galleryImages.length === 0) return 'Adicione entre 1 e 5 imagens para publicar.';
       if (!formData.category_id) return 'Selecione uma categoria para publicar.';
       
@@ -81,10 +81,10 @@ export const CreateEventForm = () => {
       if (ticketTypes.length === 0) return 'Adicione pelo menos um tipo de ingresso.';
       for (const ticket of ticketTypes) {
         if (!ticket.name || ticket.quantity_available <= 0) {
-          return 'Todos os ingressos devem ter nome e quantidade válida.';
+          return 'Todos os ingressos devem ter nome e quantidade vÃ¡lida.';
         }
         if (ticket.price > 0 && ticket.price < MIN_PAID_TICKET_PRICE) {
-          return `Ingressos pagos devem ter valor mínimo de R$ ${MIN_PAID_TICKET_PRICE.toFixed(2).replace('.', ',')}.`;
+          return `Ingressos pagos devem ter valor mÃ­nimo de R$ ${MIN_PAID_TICKET_PRICE.toFixed(2).replace('.', ',')}.`;
         }
       }
     }
@@ -97,7 +97,7 @@ export const CreateEventForm = () => {
     const status: 'published' = 'published';
 
     if (!user?.id) {
-      setError('Faça login para criar um evento.');
+      setError('FaÃ§a login para criar um evento.');
       return;
     }
 
@@ -133,7 +133,7 @@ export const CreateEventForm = () => {
 
       toast({
         title: "Evento publicado!",
-        description: "Seu evento já está visível para todos.",
+        description: "Seu evento jÃ¡ estÃ¡ visÃ­vel para todos.",
       });
 
       navigate(ROUTE_PATHS.ORGANIZER_EVENTS);
@@ -146,7 +146,7 @@ export const CreateEventForm = () => {
         rawMessage.includes('ORGANIZER_ASAAS_INVALID_WALLET') ||
         rawMessage.includes('ORGANIZER_ASAAS_MISSING_DESTINATION_WALLET');
       const errorMessage = isAsaasBlockingError
-        ? 'Para criar eventos, conecte uma subconta Asaas válida e aprovada (diferente da wallet da plataforma).'
+        ? 'Para criar eventos, conecte uma subconta Asaas vÃ¡lida e aprovada (diferente da wallet da plataforma).'
         : rawMessage;
       setError(errorMessage);
       toast({
@@ -198,7 +198,7 @@ export const CreateEventForm = () => {
             className="flex items-center gap-2 px-0 text-muted-foreground hover:text-primary"
           >
             <ChevronLeft className="w-4 h-4" />
-            Voltar para a página inicial
+            Voltar para a pÃ¡gina inicial
           </Button>
         </div>
 
@@ -230,12 +230,12 @@ export const CreateEventForm = () => {
           {/* Coluna Principal (Esquerda) */}
           <div className="lg:col-span-2 space-y-6">
             
-            {/* 1. Informações Básicas */}
+            {/* 1. InformaÃ§Ãµes BÃ¡sicas */}
             <Card className="shadow-sm border-gray-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-xl">
                   <Info className="w-5 h-5 text-primary" />
-                  Informações Básicas
+                  InformaÃ§Ãµes BÃ¡sicas
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -263,7 +263,7 @@ export const CreateEventForm = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="description">Descrição do Evento</Label>
+                  <Label htmlFor="description">DescriÃ§Ã£o do Evento</Label>
                   <Textarea
                     id="description"
                     value={formData.description}
@@ -312,7 +312,7 @@ export const CreateEventForm = () => {
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                          <div className="space-y-2">
-                          <Label>Preço (R$)</Label>
+                          <Label>PreÃ§o (R$)</Label>
                           <Input
                             type="number"
                             min="0"
@@ -378,25 +378,25 @@ export const CreateEventForm = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <DateTimePicker
-                  label="Início"
+                  label="InÃ­cio"
                   value={formData.event_date}
                   onChange={(val) => handleChange('event_date', val)}
                   required
                 />
                 <DateTimePicker
-                  label="Término"
+                  label="TÃ©rmino"
                   value={formData.end_at || ''}
                   onChange={(val) => handleChange('end_at', val)}
                 />
               </CardContent>
             </Card>
 
-            {/* 5. Localização */}
+            {/* 5. LocalizaÃ§Ã£o */}
             <Card className="shadow-sm border-gray-200">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <MapPin className="w-5 h-5 text-primary" />
-                  Localização
+                  LocalizaÃ§Ã£o
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -408,11 +408,11 @@ export const CreateEventForm = () => {
                 />
                 
                 <div className="space-y-2">
-                  <Label>Local Específico / Endereço</Label>
+                  <Label>Local EspecÃ­fico / EndereÃ§o</Label>
                   <Input
                     value={formData.location}
                     onChange={(e) => handleChange('location', e.target.value)}
-                    placeholder="Nome do local, Rua, Nº"
+                    placeholder="Nome do local, Rua, NÂº"
                   />
                 </div>
               </CardContent>
@@ -425,6 +425,7 @@ export const CreateEventForm = () => {
     </div>
   );
 };
+
 
 
 

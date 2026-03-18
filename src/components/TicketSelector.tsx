@@ -32,6 +32,19 @@ export function TicketSelector({
   const [ticketTypes, setTicketTypes] = useState<TicketTypeDB[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const normalizeTicketText = (value?: string | null) => {
+    if (!value) return '';
+
+    try {
+      return value
+        .replace(/padr�o/gi, 'padrão')
+        .replace(/n�o/gi, 'não')
+        .replace(/op��o/gi, 'opção');
+    } catch {
+      return value;
+    }
+  };
+
   useEffect(() => {
     loadTicketTypes();
   }, [eventId]);
@@ -191,14 +204,14 @@ export function TicketSelector({
                     <div className="flex items-start justify-between gap-2">
                       <div className="space-y-1">
                         <div className="font-semibold text-lg flex items-center gap-2">
-                          {ticket.name}
+                          {normalizeTicketText(ticket.name)}
                           {isSelected && (
                             <Check className="w-4 h-4 text-primary" />
                           )}
                         </div>
                         {ticket.description && (
                           <p className="text-sm text-muted-foreground">
-                            {ticket.description}
+                            {normalizeTicketText(ticket.description)}
                           </p>
                         )}
                       </div>
