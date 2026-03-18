@@ -335,83 +335,16 @@ class UserService {
   }
   // Deletar usuario
   async deleteUser(userId: string): Promise<void> {
-    const { data: ticketRows, error: ticketRowsError } = await supabase
-      .from('tickets')
-      .select('id')
-      .eq('buyer_user_id', userId);
-
-    if (ticketRowsError) throw ticketRowsError;
-
-    const ticketIds = (ticketRows || []).map((ticket: any) => ticket.id);
-
-    if (ticketIds.length > 0) {
-      const { error: paymentsByTicketError } = await supabase
-        .from('payments')
-        .delete()
-        .in('ticket_id', ticketIds as any);
-
-      if (paymentsByTicketError) throw paymentsByTicketError;
-
-      const { error: ticketsError } = await supabase
-        .from('tickets')
-        .delete()
-        .in('id', ticketIds as any);
-
-      if (ticketsError) throw ticketsError;
-    }
-
-    const { error: eventParticipantsError } = await supabase
-      .from('event_participants')
-      .delete()
-      .eq('user_id', userId);
-
-    if (eventParticipantsError) throw eventParticipantsError;
-
-    const { data: matchRows, error: matchRowsError } = await supabase
-      .from('matches')
-      .select('id')
-      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
-
-    if (matchRowsError) throw matchRowsError;
-
-    const matchIds = (matchRows || []).map((match: any) => match.id);
-
-    if (matchIds.length > 0) {
-      const { error: messagesError } = await supabase
-        .from('messages')
-        .delete()
-        .in('match_id', matchIds as any);
-
-      if (messagesError) throw messagesError;
-
-      const { error: matchesError } = await supabase
-        .from('matches')
-        .delete()
-        .in('id', matchIds as any);
-
-      if (matchesError) throw matchesError;
-    }
-
-    const { error: teamMemberByUserError } = await supabase
-      .from('team_members')
-      .delete()
-      .eq('user_id', userId);
-
-    if (teamMemberByUserError) throw teamMemberByUserError;
-
-    const { error: teamMemberByOrganizerError } = await supabase
-      .from('team_members')
-      .delete()
-      .eq('organizer_id', userId);
-
-    if (teamMemberByOrganizerError) throw teamMemberByOrganizerError;
-
-    const { error } = await supabase
-      .from('profiles')
-      .delete()
-      .eq('id', userId);
+    const { data, error } = await invokeEdgeFunction('admin-delete-user', {
+      body: { userId },
+      method: 'POST',
+      requiresAuth: true,
+    });
 
     if (error) throw error;
+    if ((data as any)?.ok !== true) {
+      throw new Error((data as any)?.error || 'Falha ao excluir usuário');
+    }
   }
 
   // Obter estatisticas gerais

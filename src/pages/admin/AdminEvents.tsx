@@ -148,6 +148,7 @@ export default function AdminEvents() {
         location: newEvent.location,
         state: newEvent.state,
         city: newEvent.city,
+        event_type: newEvent.event_type,
         image_url: newEventImages.find((img) => img.is_cover)?.image_url || newEventImages[0]?.image_url || '',
         category: newEvent.category,
         price: newEvent.price,
