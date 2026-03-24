@@ -1,14 +1,20 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
-import { invokeEdgeFunction } from '@/services/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Loader2, CheckCircle2, AlertTriangle, XCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { toUserFriendlyErrorMessage } from '@/lib/appErrors';
@@ -28,23 +34,7 @@ export function AsaasConnect() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [account, setAccount] = useState<AsaasAccount | null>(null);
-
-  // Form State
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    cpfCnpj: '',
-    mobilePhone: '',
-    address: '',
-    addressNumber: '',
-    complement: '',
-    province: '',
-    postalCode: '',
-    birthDate: '',
-    incomeValue: ''
-  });
-
-  const [activeTab, setActiveTab] = useState<'create' | 'link'>('create');
+  const [showWalletHelpModal, setShowWalletHelpModal] = useState(false);
   const [linkData, setLinkData] = useState({
     external_wallet_id: '',
     external_wallet_email: '',
@@ -53,12 +43,6 @@ export function AsaasConnect() {
   useEffect(() => {
     if (user) {
       loadAccount();
-      // Pre-fill form with user data if available
-      setFormData(prev => ({
-        ...prev,
-        name: user.user_metadata?.full_name || '',
-        email: user.email || ''
-      }));
     }
   }, [user]);
 
@@ -72,16 +56,14 @@ export function AsaasConnect() {
         .maybeSingle();
 
       if (error) {
-        // console.error('Error loading Asaas account:', error);
       }
-      
+
       if (data) {
         setAccount(data);
-    }
-  } catch (error) {
-    // console.error('Unexpected error:', error);
-  } finally {
-    setLoading(false);
+      }
+    } catch (error) {
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -134,47 +116,11 @@ export function AsaasConnect() {
     }
   };
 
-  const handleConnect = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-
-    try {
-      const { data, error } = await invokeEdgeFunction('asaas-connect-organizer-v2', {
-        body: formData
-      });
-
-      if (error) throw error;
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      toast.success('Conta Asaas conectada com sucesso!');
-      if (data.account) {
-        setAccount(data.account);
-      } else {
-        loadAccount();
-    }
-  } catch (error: any) {
-    // console.error('Connection error:', error);
-    
-    const errorMessage = error.message || 'Erro desconhecido';
-      
-      if (errorMessage.toLowerCase().includes('email') && errorMessage.toLowerCase().includes('uso')) {
-          toast.error('Este e-mail já está cadastrado no Asaas. Por favor, use outro e-mail ou entre em contato com o suporte.');
-      } else {
-          toast.error(toUserFriendlyErrorMessage(error));
-      }
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleRefreshStatus = async () => {
     if (!account) return;
     setSubmitting(true);
     try {
-      const { data, error } = await invokeEdgeFunction('asaas-refresh-organizer-kyc-status', {
+      const { data, error } = await supabase.functions.invoke('asaas-refresh-organizer-kyc-status', {
         method: 'POST',
       });
 
@@ -189,7 +135,6 @@ export function AsaasConnect() {
         setAccount(data.account);
       }
     } catch (error: any) {
-      // console.error('Refresh error:', error);
       toast.error(toUserFriendlyErrorMessage(error));
     } finally {
       setSubmitting(false);
@@ -200,15 +145,15 @@ export function AsaasConnect() {
     switch (status) {
       case 'approved':
       case 'APPROVED':
-        return <Badge className="bg-green-500 hover:bg-green-600"><CheckCircle2 className="w-3 h-3 mr-1"/> Aprovado</Badge>;
+        return <Badge className="bg-green-500 hover:bg-green-600"><CheckCircle2 className="w-3 h-3 mr-1" /> Aprovado</Badge>;
       case 'pending':
       case 'PENDING':
       case 'awaiting_approval':
       case 'AWAITING_APPROVAL':
-        return <Badge variant="outline" className="text-yellow-600 border-yellow-600"><Loader2 className="w-3 h-3 mr-1 animate-spin"/> Em Análise</Badge>;
+        return <Badge variant="outline" className="text-yellow-600 border-yellow-600"><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Em Analise</Badge>;
       case 'rejected':
       case 'REJECTED':
-        return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1"/> Rejeitado</Badge>;
+        return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" /> Rejeitado</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
@@ -237,20 +182,20 @@ export function AsaasConnect() {
           {account.kyc_status !== 'approved' && (
             <Alert className="mb-4 bg-yellow-50 text-yellow-800 border-yellow-200">
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Verificação Pendente</AlertTitle>
+              <AlertTitle>Verificacao Pendente</AlertTitle>
               <AlertDescription>
-                Sua conta está em análise pelo Asaas. Você poderá receber pagamentos assim que for aprovada.
+                Sua conta esta em analise pelo Asaas. Voce podera receber pagamentos assim que for aprovada.
               </AlertDescription>
             </Alert>
           )}
-          
+
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleRefreshStatus} disabled={submitting}>
               {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
               Atualizar Status
             </Button>
             <Button variant="link" className="text-muted-foreground" asChild>
-                <a href="https://www.asaas.com/" target="_blank" rel="noopener noreferrer">Acessar Painel Asaas</a>
+              <a href="https://www.asaas.com/" target="_blank" rel="noopener noreferrer">Acessar Painel Asaas</a>
             </Button>
           </div>
         </CardContent>
@@ -259,155 +204,29 @@ export function AsaasConnect() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-            <CardTitle>Conectar Conta Asaas</CardTitle>
-            <div className="flex gap-2 text-sm">
-                <Button 
-                    variant={activeTab === 'create' ? 'default' : 'ghost'} 
-                    size="sm"
-                    onClick={() => setActiveTab('create')}
-                >
-                    Nova Conta
-                </Button>
-                <Button 
-                    variant={activeTab === 'link' ? 'default' : 'ghost'} 
-                    size="sm"
-                    onClick={() => setActiveTab('link')}
-                >
-                    Já Tenho Conta
-                </Button>
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle>Conectar Conta Asaas</CardTitle>
+              <CardDescription>
+                Configure sua conta Asaas externa informando o Wallet ID para receber pagamentos.
+              </CardDescription>
             </div>
-        </div>
-        <CardDescription>
-            {activeTab === 'create' 
-                ? 'Crie uma nova subconta Asaas para receber pagamentos.' 
-                : 'Conecte sua conta Asaas externa informando o Wallet ID.'}
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {activeTab === 'create' ? (
-        <form onSubmit={handleConnect} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Nome Completo / Razão Social</Label>
-              <Input 
-                id="name" 
-                required 
-                value={formData.name}
-                onChange={e => setFormData({...formData, name: e.target.value})}
-                placeholder="Ex: João Silva"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                required 
-                value={formData.email}
-                onChange={e => setFormData({...formData, email: e.target.value})}
-                placeholder="email@exemplo.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cpfCnpj">CPF ou CNPJ</Label>
-              <Input 
-                id="cpfCnpj" 
-                required 
-                value={formData.cpfCnpj}
-                onChange={e => setFormData({...formData, cpfCnpj: e.target.value})}
-                placeholder="Apenas números"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="birthDate">Data de Nascimento</Label>
-              <Input 
-                id="birthDate" 
-                type="date"
-                required 
-                value={formData.birthDate}
-                onChange={e => setFormData({...formData, birthDate: e.target.value})}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="incomeValue">Renda Mensal Estimada (R$)</Label>
-              <Input 
-                id="incomeValue" 
-                type="number"
-                min="0"
-                step="0.01"
-                required 
-                value={formData.incomeValue}
-                onChange={e => setFormData({...formData, incomeValue: e.target.value})}
-                placeholder="Ex: 5000.00"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="mobilePhone">Celular</Label>
-              <Input 
-                id="mobilePhone" 
-                required 
-                value={formData.mobilePhone}
-                onChange={e => setFormData({...formData, mobilePhone: e.target.value})}
-                placeholder="(00) 00000-0000"
-              />
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="address">Endereço Completo</Label>
-              <Input 
-                id="address" 
-                required 
-                value={formData.address}
-                onChange={e => setFormData({...formData, address: e.target.value})}
-                placeholder="Rua, Avenida..."
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="addressNumber">Número</Label>
-              <Input 
-                id="addressNumber" 
-                required 
-                value={formData.addressNumber}
-                onChange={e => setFormData({...formData, addressNumber: e.target.value})}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="complement">Complemento</Label>
-              <Input 
-                id="complement" 
-                value={formData.complement}
-                onChange={e => setFormData({...formData, complement: e.target.value})}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="province">Bairro</Label>
-              <Input 
-                id="province" 
-                required 
-                value={formData.province}
-                onChange={e => setFormData({...formData, province: e.target.value})}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="postalCode">CEP</Label>
-              <Input 
-                id="postalCode" 
-                required 
-                value={formData.postalCode}
-                onChange={e => setFormData({...formData, postalCode: e.target.value})}
-                placeholder="00000-000"
-              />
+
+            <div className="flex flex-wrap gap-2 text-sm">
+              <Button type="button" size="sm">
+                Configurar minha conta
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => setShowWalletHelpModal(true)}>
+                Nao tenho Wallet Externa
+              </Button>
             </div>
           </div>
+        </CardHeader>
 
-          <Button type="submit" className="w-full" disabled={submitting}>
-            {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Criar Conta de Recebimento
-          </Button>
-        </form>
-        ) : (
+        <CardContent>
           <form onSubmit={handleConnectExternalWallet} className="space-y-4">
             <Alert>
               <AlertTriangle className="h-4 w-4" />
@@ -450,10 +269,41 @@ export function AsaasConnect() {
               Conectar Wallet Externa
             </Button>
           </form>
-        )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      <Dialog open={showWalletHelpModal} onOpenChange={setShowWalletHelpModal}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Como criar sua conta no Asaas</DialogTitle>
+            <DialogDescription>
+              Se voce ainda nao tem Wallet Externa, siga este passo a passo antes de configurar sua conta aqui.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <p>1. Acesse o site oficial do Asaas e crie sua conta com seus dados reais.</p>
+            <p>2. Escolha o tipo de conta correto, como pessoa fisica ou pessoa juridica.</p>
+            <p>3. Preencha as informacoes cadastrais com atencao, incluindo nome, documento, telefone e endereco.</p>
+            <p>4. Envie os documentos solicitados pelo Asaas para validacao da conta.</p>
+            <p>5. Aguarde a analise de cadastro e acompanhe o status diretamente no painel do Asaas.</p>
+            <p>6. Depois da aprovacao, localize o Wallet ID da sua conta no painel.</p>
+            <p>7. Volte para esta tela, informe o Wallet ID e o e-mail da conta Asaas, e conclua a configuracao.</p>
+            <p>8. Se houver pendencia de documentos, finalize essa etapa no Asaas antes de tentar receber pagamentos.</p>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowWalletHelpModal(false)}>
+              Fechar
+            </Button>
+            <Button asChild>
+              <a href="https://www.asaas.com/" target="_blank" rel="noopener noreferrer">
+                Criar conta no Asaas
+              </a>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
-
-

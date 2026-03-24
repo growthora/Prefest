@@ -6,6 +6,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,8 +14,10 @@ import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { useOrganizerStatus } from '@/hooks/useOrganizerStatus';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/lib/index';
-import { PlusCircle, UserPlus, Clock, AlertCircle, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { PlusCircle, UserPlus, Clock, AlertCircle, CheckCircle2, AlertTriangle, LayoutDashboard } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useToast } from '@/components/ui/use-toast';
+import { userService } from '@/services/user.service';
 
 interface CreateEventModalProps {
   trigger?: React.ReactNode;
@@ -22,10 +25,13 @@ interface CreateEventModalProps {
 
 export function CreateEventModal({ trigger }: CreateEventModalProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [showOrganizerRequestModal, setShowOrganizerRequestModal] = useState(false);
+  const [isRequestingOrganizer, setIsRequestingOrganizer] = useState(false);
   const { user, profile } = useAuth();
   const { checkAccess } = useFeatureAccess();
   const { asaasStatus, loading: statusLoading } = useOrganizerStatus();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const handleCreateAccount = () => {
     setIsOpen(false);
@@ -37,15 +43,42 @@ export function CreateEventModal({ trigger }: CreateEventModalProps) {
     setIsOpen(false);
     navigate(ROUTE_PATHS.CREATE_EVENT);
   };
-  
+
   const handleLogin = () => {
     setIsOpen(false);
     navigate(ROUTE_PATHS.LOGIN, { state: { returnTo: ROUTE_PATHS.CREATE_EVENT } });
   };
-  
+
   const handleConnectAsaas = () => {
     setIsOpen(false);
     navigate(ROUTE_PATHS.ORGANIZER_PAYMENTS);
+  };
+
+  const openOrganizerRequestModal = () => {
+    setIsOpen(false);
+    setShowOrganizerRequestModal(true);
+  };
+
+  const handleRequestOrganizer = async () => {
+    if (!user) return;
+
+    setIsRequestingOrganizer(true);
+    try {
+      await userService.requestOrganizerAccess(user.id);
+      toast({
+        title: 'Solicitacao enviada!',
+        description: 'Sua solicitacao para se tornar organizador foi enviada com sucesso e esta em analise.',
+      });
+      setShowOrganizerRequestModal(false);
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao enviar solicitacao',
+        description: 'Ocorreu um erro ao processar sua solicitacao. Tente novamente.',
+      });
+    } finally {
+      setIsRequestingOrganizer(false);
+    }
   };
 
   const isOrganizer = profile?.roles?.some(r => ['ORGANIZER', 'ADMIN'].includes(r.toUpperCase())) ?? false;
@@ -60,11 +93,11 @@ export function CreateEventModal({ trigger }: CreateEventModalProps) {
             <UserPlus className="w-4 h-4" />
             Criar conta e continuar
           </Button>
-          
+
           <div className="text-center text-sm text-muted-foreground mt-2">
             Já tem uma conta?{' '}
-            <button 
-              onClick={handleLogin} 
+            <button
+              onClick={handleLogin}
               className="text-primary hover:underline font-medium focus:outline-none"
             >
               Entrar
@@ -74,9 +107,7 @@ export function CreateEventModal({ trigger }: CreateEventModalProps) {
       );
     }
 
-    // Se é admin ou organizador aprovado
     if (isAdmin || (isOrganizer && organizerStatus === 'APPROVED')) {
-      // Verificar status do Asaas
       if (asaasStatus !== 'approved' && !statusLoading) {
         return (
           <div className="space-y-4">
@@ -87,11 +118,11 @@ export function CreateEventModal({ trigger }: CreateEventModalProps) {
                 Para criar eventos pagos e receber pagamentos, você precisa conectar e aprovar sua conta Asaas.
               </AlertDescription>
             </Alert>
-            
+
             <Button onClick={handleConnectAsaas} className="w-full gap-2 h-11" variant="outline">
               Conectar conta Asaas
             </Button>
-            
+
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t" />
@@ -117,7 +148,6 @@ export function CreateEventModal({ trigger }: CreateEventModalProps) {
       );
     }
 
-    // Se é organizador pendente
     if (isOrganizer && organizerStatus === 'PENDING') {
       return (
         <div className="space-y-4">
@@ -135,7 +165,6 @@ export function CreateEventModal({ trigger }: CreateEventModalProps) {
       );
     }
 
-    // Se é organizador rejeitado
     if (isOrganizer && organizerStatus === 'REJECTED') {
       return (
         <div className="space-y-4">
@@ -153,7 +182,6 @@ export function CreateEventModal({ trigger }: CreateEventModalProps) {
       );
     }
 
-    // Se é apenas comprador (não tem role ORGANIZER)
     return (
       <div className="space-y-4">
         <Alert className="bg-blue-50 border-blue-200">
@@ -163,42 +191,73 @@ export function CreateEventModal({ trigger }: CreateEventModalProps) {
             Você está cadastrado como comprador. Para criar eventos, é necessário solicitar acesso de organizador.
           </AlertDescription>
         </Alert>
-        <Button disabled className="w-full gap-2 h-11" variant="outline">
-          Apenas organizadores podem criar eventos
+        <Button onClick={openOrganizerRequestModal} className="w-full gap-2 h-11 text-base shadow-sm" size="lg">
+          Solicitar acesso como organizador
         </Button>
       </div>
     );
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button 
-            variant="default" 
-            className="gap-2 bg-primary hover:bg-primary/90 text-white shadow-md hover:shadow-lg transition-all"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span className="hidden sm:inline">Crie seu Evento</span>
-            <span className="sm:hidden">Criar</span>
-          </Button>
-        )}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md bg-card border-border">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-center">Crie seu evento na PREFEST</DialogTitle>
-          <DialogDescription className="text-center pt-2 text-muted-foreground">
-            {user ? 
-              "Comece a organizar seu próximo evento de sucesso agora mesmo." : 
-              "Para publicar e vender ingressos, é necessário ter uma conta. O cadastro é rápido e gratuito."
-            }
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogTrigger asChild>
+          {trigger || (
+            <Button
+              variant="default"
+              className="gap-2 bg-primary hover:bg-primary/90 text-white shadow-md hover:shadow-lg transition-all"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span className="hidden sm:inline">Crie seu Evento</span>
+              <span className="sm:hidden">Criar</span>
+            </Button>
+          )}
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-md bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-center">Crie seu evento na PREFEST</DialogTitle>
+            <DialogDescription className="text-center pt-2 text-muted-foreground">
+              {user
+                ? 'Comece a organizar seu próximo evento de sucesso agora mesmo.'
+                : 'Para publicar e vender ingressos, é necessário ter uma conta. O cadastro é rápido e gratuito.'}
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="flex flex-col gap-4 py-2 sm:py-4">
-          {renderContent()}
-        </div>
-      </DialogContent>
-    </Dialog>
+          <div className="flex flex-col gap-4 py-2 sm:py-4">
+            {renderContent()}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showOrganizerRequestModal} onOpenChange={setShowOrganizerRequestModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Torne-se um Organizador</DialogTitle>
+            <DialogDescription>
+              Para acessar o dashboard de organizador e criar seus proprios eventos, e necessario solicitar aprovacao da nossa equipe.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 sm:py-4 space-y-4">
+            <div className="flex items-start gap-3 p-3 bg-muted rounded-lg">
+              <LayoutDashboard className="w-5 h-5 text-primary mt-0.5" />
+              <div className="text-sm">
+                <p className="font-medium">Gerencie seus eventos</p>
+                <p className="text-muted-foreground">Tenha acesso a ferramentas completas para criar e gerenciar vendas.</p>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowOrganizerRequestModal(false)} className="w-full sm:w-auto">
+              Cancelar
+            </Button>
+            <Button onClick={handleRequestOrganizer} disabled={isRequestingOrganizer} className="w-full sm:w-auto">
+              {isRequestingOrganizer ? 'Enviando...' : 'Solicitar acesso como organizador'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

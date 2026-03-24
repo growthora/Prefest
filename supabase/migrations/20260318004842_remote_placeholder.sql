@@ -1,0 +1,2 @@
+-- Placeholder migration to align local history with remote migration 20260318004842.
+-- No-op on purpose.

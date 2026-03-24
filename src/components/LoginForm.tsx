@@ -25,7 +25,7 @@ export const LoginForm = () => {
     if (isRecoveryMode) {
       navigate(ROUTE_PATHS.UPDATE_PASSWORD, { replace: true });
     } else if (user) {
-      // Se já estiver logado, redirecionar para a home ou página anterior
+      // Se á estiver logado, redirecionar para a home ou página anterior
       const returnTo = location.state?.returnTo || location.state?.from?.pathname || ROUTE_PATHS.HOME;
       navigate(returnTo, { replace: true });
     }
@@ -57,6 +57,7 @@ export const LoginForm = () => {
     setSuccessMessage(null);
 
     try {
+      setShowResend(false);
       await signIn(formData.email, formData.password);
       
       // Determine redirect path
@@ -75,7 +76,7 @@ export const LoginForm = () => {
       let message = err instanceof Error ? err.message : 'Erro ao fazer login';
       
       if (message.toLowerCase().includes('email not confirmed')) {
-        message = 'Seu e-mail ainda não foi confirmado.';
+        message = 'Seu e-mail ainda não foi confirmado. Você pode reenviar a confirmação abaixo.';
         setShowResend(true);
       } else {
         message = translateAuthError(message);
@@ -90,18 +91,6 @@ export const LoginForm = () => {
     
     try {
       setResendLoading(true);
-      // Note: authService is not imported directly here but was used in the original code? 
-      // Wait, looking at the original code, authService was used in handleResendEmail but I don't see the import in the Read output.
-      // Ah, I missed checking the imports carefully. 
-      // Let me check if authService is available or if I need to import it.
-      // In the original file snippet:
-      // 65: await authService.resendConfirmationEmail(formData.email);
-      // But I don't see `import { authService } ...` in the top lines I read (1-15).
-      // I should double check imports.
-      // Assuming it needs to be imported from services/auth.service
-      
-      // Let's comment this out for a second and check if I need to add the import.
-      // I'll add the import to be safe.
       await authService.resendConfirmationEmail(formData.email);
       setLocalError(null);
       setSuccessMessage('E-mail de confirmação reenviado! Verifique sua caixa de entrada e spam.');
@@ -163,11 +152,13 @@ export const LoginForm = () => {
       } catch (checkErr) {
         // console.warn('Erro ao verificar disponibilidade de dados:', checkErr);
       }
-
       await signUp(formData.email, formData.password, formData.fullName, formData.cpf, formattedBirthDate, isOrganizer);
-      setSuccessMessage('Cadastro realizado com sucesso! Verifique seu e-mail para confirmar a conta.');
-      setActiveTab('login');
+      setSuccessMessage(isOrganizer
+        ? 'Cadastro realizado com sucesso! Sua solicitação para organizar eventos foi enviada para análise do administrador. Confirme seu e-mail para ativar a conta.'
+        : 'Cadastro realizado com sucesso! Confirme seu e-mail para ativar a conta.');
       setLocalError(null);
+      setShowResend(true);
+      setActiveTab('login');
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : 'Erro ao criar conta');
       setSuccessMessage(null);
@@ -195,7 +186,7 @@ export const LoginForm = () => {
       <div className="flex w-full flex-col justify-center px-4 py-12 lg:w-1/2 lg:px-12 xl:px-24">
         <div className="mx-auto w-full max-w-sm lg:max-w-md">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tight text-primary mb-2">Bem-vindo ao PreFest! 🎉</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-primary mb-2">Bem-vindo ao PreFest!</h1>
             <p className="text-muted-foreground">
               Entre ou crie sua conta para começar a curtir os melhores eventos.
             </p>
@@ -262,7 +253,7 @@ export const LoginForm = () => {
                     id="login-password"
                     name="password"
                     type="password"
-                    placeholder="••••••"
+                    placeholder="******"
                     value={formData.password}
                     onChange={handleChange}
                     required
@@ -452,5 +443,3 @@ export const LoginForm = () => {
     </div>
   );
 };
-
-

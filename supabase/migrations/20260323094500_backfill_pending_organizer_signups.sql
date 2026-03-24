@@ -1,0 +1,3 @@
+-- No-op migration.
+-- Existing unconfirmed organizer-signup accounts are blocked by a remote profile-update validation.
+-- New signups are fixed by 20260323093000_sync_organizer_signup_on_profile_creation.sql.

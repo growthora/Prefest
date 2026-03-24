@@ -1,3 +1,21 @@
+[auth]
+enabled = true
+site_url = "https://prefestbr.com.br"
+enable_signup = true
+additional_redirect_urls = ["https://prefestbr.com.br/auth/error", "https://prefestbr.com.br/", "https://prefestbr.com.br/reset-password", "https://*.com.br"]
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = true
+secure_password_change = false
+max_frequency = "1m0s"
+otp_length = 8
+otp_expiry = 3600
 
 [functions.debug-auth]
 enabled = false
@@ -92,3 +110,5 @@ verify_jwt = false
 
 [functions.refund-requests]
 verify_jwt = false
+
+

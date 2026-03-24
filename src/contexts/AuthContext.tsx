@@ -11,8 +11,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   isEmailConfirmed: boolean;
-  isRecoveryMode: boolean; // Novo estado para controlar fluxo de recuperação
-  isLoading: boolean; // Mantido para compatibilidade, mas authStatus é preferível para carregamento inicial
+  isRecoveryMode: boolean;
+  isLoading: boolean;
   error: string | null;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string, cpf: string, birthDate: string, isOrganizer?: boolean) => Promise<void>;
@@ -28,7 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<Profile | null>(null);
   const [authStatus, setAuthStatus] = useState<AuthStatus>('checking');
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); // Mantido para operações de login/update
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const clearAuthState = () => {
@@ -37,48 +37,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthStatus('unauthenticated');
   };
 
-  const signOutInvalidAccount = async () => {
+  const loadProfileSafely = async (userId: string): Promise<Profile | null> => {
     try {
-      await authService.signOut();
-    } catch {
-    } finally {
-      clearAuthState();
-    }
-  };
-
-  const loadRequiredProfile = async (userId: string): Promise<Profile> => {
-    try {
-      const userProfile = await authService.getProfile(userId);
-
-      if (!userProfile) {
-        throw new Error('PROFILE_MISSING');
-      }
-
-      return userProfile;
+      return await authService.getProfile(userId);
     } catch (profileError: any) {
-      const isMissingProfile =
-        profileError?.code === 'PGRST116' ||
-        profileError?.message?.includes('0 rows') ||
-        profileError?.message === 'PROFILE_MISSING';
-
       const isAuthError =
         profileError?.code === 'PGRST301' ||
         profileError?.message?.includes('JWT') ||
         profileError?.status === 401;
 
-      if (isMissingProfile || isAuthError) {
-        await signOutInvalidAccount();
+      if (isAuthError) {
         throw new Error('ACCOUNT_UNAVAILABLE');
       }
 
-      throw profileError;
+      return null;
     }
   };
 
+  const reconcileOrganizerSignupState = async (authUser: User, userProfile: Profile | null) => {
+    const organizerIntent = !!authUser.user_metadata?.is_organizer;
+    const hasOrganizerRole = (userProfile?.roles || []).some((role) => String(role).toUpperCase() === 'ORGANIZER');
+    const organizerStatus = (userProfile?.organizer_status || 'NONE').toUpperCase();
+
+    if (!organizerIntent || (hasOrganizerRole && organizerStatus !== 'NONE')) {
+      return userProfile;
+    }
+
+    const synced = await authService.syncSignupRoles(authUser.id, true);
+    if (!synced) {
+      return userProfile;
+    }
+
+    try {
+      return await authService.getProfile(authUser.id);
+    } catch {
+      return userProfile;
+    }
+  };
+
+  const hydrateAuthenticatedUser = async (authUser: User) => {
+    const baseProfile = await loadProfileSafely(authUser.id);
+    const resolvedProfile = await reconcileOrganizerSignupState(authUser, baseProfile);
+    setUser(authUser);
+    setProfile(resolvedProfile);
+    setAuthStatus('authenticated');
+  };
+
   useEffect(() => {
-    // Check for recovery mode in session storage (persistence across reloads)
     const storedRecoveryMode = sessionStorage.getItem('auth_recovery_mode');
-    // Also check URL hash for recovery type
     const isRecoveryHash = window.location.hash.includes('type=recovery');
     if (storedRecoveryMode === 'true' || isRecoveryHash) {
       setIsRecoveryMode(true);
@@ -87,29 +93,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    // Carregar sessão inicial
     const initAuth = async () => {
       try {
         setAuthStatus('checking');
         const session = await authService.getSession();
         if (session?.user) {
-          // Validar o token com getUser() para garantir que não está expirado/inválido
-          try {
-            const user = await authService.getCurrentUser();
-            if (!user) throw new Error('Token inválido ou expirado');
-
-            const userProfile = await loadRequiredProfile(user.id);
-            setUser(user);
-            setProfile(userProfile);
-            setAuthStatus('authenticated');
-          } catch (validationError) {
-            clearAuthState();
-          }
+          const currentUser = await authService.getCurrentUser();
+          if (!currentUser) throw new Error('Token invalido ou expirado');
+          await hydrateAuthenticatedUser(currentUser);
         } else {
           setAuthStatus('unauthenticated');
         }
-      } catch (err) {
-        setAuthStatus('unauthenticated');
+      } catch (err: any) {
+        if (err?.message === 'ACCOUNT_UNAVAILABLE') {
+          clearAuthState();
+        } else {
+          setAuthStatus('unauthenticated');
+        }
       } finally {
         setIsLoading(false);
       }
@@ -117,8 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     initAuth();
 
-    // Listener para mudanças de autenticação
-    const { data: { subscription } } = authService.onAuthStateChange(async (user, event) => {
+    const { data: { subscription } } = authService.onAuthStateChange(async (authUser, event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setIsRecoveryMode(true);
         sessionStorage.setItem('auth_recovery_mode', 'true');
@@ -127,14 +126,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sessionStorage.removeItem('auth_recovery_mode');
       }
 
-      if (user) {
+      if (authUser) {
         try {
-          const userProfile = await loadRequiredProfile(user.id);
-          setUser(user);
-          setProfile(userProfile);
-          setAuthStatus('authenticated');
+          await hydrateAuthenticatedUser(authUser);
         } catch (err: any) {
-          if (err?.message !== 'ACCOUNT_UNAVAILABLE') {
+          if (err?.message === 'ACCOUNT_UNAVAILABLE') {
             clearAuthState();
           }
         }
@@ -148,7 +144,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  // Update last_seen every 5 minutes
   useEffect(() => {
     if (!user) return;
 
@@ -156,16 +151,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         await authService.updateProfile(user.id, { last_seen: new Date().toISOString() });
       } catch (err: any) {
-        // Ignora erro PGRST116 (Result contains 0 rows) que ocorre quando:
-        // 1. O usuário foi deletado do banco mas ainda está logado no frontend
-        // 2. RLS impede a atualização
         if (err?.code !== 'PGRST116') {
-          // Erro silencioso
         }
       }
     };
 
-    updateLastSeen(); // Initial update
+    updateLastSeen();
     const interval = setInterval(updateLastSeen, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
@@ -177,15 +168,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(null);
       const { user: loggedUser } = await authService.signIn({ email, password });
       if (loggedUser) {
-        const userProfile = await loadRequiredProfile(loggedUser.id);
-        setUser(loggedUser);
-        setProfile(userProfile);
-        setAuthStatus('authenticated');
+        await hydrateAuthenticatedUser(loggedUser);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao fazer login';
       const normalizedErrorMessage = errorMessage === 'ACCOUNT_UNAVAILABLE'
-        ? 'Esta conta foi removida ou desativada e não pode mais acessar a plataforma.'
+        ? 'Esta conta foi removida ou desativada e nao pode mais acessar a plataforma.'
         : errorMessage;
       setError(normalizedErrorMessage);
       throw new Error(normalizedErrorMessage);
@@ -198,20 +186,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       setIsLoading(true);
       setError(null);
-      const { user: newUser } = await authService.signUp({ email, password, fullName, cpf, birthDate, isOrganizer });
-      
-      if (newUser) {
-        setUser(newUser);
-        setAuthStatus('authenticated');
-        
-        // Aguardar um pouco para o trigger criar o perfil
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        try {
-          const userProfile = await authService.getProfile(newUser.id);
-          setProfile(userProfile);
-        } catch (profileErr) {
-          // Erro silencioso
-        }
+      const { user: newUser, session } = await authService.signUp({ email, password, fullName, cpf, birthDate, isOrganizer });
+
+      if (newUser && session) {
+        await hydrateAuthenticatedUser(newUser);
+      } else {
+        clearAuthState();
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar conta';
@@ -227,9 +207,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       setError(null);
       await authService.signOut();
-      setUser(null);
-      setProfile(null);
-      setAuthStatus('unauthenticated');
+      clearAuthState();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao fazer logout';
       setError(errorMessage);
@@ -280,10 +258,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!user,
         isAdmin: profile?.roles?.some(r => r.toUpperCase() === 'ADMIN') ?? false,
         isEmailConfirmed: !!user?.email_confirmed_at,
-      isRecoveryMode,
-      isLoading,
-      error,
-      signIn,
+        isRecoveryMode,
+        isLoading,
+        error,
+        signIn,
         signUp,
         signOut,
         updateProfile,
@@ -302,4 +280,3 @@ export const useAuth = () => {
   }
   return context;
 };
-

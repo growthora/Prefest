@@ -29,7 +29,6 @@ export interface Profile {
   bio: string | null;
   roles: string[];
   organizer_status: 'NONE' | 'PENDING' | 'APPROVED' | 'REJECTED';
-  /** @deprecated Use roles[] instead. This field is legacy. */
   role?: string;
   account_type?: 'comprador' | 'organizador' | 'comprador_organizador';
   single_mode: boolean;
@@ -56,7 +55,35 @@ export interface Profile {
 }
 
 class AuthService {
-  // Verificar dados de registro
+  async syncSignupRoles(userId: string, isOrganizer: boolean): Promise<boolean> {
+    const updates: any = {
+      roles: ['BUYER'],
+      organizer_status: 'NONE'
+    };
+
+    if (isOrganizer) {
+      updates.roles.push('ORGANIZER');
+      updates.organizer_status = 'PENDING';
+    }
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const { error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', userId)
+        .select('id')
+        .maybeSingle();
+
+      if (!error) {
+        return true;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    return false;
+  }
+
   async checkRegistrationData(email: string, cpf: string) {
     const { data, error } = await supabase.rpc('check_registration_data', {
       check_email: email,
@@ -67,9 +94,7 @@ class AuthService {
     return data as { email_exists: boolean; cpf_exists: boolean };
   }
 
-  // Cadastro de novo usuário
   async signUp({ email, password, fullName, cpf, birthDate, isOrganizer = false }: SignUpData) {
-    // [SECURITY] Validação de contexto de email para Auth
     assertAuthEmailSafety();
 
     const { data, error } = await supabase.auth.signUp({
@@ -81,43 +106,20 @@ class AuthService {
           full_name: fullName,
           cpf,
           birth_date: birthDate,
-          is_organizer: isOrganizer // Passando metadata para debug se necessário
+          is_organizer: isOrganizer
         },
       },
     });
 
     if (error) throw error;
 
-    // Se o usuário foi criado com sucesso, vamos garantir que o perfil tenha as roles corretas
     if (data.user) {
-      // Aguardar um momento para o trigger criar o perfil básico
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const updates: any = {
-        roles: ['BUYER'],
-        organizer_status: 'NONE'
-      };
-
-      if (isOrganizer) {
-        updates.roles.push('ORGANIZER');
-        updates.organizer_status = 'PENDING';
-      }
-
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', data.user.id);
-        
-      if (updateError) {
-        // console.error('Erro ao atualizar roles do usuário:', updateError);
-        // Não lançamos erro aqui para não bloquear o cadastro, o usuário pode pedir upgrade depois
-      }
+      await this.syncSignupRoles(data.user.id, isOrganizer);
     }
 
     return data;
   }
 
-  // Login
   async signIn({ email, password }: SignInData) {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -128,39 +130,34 @@ class AuthService {
     return data;
   }
 
-  // Logout
   async signOut() {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   }
 
-  // Obter usuário atual
   async getCurrentUser(): Promise<User | null> {
     const { data: { user }, error } = await supabase.auth.getUser();
     if (error) throw error;
     return user;
   }
 
-  // Obter sessão atual
   async getSession() {
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error) throw error;
     return session;
   }
 
-  // Obter perfil do usuário
   async getProfile(userId: string): Promise<Profile | null> {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     return data;
   }
 
-  // Atualizar perfil
   async updateProfile(userId: string, updates: Partial<Profile>) {
     const { data, error } = await supabase
       .from('profiles')
@@ -173,9 +170,7 @@ class AuthService {
     return data;
   }
 
-  // Completar cadastro (via Edge Function para garantir segurança e validação no servidor)
   async completeProfile(data: { cpf: string; phone: string; birth_date: string }) {
-    // A função invoke envia automaticamente o token de autenticação no header Authorization
     const { data: result, error } = await invokeEdgeFunction('complete-profile', {
       body: data
     });
@@ -184,15 +179,9 @@ class AuthService {
     return result;
   }
 
-  // Enviar email de redefinição de senha
   async resetPasswordForEmail(email: string) {
-    // [SECURITY] Validação de contexto de email para Auth
-    // Garante que estamos usando APENAS o Supabase Auth Nativo
-    // Se por algum motivo o sistema tentar usar SMTP customizado, isso lançará um erro
     assertAuthEmailSafety();
 
-    // [MODIFIED] Use native Supabase Auth method instead of custom SMTP Edge Function
-    // This ensures all auth emails are handled by Supabase Auth service as requested
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     });
@@ -201,9 +190,7 @@ class AuthService {
     return data;
   }
 
-  // Verificar OTP para redefinição de senha
   async verifyOtp(email: string, token: string) {
-    // [SECURITY] Validação de contexto de email para Auth
     assertAuthEmailSafety();
 
     const { data, error } = await supabase.auth.verifyOtp({
@@ -216,9 +203,7 @@ class AuthService {
     return data;
   }
 
-  // Atualizar senha
   async updatePassword(password: string) {
-    // [SECURITY] Validação de contexto de email para Auth
     assertAuthEmailSafety();
 
     const { data, error } = await supabase.auth.updateUser({
@@ -228,9 +213,7 @@ class AuthService {
     return data;
   }
 
-  // Reenviar email de confirmação
   async resendConfirmationEmail(email: string) {
-    // [SECURITY] Validação de contexto de email para Auth
     assertAuthEmailSafety();
 
     const { data, error } = await supabase.auth.resend({
@@ -244,7 +227,6 @@ class AuthService {
     return data;
   }
 
-  // Listener para mudanças de autenticação
   onAuthStateChange(callback: (user: User | null, event?: string) => void) {
     return supabase.auth.onAuthStateChange((event, session) => {
       callback(session?.user ?? null, event);
@@ -253,4 +235,3 @@ class AuthService {
 }
 
 export const authService = new AuthService();
-
