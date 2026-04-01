@@ -15,7 +15,7 @@ type TicketWithEvent = EventParticipant & { event: Event };
 
 const EventCard = ({ ticket, isPast = false, navigate }: { ticket: TicketWithEvent, isPast?: boolean, navigate: (path: string) => void }) => {
   const event = ticket.event;
-  
+
   return (
       <Card className={`overflow-hidden border-border/50 shadow-sm transition-all hover:shadow-md ${isPast ? 'opacity-90' : ''}`}>
           <div className="h-32 bg-muted relative">
@@ -26,7 +26,7 @@ const EventCard = ({ ticket, isPast = false, navigate }: { ticket: TicketWithEve
                     <Ticket className="h-10 w-10 text-secondary-foreground/20" />
                   </div>
               )}
-              
+
               {isPast && (
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[1px]">
                       <Badge variant="secondary" className="text-sm font-medium px-3 py-1 shadow-sm">
@@ -34,7 +34,7 @@ const EventCard = ({ ticket, isPast = false, navigate }: { ticket: TicketWithEve
                       </Badge>
                   </div>
               )}
-              
+
               {!isPast && (
                 <div className="absolute top-2 right-2">
                     <Badge className="bg-green-500/90 hover:bg-green-500 text-white border-none shadow-sm">
@@ -43,7 +43,7 @@ const EventCard = ({ ticket, isPast = false, navigate }: { ticket: TicketWithEve
                 </div>
               )}
           </div>
-          
+
           <CardContent className="p-4">
               <h3 className="font-bold text-lg mb-3 line-clamp-1">{event.title}</h3>
               <div className="space-y-2 text-sm text-muted-foreground">
@@ -65,18 +65,18 @@ const EventCard = ({ ticket, isPast = false, navigate }: { ticket: TicketWithEve
                   </div>
               </div>
           </CardContent>
-          
+
           <CardFooter className="p-4 pt-0 grid grid-cols-2 md:grid-cols-1 gap-3">
-              <Button 
-                variant="outline" 
-                className="w-full hover:bg-secondary/50 col-span-1 md:col-span-1" 
+              <Button
+                variant="outline"
+                className="w-full hover:bg-secondary/50 col-span-1 md:col-span-1"
                 onClick={() => navigate(`/ingressos/${ticket.id}`)}
               >
                   <Ticket className="mr-2 h-4 w-4" />
                   Ver Ingresso
               </Button>
-              <Button 
-                className="w-full bg-primary hover:bg-primary/90 md:hidden col-span-1" 
+              <Button
+                className="w-full bg-primary hover:bg-primary/90 md:hidden col-span-1"
                 onClick={() => navigate(`/eventos/${event.id}?tab=match`)}
               >
                   <Heart className="mr-2 h-4 w-4 fill-current" />
@@ -102,8 +102,11 @@ export default function MyEvents() {
       setLoading(true);
       if (!user) return;
       const data = await eventService.getUserTickets(user.id);
+      const ticketsWithEvent = data.filter((ticket: any): ticket is TicketWithEvent => {
+        return Boolean(ticket?.event && typeof ticket.event === 'object' && ticket.event.id);
+      });
       // Ordenar: Futuros primeiro, depois realizados (mais recentes primeiro)
-      const sorted = data.sort((a, b) => {
+      const sorted = ticketsWithEvent.sort((a, b) => {
         const dateA = new Date(a.event.event_date).getTime();
         const dateB = new Date(b.event.event_date).getTime();
         return dateB - dateA; // Decrescente
@@ -119,13 +122,15 @@ export default function MyEvents() {
   // Agrupar por evento para exibir um card por evento
   const uniqueEventsMap = new Map();
   tickets.forEach(t => {
-      if (!uniqueEventsMap.has(t.event.id)) {
-          uniqueEventsMap.set(t.event.id, t);
-      }
+    const eventId = t?.event?.id;
+    if (!eventId) return;
+    if (!uniqueEventsMap.has(eventId)) {
+      uniqueEventsMap.set(eventId, t);
+    }
   });
-  
+
   const uniqueTickets = Array.from(uniqueEventsMap.values());
-  
+
   const upcomingEvents = uniqueTickets.filter(t => t.event.status !== 'realizado');
   const pastEvents = uniqueTickets.filter(t => t.event.status === 'realizado');
 
@@ -139,7 +144,7 @@ export default function MyEvents() {
         </Button>
         <h1 className="text-2xl font-bold">Meus Eventos</h1>
       </div>
-      
+
       {uniqueTickets.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="bg-muted p-4 rounded-full mb-4">

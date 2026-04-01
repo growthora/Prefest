@@ -133,7 +133,7 @@ export function EventDetailsEditorModal({
   onClose,
   onUpdated,
 }: EventDetailsEditorModalProps) {
-  const MIN_PAID_TICKET_PRICE = 5;
+  const MIN_PAID_TICKET_PRICE = 10;
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('informacoes');
   const [currentMode, setCurrentMode] = useState<ModalMode>('view');
@@ -427,6 +427,17 @@ export function EventDetailsEditorModal({
   const validateForm = () => {
     setFieldErrors({});
     setSaveError(null);
+
+    const hasInvalidPaid = tickets.some((t) => {
+      const p = Number(t.price) || 0;
+      return p > 0 && p < MIN_PAID_TICKET_PRICE;
+    });
+    if (hasInvalidPaid) {
+      setSaveError(
+        `Ingressos pagos devem ser gratuitos (R$ 0,00) ou ter valor mínimo de R$ ${MIN_PAID_TICKET_PRICE.toFixed(2).replace('.', ',')}.`
+      );
+      return false;
+    }
 
     const hasPaidTickets = tickets.some((ticket) => Number(ticket.price) > 0);
     if (hasPaidTickets && form.sales_enabled && asaasStatus !== 'approved') {
@@ -770,6 +781,9 @@ export function EventDetailsEditorModal({
                                       onChange={(e) => updateTicketEditorField(ticket.id, 'price', e.target.value)}
                                       disabled={savingTicketId === ticket.id}
                                     />
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      Gratuito (R$ 0,00) ou mínimo R$ {MIN_PAID_TICKET_PRICE.toFixed(2).replace('.', ',')}
+                                    </p>
                                   </div>
                                   <div>
                                     <Label>Quantidade</Label>
@@ -918,6 +932,9 @@ export function EventDetailsEditorModal({
                           value={newTicket.price}
                           onChange={(e) => setNewTicket((prev) => ({ ...prev, price: e.target.value }))}
                         />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Gratuito (R$ 0,00) ou mínimo R$ {MIN_PAID_TICKET_PRICE.toFixed(2).replace('.', ',')}
+                        </p>
                       </div>
                       <div>
                         <Label>Quantidade</Label>
@@ -1062,8 +1079,6 @@ export function EventDetailsEditorModal({
     </Dialog>
   );
 }
-
-
 
 
 

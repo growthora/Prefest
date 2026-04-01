@@ -30,14 +30,14 @@ export type TicketType = {
 };
 
 export const CreateEventForm = () => {
-  const MIN_PAID_TICKET_PRICE = 5;
+  const MIN_PAID_TICKET_PRICE = 10;
   const { user } = useAuth();
   const { asaasStatus } = useOrganizerStatus();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [formData, setFormData] = useState<CreateEventData>({
     title: '',
     description: '',
@@ -54,7 +54,7 @@ export const CreateEventForm = () => {
     price: 0,
     max_participants: undefined,
   });
-  
+
   const [galleryImages, setGalleryImages] = useState<EventGalleryImage[]>([]);
 
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([
@@ -71,12 +71,12 @@ export const CreateEventForm = () => {
     if (!formData.event_date) return 'A data de início é obrigatória.';
     if (!formData.location) return 'O local específico é obrigatório.';
     if (!formData.state || !formData.city) return 'Estado e cidade são obrigatórios.';
-    
+
     if (isPublishing) {
       if (!formData.description) return 'Adicione uma descrição para publicar.';
       if (galleryImages.length === 0) return 'Adicione entre 1 e 5 imagens para publicar.';
       if (!formData.category_id) return 'Selecione uma categoria para publicar.';
-      
+
       // Validar ingressos
       if (ticketTypes.length === 0) return 'Adicione pelo menos um tipo de ingresso.';
       for (const ticket of ticketTypes) {
@@ -88,7 +88,7 @@ export const CreateEventForm = () => {
         }
       }
     }
-    
+
     return null;
   };
 
@@ -167,7 +167,7 @@ export const CreateEventForm = () => {
   };
 
   const handleTicketChange = (index: number, field: keyof TicketType, value: string | number) => {
-    setTicketTypes(prev => prev.map((ticket, i) => 
+    setTicketTypes(prev => prev.map((ticket, i) =>
       i === index ? { ...ticket, [field]: value } : ticket
     ));
   };
@@ -190,7 +190,7 @@ export const CreateEventForm = () => {
   return (
     <div className="min-h-screen bg-gray-50/50 py-10">
       <div className="container max-w-4xl mx-auto space-y-8 px-4">
-        
+
         <div className="flex items-center">
           <Button
             variant="ghost"
@@ -208,7 +208,7 @@ export const CreateEventForm = () => {
             <p className="text-muted-foreground mt-1">Preencha os dados abaixo para divulgar seu evento.</p>
           </div>
           <div className="flex gap-3 w-full md:w-auto">
-            <Button 
+            <Button
               onClick={handleSubmit}
               disabled={isLoading}
               className="flex-1 md:flex-none"
@@ -226,10 +226,10 @@ export const CreateEventForm = () => {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
+
           {/* Coluna Principal (Esquerda) */}
           <div className="lg:col-span-2 space-y-6">
-            
+
             {/* 1. Informações Básicas */}
             <Card className="shadow-sm border-gray-200">
               <CardHeader>
@@ -249,7 +249,7 @@ export const CreateEventForm = () => {
                     className="text-lg font-medium"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label>Categoria *</Label>
                   <CategorySelect
@@ -300,7 +300,7 @@ export const CreateEventForm = () => {
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     )}
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                       <div className="space-y-2">
                         <Label>Nome do Ingresso</Label>
@@ -320,6 +320,9 @@ export const CreateEventForm = () => {
                             value={ticket.price}
                             onChange={(e) => handleTicketChange(index, 'price', parseFloat(e.target.value) || 0)}
                           />
+                          <p className="text-xs text-muted-foreground">
+                            Gratuito (R$ 0,00) ou mínimo R$ {MIN_PAID_TICKET_PRICE.toFixed(2).replace('.', ',')}
+                          </p>
                         </div>
                         <div className="space-y-2">
                           <Label>Qtd.</Label>
@@ -341,7 +344,7 @@ export const CreateEventForm = () => {
 
           {/* Coluna Lateral (Direita) */}
           <div className="space-y-6">
-            
+
             {/* 3. Galeria de Imagens */}
             <Card className="shadow-sm border-gray-200">
               <CardHeader>
@@ -406,7 +409,7 @@ export const CreateEventForm = () => {
                   onStateChange={(val) => handleChange('state', val)}
                   onCityChange={(val) => handleChange('city', val)}
                 />
-                
+
                 <div className="space-y-2">
                   <Label>Local Específico / Endereço</Label>
                   <Input
@@ -425,7 +428,6 @@ export const CreateEventForm = () => {
     </div>
   );
 };
-
 
 
 
