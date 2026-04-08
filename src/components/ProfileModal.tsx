@@ -7,6 +7,13 @@ import { X, Heart, Clock, Ruler, Sparkles, Users, Lock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { User } from '@/lib/index';
+import {
+  getGenderIdentityLabel,
+  getMatchGenderPreferenceLabel,
+  getMatchIntentionLabel,
+  getRelationshipStatusLabel,
+  getSexualityLabel,
+} from '@/constants/profile-options';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -90,24 +97,29 @@ export function ProfileModal({ isOpen, onClose, user, onLike, onSkip }: ProfileM
                   {user.relationshipStatus && (
                     <Badge variant="secondary" className="bg-zinc-800/50">
                       <Heart size={12} className="mr-1" />
-                      {user.relationshipStatus}
+                      {getRelationshipStatusLabel(user.relationshipStatus)}
+                    </Badge>
+                  )}
+                  {user.genderIdentity && (
+                    <Badge variant="secondary" className="bg-zinc-800/50">
+                      {getGenderIdentityLabel(user.genderIdentity)}
                     </Badge>
                   )}
                   {user.matchIntention && (
                     <Badge variant="secondary" className="bg-zinc-800/50">
                       <Sparkles size={12} className="mr-1" />
-                      {user.matchIntention}
+                      {getMatchIntentionLabel(user.matchIntention)}
                     </Badge>
                   )}
                   {user.sexuality && (
                     <Badge variant="secondary" className="bg-zinc-800/50">
-                      {user.sexuality.charAt(0).toUpperCase() + user.sexuality.slice(1)}
+                      {getSexualityLabel(user.sexuality)}
                     </Badge>
                   )}
                   {user.genderPreference && (
                     <Badge variant="secondary" className="bg-zinc-800/50">
                       <Users size={12} className="mr-1" />
-                      Busca: {user.genderPreference}
+                      Busca: {getMatchGenderPreferenceLabel(user.genderPreference)}
                     </Badge>
                   )}
                 </div>
@@ -189,4 +201,3 @@ export function ProfileModal({ isOpen, onClose, user, onLike, onSkip }: ProfileM
     </Sheet>
   );
 }
-

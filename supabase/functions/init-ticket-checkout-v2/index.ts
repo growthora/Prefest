@@ -2,6 +2,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { requireAuth } from "../_shared/requireAuth.ts";
+import { getMissingProfileFields, isProfileComplete, loadCheckoutProfileSnapshot } from "../_shared/profileSync.ts";
 
 Deno.serve(async (req) => {
   // FASE 1: PROVA DEFINITIVA - DIAGNÓSTICO (Logo na entrada)
@@ -31,23 +32,9 @@ Deno.serve(async (req) => {
     // Use admin client for data access
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 1. Fetch User Profile and Validate Data
-    const { data: profile, error: profileError } = await adminClient
-      .from('profiles')
-      .select('cpf, phone, birth_date')
-      .eq('id', user.id)
-      .single();
-
-    if (profileError || !profile) {
-      // Instead of failing, we can return a specific code to frontend to prompt profile creation
-      // Or just proceed if we are in free flow (but we need profile for ticket)
-      // Let's return a specific error that frontend can handle
-      console.warn("Profile not found for user:", user.id);
-      throw new Error('Profile incomplete: Please complete your profile data');
-    }
-
-    // Removed strict profile validation to allow data collection in next step
-    // if (!profile.cpf || !profile.phone || !profile.birth_date) { ... }
+    const checkoutProfile = await loadCheckoutProfileSnapshot(adminClient, user.id);
+    const missingFields = getMissingProfileFields(checkoutProfile);
+    const profileComplete = isProfileComplete(checkoutProfile);
 
     // 2. Fetch Event and Ticket Type
     const { data: event, error: eventError } = await adminClient
@@ -115,7 +102,10 @@ Deno.serve(async (req) => {
         type: "paid", 
         nextStep: "payment", 
         ticket_id: ticket.id,
-        amount: totalPrice
+        amount: totalPrice,
+        profile_complete: profileComplete,
+        missing_fields: missingFields,
+        profile_snapshot: checkoutProfile,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
       });
@@ -125,7 +115,10 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ 
         type: "free", 
         nextStep: "personal_data", // Force data verification step
-        amount: 0
+        amount: 0,
+        profile_complete: profileComplete,
+        missing_fields: missingFields,
+        profile_snapshot: checkoutProfile,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
       });
@@ -141,5 +134,4 @@ Deno.serve(async (req) => {
     });
   }
 });
-
 

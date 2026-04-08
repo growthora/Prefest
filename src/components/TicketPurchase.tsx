@@ -124,6 +124,76 @@ interface TicketPurchaseProps {
 
 type CheckoutStep = 'select_ticket_type' | 'personal_data' | 'payment' | 'free_confirmation';
 
+interface CheckoutProfileSnapshot {
+  full_name: string;
+  cpf: string;
+  email: string;
+  phone: string;
+  birth_date: string;
+}
+
+const emptyCheckoutProfile: CheckoutProfileSnapshot = {
+  full_name: '',
+  cpf: '',
+  email: '',
+  phone: '',
+  birth_date: '',
+};
+
+const sanitizeDigits = (value: string | null | undefined) => (value || '').replace(/\D/g, '');
+
+const normalizeCheckoutProfile = (
+  source: Partial<CheckoutProfileSnapshot> | null | undefined,
+  fallbackEmail?: string | null,
+): CheckoutProfileSnapshot => ({
+  full_name: source?.full_name?.trim() || '',
+  cpf: source?.cpf?.trim() || '',
+  email: source?.email?.trim() || fallbackEmail?.trim() || '',
+  phone: source?.phone?.trim() || '',
+  birth_date: source?.birth_date?.trim() || '',
+});
+
+const mergeCheckoutProfiles = (
+  primary: Partial<CheckoutProfileSnapshot> | null | undefined,
+  fallback: Partial<CheckoutProfileSnapshot> | null | undefined,
+  fallbackEmail?: string | null,
+) =>
+  normalizeCheckoutProfile({
+    full_name: primary?.full_name || fallback?.full_name,
+    cpf: primary?.cpf || fallback?.cpf,
+    email: primary?.email || fallback?.email || fallbackEmail || '',
+    phone: primary?.phone || fallback?.phone,
+    birth_date: primary?.birth_date || fallback?.birth_date,
+  }, fallbackEmail);
+
+const getMissingCheckoutFields = (profile: CheckoutProfileSnapshot): string[] => {
+  const missing: string[] = [];
+
+  if (!profile.full_name.trim()) missing.push('full_name');
+
+  const cpfDigits = sanitizeDigits(profile.cpf);
+  if (cpfDigits.length !== 11 && cpfDigits.length !== 14) missing.push('cpf');
+
+  const phoneDigits = sanitizeDigits(profile.phone);
+  if (phoneDigits.length < 10) missing.push('phone');
+
+  if (!profile.birth_date.trim() || Number.isNaN(new Date(profile.birth_date).getTime())) {
+    missing.push('birth_date');
+  }
+
+  return missing;
+};
+
+const isIncompleteProfileErrorMessage = (message: string) => {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes('dados incompletos') ||
+    normalized.includes('profile incomplete') ||
+    normalized.includes('profile not found') ||
+    normalized.includes('buyer profile incomplete')
+  );
+};
+
 export function TicketPurchase({ event, onPurchase, isParticipating = false }: TicketPurchaseProps) {
   const { profile, user, isLoading: isAuthLoading } = useAuth();
   const navigate = useNavigate();
@@ -139,6 +209,8 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   const [selectedTicketTypeId, setSelectedTicketTypeId] = useState<string>();
   const [selectedTicketType, setSelectedTicketType] = useState<TicketTypeDB>();
   const [autoResume, setAutoResume] = useState(false);
+  const [checkoutProfile, setCheckoutProfile] = useState<CheckoutProfileSnapshot>(emptyCheckoutProfile);
+  const checkoutProfileRef = React.useRef<CheckoutProfileSnapshot>(emptyCheckoutProfile);
   
   // Fee Configuration State
   const [feeConfig, setFeeConfig] = useState<{ platform_fee_type: 'percentage' | 'fixed', platform_fee_value: number }>({
@@ -171,8 +243,48 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     }
   }, []);
 
+  React.useEffect(() => {
+    setCheckoutProfile((current) => mergeCheckoutProfiles(profile, current, user?.email ?? null));
+  }, [profile, user?.email]);
+
+  React.useEffect(() => {
+    checkoutProfileRef.current = checkoutProfile;
+  }, [checkoutProfile]);
+
+  const refreshCheckoutProfile = React.useCallback(async () => {
+    const fallbackProfile = normalizeCheckoutProfile(profile, user?.email ?? null);
+
+    if (!user) {
+      setCheckoutProfile(fallbackProfile);
+      return fallbackProfile;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('full_name, cpf, email, phone, birth_date')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        throw error;
+      }
+
+      const normalized = mergeCheckoutProfiles(data, checkoutProfileRef.current, user.email ?? null);
+      setCheckoutProfile(normalized);
+      return normalized;
+    } catch {
+      setCheckoutProfile(fallbackProfile);
+      return fallbackProfile;
+    }
+  }, [profile, user]);
+
   // Handle auto-resume execution once ticket data is ready
   React.useEffect(() => {
+    if (isAuthLoading) {
+      return;
+    }
+
     if (autoResume && selectedTicketTypeId && selectedTicketType && step === 'select_ticket_type') {
       // Small delay to ensure UI is stable
       const timer = setTimeout(() => {
@@ -189,7 +301,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
       
       return () => clearTimeout(timer);
     }
-  }, [autoResume, selectedTicketTypeId, selectedTicketType, step]);
+  }, [autoResume, selectedTicketTypeId, selectedTicketType, step, isAuthLoading]);
   
   // Calculate age from profile birth_date
   const calculateAge = (birthDate?: string | null) => {
@@ -204,11 +316,11 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     return age.toString();
   };
 
-  const fullName = profile?.full_name || '';
-  const cpf = profile?.cpf || '';
-  const email = profile?.email || '';
-  const phone = profile?.phone || '';
-  const age = calculateAge(profile?.birth_date);
+  const fullName = checkoutProfile.full_name;
+  const cpf = checkoutProfile.cpf;
+  const email = checkoutProfile.email || user?.email || '';
+  const phone = checkoutProfile.phone;
+  const age = calculateAge(checkoutProfile.birth_date);
 
   React.useEffect(() => {
     if (profile?.single_mode !== undefined) {
@@ -221,6 +333,14 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
       setSingleMode(false);
     }
   }, [age]);
+
+  React.useEffect(() => {
+    if (!user || isAuthLoading || step !== 'personal_data') {
+      return;
+    }
+
+    void refreshCheckoutProfile();
+  }, [user, isAuthLoading, step, refreshCheckoutProfile]);
 
   const handleToggleSingleMode = (val: boolean) => {
     if (val) {
@@ -283,13 +403,8 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     setSelectedTicketType(ticketType);
   };
 
-  const hasValidPersonalData = () => {
-    // Check if profile data is present (since fields are read-only)
-    if (!profile?.full_name || !profile?.cpf || !profile?.phone || !profile?.birth_date) {
-      return false;
-    }
-    return true;
-  };
+  const hasValidPersonalData = (currentProfile: CheckoutProfileSnapshot = checkoutProfile) =>
+    getMissingCheckoutFields(currentProfile).length === 0;
 
   const handleRedirectToProfile = () => {
     // Save current location with state for post-registration redirect
@@ -307,6 +422,10 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   const handleNextStep = async () => {
     if (isSalesDisabled) {
       toast.error('As vendas para este evento ainda não foram abertas.');
+      return;
+    }
+
+    if (isAuthLoading) {
       return;
     }
 
@@ -348,9 +467,13 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
             setTicketId(data.ticket_id);
         }
 
+        const freshProfile = mergeCheckoutProfiles(data?.profile_snapshot, checkoutProfileRef.current, user.email ?? null);
+        const resolvedProfile = data?.profile_snapshot ? freshProfile : await refreshCheckoutProfile();
+        setCheckoutProfile(resolvedProfile);
+
         const nextStep = (data.type === 'paid' || data.nextStep !== 'confirm') ? 'personal_data' : 'free_confirmation';
 
-        if (nextStep === 'personal_data' && !hasValidPersonalData()) {
+        if (nextStep === 'personal_data' && !hasValidPersonalData(resolvedProfile)) {
              toast.error('Seu cadastro está incompleto. Redirecionando...');
              handleRedirectToProfile();
              return;
@@ -375,7 +498,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
             errorMessage = 'Sessão inválida. Tente fazer login novamente.';
         }
         // If profile is incomplete, the backend might return specific error
-        if (errorMessage.includes('Dados incompletos') || errorMessage.includes('Profile incomplete') || errorMessage.includes('Profile not found')) {
+        if (isIncompleteProfileErrorMessage(errorMessage)) {
             toast.error('Seu cadastro está incompleto. Redirecionando...');
             
             // Save current location for post-registration redirect with context
@@ -399,7 +522,8 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     }
 
     if (step === 'personal_data') {
-      if (!hasValidPersonalData()) {
+      const freshProfile = await refreshCheckoutProfile();
+      if (!hasValidPersonalData(freshProfile)) {
         toast.error('Seu cadastro está incompleto. Por favor, complete seu perfil.');
         return;
       }
@@ -458,13 +582,20 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     
     try {
       setIsProcessing(true);
+      const freshProfile = await refreshCheckoutProfile();
+
+      if (!hasValidPersonalData(freshProfile)) {
+        toast.error('Seu cadastro está incompleto. Redirecionando...');
+        handleRedirectToProfile();
+        return;
+      }
 
       if (isFreeCheckout) {
         // FREE FLOW
         // 1. Save Profile (if data exists in state)
-        if (fullName && cpf && email && phone) {
+        if (hasValidPersonalData(freshProfile)) {
             const { error: profileError } = await invokeEdgeFunction('save-buyer-profile-v2', {
-            body: { full_name: fullName, cpf, phone, email }
+            body: { full_name: freshProfile.full_name, cpf: freshProfile.cpf, phone: freshProfile.phone, email: freshProfile.email, birth_date: freshProfile.birth_date }
         });
         if (profileError) {
             // console.error('Profile save error:', profileError);
@@ -502,9 +633,9 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         }
 
         // 1. Save Profile (Mandatory for Paid too)
-        if (fullName && cpf && email && phone) {
+        if (hasValidPersonalData(freshProfile)) {
             const { error: profileError } = await invokeEdgeFunction('save-buyer-profile-v2', {
-            body: { full_name: fullName, cpf, phone, email }
+            body: { full_name: freshProfile.full_name, cpf: freshProfile.cpf, phone: freshProfile.phone, email: freshProfile.email, birth_date: freshProfile.birth_date }
         });
         if (profileError) {
             // console.warn('Profile save warning (paid):', profileError);
@@ -546,7 +677,13 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
       }
 
     } catch (error: any) {
-    // console.error('Purchase error:', error);
+      const rawMessage = String(error?.message || '');
+      if (isIncompleteProfileErrorMessage(rawMessage)) {
+        toast.error('Seu cadastro está incompleto. Redirecionando...');
+        handleRedirectToProfile();
+        return;
+      }
+
       toast.error(toUserFriendlyErrorMessage(error));
     } finally {
       setIsProcessing(false);
@@ -1174,9 +1311,5 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     </div>
   );
 }
-
-
-
-
 
 

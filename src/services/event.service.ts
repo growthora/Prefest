@@ -188,6 +188,9 @@ export interface MatchCandidate {
   height: number | null;
   relationship_status: string | null;
   match_intention: string | null;
+  match_gender_preference?: string | null;
+  gender_identity?: string | null;
+  sexuality?: string | null;
   vibes: string[] | null;
   last_seen: string | null;
   is_online: boolean;
@@ -1185,6 +1188,7 @@ export class EventService {
           single_mode,
           match_enabled,
           show_initials_only,
+          gender_identity,
           match_intention,
           match_gender_preference,
           sexuality,
@@ -1219,6 +1223,7 @@ export class EventService {
           match_enabled: false,
           bio: null,
           // Limpar dados sensíveis
+          gender_identity: null,
           match_intention: null,
           match_gender_preference: null,
           sexuality: null,
@@ -1371,6 +1376,7 @@ export class EventService {
         match_enabled,
         single_mode,
         show_initials_only,
+        gender_identity,
         match_intention,
         match_gender_preference,
         sexuality,
@@ -1426,6 +1432,7 @@ export class EventService {
       height: profile.height,
       relationshipStatus: profile.relationship_status,
       matchIntention: profile.match_intention,
+      genderIdentity: profile.gender_identity,
       sexuality: profile.sexuality,
       genderPreference: profile.match_gender_preference,
       vibes: profile.vibes || [],
@@ -1513,7 +1520,6 @@ export class EventService {
 }
 
 export const eventService = new EventService();
-
 
 
 

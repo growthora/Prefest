@@ -19,6 +19,12 @@ import { toast } from 'sonner';
 import { GlobalLoader } from '@/components/GlobalLoader';
 import { likeService } from '@/services/like.service';
 import { supabase } from '@/lib/supabase';
+import {
+  getGenderIdentityLabel,
+  getMatchIntentionLabel,
+  getRelationshipStatusLabel,
+  getSexualityLabel,
+} from '@/constants/profile-options';
 
 interface PublicUser {
   id: string;
@@ -28,6 +34,7 @@ interface PublicUser {
   city: string | null;
   age: number | null;
   height: number | null;
+  gender_identity: string | null;
   relationship_status: string | null;
   match_intention: string | null;
   sexuality: string | null;
@@ -137,6 +144,7 @@ export default function PublicProfile() {
         // ... map other fields from userData to PublicUser interface
         age: calculateAge(userData.birth_date),
         height: userData.height || null,
+        gender_identity: userData.gender_identity || null,
         relationship_status: userData.relationship_status || null,
         match_intention: userData.match_intention,
         sexuality: userData.sexuality || null,
@@ -307,18 +315,23 @@ export default function PublicProfile() {
                   {showRelationship && (
                     <Badge variant="outline" className="bg-muted/50">
                       <Heart className="w-3 h-3 mr-1" />
-                      {profile.relationship_status}
+                      {getRelationshipStatusLabel(profile.relationship_status)}
+                    </Badge>
+                  )}
+                  {profile.gender_identity && (
+                    <Badge variant="outline" className="bg-muted/50">
+                      {getGenderIdentityLabel(profile.gender_identity)}
                     </Badge>
                   )}
                   {profile.match_intention && (
                     <Badge variant="outline" className="bg-muted/50">
                       <Sparkles className="w-3 h-3 mr-1" />
-                      {profile.match_intention}
+                      {getMatchIntentionLabel(profile.match_intention)}
                     </Badge>
                   )}
                   {profile.sexuality && (
                     <Badge variant="outline" className="bg-muted/50">
-                      {profile.sexuality}
+                      {getSexualityLabel(profile.sexuality)}
                     </Badge>
                   )}
                 </div>
@@ -392,4 +405,3 @@ export default function PublicProfile() {
     </Layout>
   );
 }
-

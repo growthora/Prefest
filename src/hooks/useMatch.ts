@@ -1,198 +1,223 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { User, Match, Message, APP_CONFIG } from '@/lib/index';
-import { supabase } from '@/lib/supabase';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { APP_CONFIG, User } from '@/lib';
 import { useAuth } from '@/contexts/AuthContext';
-import { useFeatureAccess } from '@/hooks/useFeatureAccess';
-import { likeService } from '@/services/like.service';
-import { matchService } from '@/services/match.service';
-import { chatService } from '@/services/chat.service';
 import { toast } from 'sonner';
+import { eventMatchService, type EventReceivedLike } from '@/services/event-match.service';
+import type { LikeResult } from '@/services/like.service';
+import type { Match } from '@/services/match.service';
+
+interface LikeActionResponse {
+  result: LikeResult;
+  targetUser?: User;
+}
 
 /**
- * Hook para gerenciar o sistema de matchmaking e o Conheça a Galera!!
+ * Fonte única de verdade para o Match por evento.
+ * Centraliza fila, curtidas recebidas, matches e assinaturas realtime.
  */
 export function useMatch(eventId?: string) {
-  const { user, profile, updateProfile } = useAuth();
-  const { checkAccess } = useFeatureAccess();
-  
+  const { user, profile } = useAuth();
+
   const [matches, setMatches] = useState<Match[]>([]);
   const [currentQueue, setCurrentQueue] = useState<User[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [receivedLikes, setReceivedLikes] = useState<EventReceivedLike[]>([]);
+  const [loadingQueue, setLoadingQueue] = useState(false);
+  const [loadingMatches, setLoadingMatches] = useState(false);
+  const [loadingReceivedLikes, setLoadingReceivedLikes] = useState(false);
 
-  // Mapear match_enabled do profile
+  const refreshTimeoutRef = useRef<number | null>(null);
+
   const isSingleMode = profile?.match_enabled || false;
 
-  // Carregar matches existentes
-  useEffect(() => {
-    if (user) {
-      loadMatches();
+  const loadMatches = useCallback(async () => {
+    if (!user || !eventId) {
+      setMatches([]);
+      return;
     }
-  }, [user]);
 
-  const loadMatches = async () => {
-    if (!user) return;
+    setLoadingMatches(true);
     try {
-      const userMatches = await matchService.getUserMatches();
-      // Converter Match (do service) para Match (da UI)
-      const mappedMatches: Match[] = userMatches.map(m => ({
-        id: m.match_id,
-        eventId: m.event_id,
-        userIds: [user.id, m.partner_id],
-        status: 'active',
-        createdAt: m.created_at,
-        expiresAt: new Date(new Date(m.created_at).getTime() + 24 * 60 * 60 * 1000).toISOString(),
-        partner: {
-            id: m.partner_id,
-            name: m.partner_name,
-            photo: m.partner_avatar,
-        }
-    }));
-    setMatches(mappedMatches);
-  } catch (error) {
-    // console.error('Erro ao carregar matches:', error);
-  }
-};
-
-  // Carregar fila de candidatos
-  useEffect(() => {
-    if (eventId && user && isSingleMode) {
-      loadQueue();
-    }
-  }, [eventId, user, isSingleMode]);
-
-  const loadQueue = async () => {
-    if (!eventId || !user) return;
-    setLoading(true);
-    try {
-      const candidates = await likeService.getPotentialMatches(eventId, user.id);
-      
-      // Mapear profile do backend para interface User do frontend
-      const mappedUsers: User[] = candidates.map(c => {
-        let photoUrl = c.avatar_url;
-        
-        // Tratamento robusto para URL da foto
-        if (photoUrl) {
-           // Se for caminho relativo, construir URL completa do Supabase
-           if (!photoUrl.startsWith('http')) {
-             const { data } = supabase.storage
-               .from('profiles') // Alterado de 'event-images' para 'profiles'
-               .getPublicUrl(photoUrl);
-             photoUrl = data.publicUrl;
-           }
-        } else {
-           photoUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(c.full_name || 'User')}&background=random`;
-        }
-
-        return {
-          id: c.id,
-          name: c.full_name || 'Usuário',
-          age: c.birth_date ? new Date().getFullYear() - new Date(c.birth_date).getFullYear() : 25,
-          bio: c.bio || '',
-          photo: photoUrl,
-          vibes: c.vibes || [],
-          isSingleMode: c.single_mode,
-          showInitialsOnly: c.show_initials_only,
-          matchIntention: c.match_intention,
-          genderPreference: c.match_gender_preference,
-          sexuality: c.sexuality,
-          // compatibilityScore removido temporariamente até termos o algoritmo real
-        };
-      });
-      
-      setCurrentQueue(mappedUsers);
-  } catch (error) {
-    // console.error('Erro ao carregar fila:', error);
-    toast.error('Erro ao carregar participantes');
-  } finally {
-      setLoading(false);
-    }
-  };
-
-  const toggleSingleMode = useCallback(async () => {
-    if (!user) return;
-    try {
-      await updateProfile({ match_enabled: !isSingleMode });
-      toast.success(isSingleMode ? 'Modo Match desativado' : 'Modo Match ativado!');
-    } catch (error) {
-      // console.error('Erro ao atualizar modo Match:', error);
-      toast.error('Erro ao atualizar status');
-    }
-  }, [user, isSingleMode, updateProfile]);
-
-  const likeUser = useCallback(async (targetUserId: string) => {
-    if (!checkAccess('dar like')) return false;
-
-    if (!user || !eventId) return false;
-    
-    // Remover da fila localmente para feedback instantâneo
-    setCurrentQueue(prev => prev.filter(u => u.id !== targetUserId));
-
-    try {
-      const result = await likeService.likeUser(targetUserId, eventId);
-      
-      if (result.is_match) {
-        toast.success('Deu Match! 🎉');
-        loadMatches(); // Recarregar matches
-        return true;
-      }
-      return false;
-    } catch (error) {
-      // console.error('Erro ao dar like:', error);
-      toast.error('Erro ao processar like');
-      return false;
+      const eventMatches = await eventMatchService.getEventMatches(eventId);
+      setMatches(eventMatches);
+    } catch {
+      setMatches([]);
+    } finally {
+      setLoadingMatches(false);
     }
   }, [eventId, user]);
 
-  const skipUser = useCallback((targetUserId: string) => {
-    // Apenas remove da fila localmente
-    // Idealmente, persistir "skip" no banco para não mostrar novamente
-    setCurrentQueue(prev => prev.filter(u => u.id !== targetUserId));
-  }, []);
-
-  const getMatchById = useCallback((matchId: string) => {
-    return matches.find(m => m.id === matchId);
-  }, [matches]);
-
-  const getPartnerProfile = useCallback((match: Match) => {
-    if (!user) return undefined;
-    return match.partner; 
-  }, [user]);
-
-  // Envio de mensagem
-  const sendMessage = useCallback(async (matchId: string, content: string) => {
-    if (!user) return;
-    try {
-        // Primeiro garante que o chat existe
-        const chatId = await chatService.getOrCreateChat(matchId);
-        if (chatId) {
-            await chatService.sendMessage(chatId, user.id, content);
-        }
-    } catch (error) {
-        // console.error("Erro ao enviar mensagem", error);
-        toast.error("Erro ao enviar mensagem");
+  const loadReceivedLikes = useCallback(async () => {
+    if (!user || !eventId) {
+      setReceivedLikes([]);
+      return;
     }
-  }, [user]);
 
-  const stats = useMemo(() => ({
-    totalMatches: matches.length,
-    activeQueueCount: currentQueue.length,
-    hasPendingActions: currentQueue.length > 0,
-  }), [matches.length, currentQueue.length]);
+    setLoadingReceivedLikes(true);
+    try {
+      const likes = await eventMatchService.getReceivedLikes(eventId);
+      setReceivedLikes(likes);
+    } catch {
+      setReceivedLikes([]);
+    } finally {
+      setLoadingReceivedLikes(false);
+    }
+  }, [eventId, user]);
+
+  const loadQueue = useCallback(async () => {
+    if (!user || !eventId || !isSingleMode) {
+      setCurrentQueue([]);
+      return;
+    }
+
+    setLoadingQueue(true);
+    try {
+      const candidates = await eventMatchService.getCandidates(eventId, user.id);
+      setCurrentQueue(candidates);
+    } catch {
+      setCurrentQueue([]);
+      toast.error('Erro ao carregar participantes do Match');
+    } finally {
+      setLoadingQueue(false);
+    }
+  }, [eventId, isSingleMode, user]);
+
+  const refreshAll = useCallback(async () => {
+    await Promise.all([loadMatches(), loadReceivedLikes(), loadQueue()]);
+  }, [loadMatches, loadQueue, loadReceivedLikes]);
+
+  useEffect(() => {
+    refreshAll();
+  }, [refreshAll]);
+
+  useEffect(() => {
+    if (!user || !eventId) return;
+
+    const scheduleRefresh = () => {
+      if (refreshTimeoutRef.current) {
+        window.clearTimeout(refreshTimeoutRef.current);
+      }
+
+      refreshTimeoutRef.current = window.setTimeout(() => {
+        refreshAll();
+      }, 200);
+    };
+
+    const channel = eventMatchService.subscribeToEvent(eventId, user.id, scheduleRefresh);
+
+    return () => {
+      if (refreshTimeoutRef.current) {
+        window.clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = null;
+      }
+
+      channel.unsubscribe();
+    };
+  }, [eventId, refreshAll, user]);
+
+  const likeUser = useCallback(async (targetUserId: string): Promise<LikeActionResponse | null> => {
+    if (!user || !eventId) return null;
+
+    const targetUser = currentQueue.find((candidate) => candidate.id === targetUserId);
+    const previousQueue = currentQueue;
+
+    setCurrentQueue((prev) => prev.filter((candidate) => candidate.id !== targetUserId));
+
+    try {
+      const result = await eventMatchService.likeUser(eventId, targetUserId);
+
+      if (result.status === 'match') {
+        loadMatches();
+        loadReceivedLikes();
+      }
+
+      return { result, targetUser };
+    } catch (error) {
+      setCurrentQueue(previousQueue);
+      throw error;
+    }
+  }, [currentQueue, eventId, loadMatches, loadReceivedLikes, user]);
+
+  const likeBack = useCallback(async (targetUserId: string, likeId: string): Promise<LikeActionResponse | null> => {
+    if (!user || !eventId) return null;
+
+    const previousLikes = receivedLikes;
+    setReceivedLikes((prev) => prev.filter((like) => like.like_id !== likeId));
+
+    try {
+      const result = await eventMatchService.likeUser(eventId, targetUserId);
+
+      if (result.status === 'match') {
+        await Promise.all([loadMatches(), loadQueue()]);
+      }
+
+      return {
+        result,
+        targetUser: currentQueue.find((candidate) => candidate.id === targetUserId),
+      };
+    } catch (error) {
+      setReceivedLikes(previousLikes);
+      throw error;
+    }
+  }, [currentQueue, eventId, loadMatches, loadQueue, receivedLikes, user]);
+
+  const skipUser = useCallback(async (targetUserId: string) => {
+    if (!eventId) return;
+
+    const previousQueue = currentQueue;
+    setCurrentQueue((prev) => prev.filter((candidate) => candidate.id !== targetUserId));
+
+    try {
+      const persisted = await eventMatchService.skipUser(eventId, targetUserId);
+
+      if (!persisted) {
+        toast.info('Perfil ocultado nesta sessão. A persistência será aplicada após atualizar o banco.');
+      }
+    } catch (error) {
+      setCurrentQueue(previousQueue);
+      toast.error('Erro ao ocultar esse perfil');
+    }
+  }, [currentQueue, eventId]);
+
+  const ignoreLike = useCallback(async (targetUserId: string, likeId: string) => {
+    const previousLikes = receivedLikes;
+    setReceivedLikes((prev) => prev.filter((like) => like.like_id !== likeId));
+
+    try {
+      if (eventId) {
+        await eventMatchService.skipUser(eventId, targetUserId);
+      }
+    } catch (error) {
+      setReceivedLikes(previousLikes);
+      throw error;
+    }
+  }, [eventId, receivedLikes]);
+
+  const stats = useMemo(() => {
+    const priorityQueueCount = currentQueue.filter((candidate) => candidate.likedYou).length;
+
+    return {
+      totalMatches: matches.length,
+      activeQueueCount: currentQueue.length,
+      receivedLikesCount: receivedLikes.length,
+      priorityQueueCount,
+      hasPendingActions: currentQueue.length > 0 || receivedLikes.length > 0,
+    };
+  }, [currentQueue, matches.length, receivedLikes.length]);
 
   return {
     isSingleMode,
-    toggleSingleMode,
     currentQueue,
-    likeUser,
-    skipUser,
+    receivedLikes,
     matches,
-    getMatchById,
-    getPartnerProfile,
-    sendMessage,
+    likeUser,
+    likeBack,
+    skipUser,
+    ignoreLike,
+    refreshAll,
     stats,
+    loading: loadingQueue,
+    loadingMatches,
+    loadingReceivedLikes,
     primaryColor: APP_CONFIG.primaryColor,
-    loading
   };
 }
-
-

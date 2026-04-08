@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { authService, type Profile } from '@/services/auth.service';
 import type { User } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 
 export type AuthStatus = 'checking' | 'authenticated' | 'unauthenticated';
 
@@ -160,6 +161,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const interval = setInterval(updateLastSeen, 5 * 60 * 1000);
 
     return () => clearInterval(interval);
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`profile-sync:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`,
+        },
+        async () => {
+          try {
+            const refreshedProfile = await loadProfileSafely(user.id);
+            if (refreshedProfile) {
+              setProfile(refreshedProfile);
+            }
+          } catch (err: any) {
+            if (err?.message === 'ACCOUNT_UNAVAILABLE') {
+              clearAuthState();
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const signIn = async (email: string, password: string) => {

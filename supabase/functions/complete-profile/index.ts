@@ -1,6 +1,7 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts"
 import { requireAuth } from "../_shared/requireAuth.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { getMissingProfileFields, syncCheckoutProfileSnapshot } from "../_shared/profileSync.ts"
 
 Deno.serve(async (req) => {
   // FASE 1: PROVA DEFINITIVA - DIAGNÓSTICO (Logo na entrada)
@@ -16,8 +17,12 @@ Deno.serve(async (req) => {
   const corsHeaders = getCorsHeaders(req)
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+
     // Verify user is authenticated
-    const { user, supabase: supabaseClient } = await requireAuth(req)
+    const { user } = await requireAuth(req)
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey)
 
     // Parse body
     const { cpf, phone, birth_date } = await req.json()
@@ -30,28 +35,17 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Update profile
-    const { data, error } = await supabaseClient
-      .from('profiles')
-      .update({
+    const snapshot = await syncCheckoutProfileSnapshot(adminClient, user.id, {
         cpf,
         phone,
         birth_date,
-        updated_at: new Date().toISOString()
+        email: user.email ?? undefined,
       })
-      .eq('id', user.id)
-      .select()
-      .single()
 
-    if (error) {
-      // console.error('Error updating profile:', error)
-      return new Response(JSON.stringify({ error: 'Failed to update profile', details: error }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
-      })
-    }
-
-    return new Response(JSON.stringify(data), {
+    return new Response(JSON.stringify({
+      ...snapshot,
+      missing_fields: getMissingProfileFields(snapshot),
+    }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
     })
@@ -70,4 +64,3 @@ Deno.serve(async (req) => {
     })
   }
 })
-

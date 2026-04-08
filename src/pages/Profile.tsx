@@ -29,6 +29,18 @@ import { eventService } from "@/services/event.service";
 import { Event, ROUTE_PATHS } from "@/lib/index";
 import { toast } from 'sonner';
 import { toUserFriendlyErrorMessage } from '@/lib/appErrors';
+import {
+  GENDER_IDENTITY_OPTIONS,
+  MATCH_GENDER_PREFERENCE_OPTIONS,
+  MATCH_INTENTION_OPTIONS,
+  RELATIONSHIP_STATUS_OPTIONS,
+  SEXUALITY_OPTIONS,
+  getGenderIdentityLabel,
+  getMatchGenderPreferenceLabel,
+  getMatchIntentionLabel,
+  getRelationshipStatusLabel,
+  getSexualityLabel,
+} from '@/constants/profile-options';
 
 import { MatchGuidelinesModal } from "@/components/MatchGuidelinesModal";
 
@@ -53,6 +65,7 @@ export default function Profile() {
     city: '',
     avatar_url: '',
     birth_date: '',
+    gender_identity: '',
     sexuality: '',
     height: '',
     relationship_status: '',
@@ -147,6 +160,7 @@ export default function Profile() {
         city: profile.city || '',
         avatar_url: profile.avatar_url || '',
         birth_date: profile.birth_date || '',
+        gender_identity: profile.gender_identity || '',
         sexuality: profile.sexuality || '',
         height: profile.height ? profile.height.toString() : '',
         relationship_status: profile.relationship_status || '',
@@ -173,6 +187,7 @@ export default function Profile() {
         ...formData,
         username: formData.username.toLowerCase().trim(),
         birth_date: formData.birth_date === '' ? null : formData.birth_date,
+        gender_identity: formData.gender_identity === '' ? null : formData.gender_identity,
         relationship_status: formData.relationship_status === '' ? null : formData.relationship_status,
         sexuality: formData.sexuality === '' ? null : formData.sexuality,
         match_intention: formData.match_intention === '' ? null : formData.match_intention,
@@ -190,6 +205,8 @@ export default function Profile() {
       // Tratamento específico para erro de unicidade de username
       if (err?.code === '23505' || err?.message?.includes('profiles_username_key')) {
         toast.error('Este nome de usuário já está em uso. Por favor, escolha outro.');
+      } else if (err?.code === '23514' || err?.message?.includes('profiles_gender_identity_check')) {
+        toast.error('Gênero inválido. Selecione uma opção válida ou deixe em branco.');
       } else if (err?.code === '23514' || err?.message?.includes('profiles_relationship_status_check')) {
         toast.error('Status de relacionamento invalido. Selecione uma opcao valida ou deixe em branco.');
       } else {
@@ -487,6 +504,25 @@ export default function Profile() {
                     </div>
 
                     <div className="space-y-2">
+                      <Label htmlFor="gender_identity">Gênero</Label>
+                      <Select
+                        value={formData.gender_identity}
+                        onValueChange={(value) => setFormData({ ...formData, gender_identity: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {GENDER_IDENTITY_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
                       <Label htmlFor="sexuality">Sexualidade</Label>
                       <Select 
                         value={formData.sexuality} 
@@ -496,14 +532,11 @@ export default function Profile() {
                           <SelectValue placeholder="Selecione..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="heterossexual">Heterossexual</SelectItem>
-                          <SelectItem value="gay">Gay</SelectItem>
-                          <SelectItem value="lesbica">Lésbica</SelectItem>
-                          <SelectItem value="bissexual">Bissexual</SelectItem>
-                          <SelectItem value="pansexual">Pansexual</SelectItem>
-                          <SelectItem value="assexual">Assexual</SelectItem>
-                          <SelectItem value="queer">Queer</SelectItem>
-                          <SelectItem value="outro">Outro</SelectItem>
+                          {SEXUALITY_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -518,13 +551,11 @@ export default function Profile() {
                           <SelectValue placeholder="Selecione..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="solteiro">Solteiro(a)</SelectItem>
-                          <SelectItem value="casado">Casado(a)</SelectItem>
-                          <SelectItem value="namorando">Namorando</SelectItem>
-                          <SelectItem value="divorciado">Divorciado(a)</SelectItem>
-                          <SelectItem value="viuvo">Viúvo(a)</SelectItem>
-                          <SelectItem value="enrolado">Enrolado(a)</SelectItem>
-                          <SelectItem value="relacionamento_aberto">Relacionamento Aberto</SelectItem>
+                          {RELATIONSHIP_STATUS_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -539,11 +570,11 @@ export default function Profile() {
                           <SelectValue placeholder="Selecione..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="paquera">Paquera / Date</SelectItem>
-                          <SelectItem value="amizade">Amizade</SelectItem>
-                          <SelectItem value="networking">Networking</SelectItem>
-                          <SelectItem value="casual">Algo Casual</SelectItem>
-                          <SelectItem value="serio">Relacionamento Sério</SelectItem>
+                          {MATCH_INTENTION_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -558,9 +589,11 @@ export default function Profile() {
                           <SelectValue placeholder="Selecione..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="todos">Todos</SelectItem>
-                          <SelectItem value="homens">Homens</SelectItem>
-                          <SelectItem value="mulheres">Mulheres</SelectItem>
+                          {MATCH_GENDER_PREFERENCE_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -582,28 +615,34 @@ export default function Profile() {
                         <p>{formData.height}m</p>
                       </div>
                     )}
+                    {formData.gender_identity && (
+                      <div className="space-y-1">
+                        <h3 className="font-semibold text-xs text-muted-foreground uppercase">Gênero</h3>
+                        <p>{getGenderIdentityLabel(formData.gender_identity)}</p>
+                      </div>
+                    )}
                     {formData.sexuality && (
                       <div className="space-y-1">
                         <h3 className="font-semibold text-xs text-muted-foreground uppercase">Sexualidade</h3>
-                        <p className="capitalize">{formData.sexuality}</p>
+                        <p>{getSexualityLabel(formData.sexuality)}</p>
                       </div>
                     )}
                     {formData.relationship_status && (
                       <div className="space-y-1">
                         <h3 className="font-semibold text-xs text-muted-foreground uppercase">Status</h3>
-                        <p className="capitalize">{formData.relationship_status.replace('_', ' ')}</p>
+                        <p>{getRelationshipStatusLabel(formData.relationship_status)}</p>
                       </div>
                     )}
                     {formData.match_intention && (
                       <div className="space-y-1">
                         <h3 className="font-semibold text-xs text-muted-foreground uppercase">Intenção</h3>
-                        <p className="capitalize">{formData.match_intention}</p>
+                        <p>{getMatchIntentionLabel(formData.match_intention)}</p>
                       </div>
                     )}
                      {formData.match_gender_preference && (
                       <div className="space-y-1">
                         <h3 className="font-semibold text-xs text-muted-foreground uppercase">Interesse em</h3>
-                        <p className="capitalize">{formData.match_gender_preference}</p>
+                        <p>{getMatchGenderPreferenceLabel(formData.match_gender_preference)}</p>
                       </div>
                     )}
                   </div>
@@ -787,5 +826,4 @@ export default function Profile() {
     </Layout>
   );
 }
-
 

@@ -83,8 +83,9 @@ export interface User {
   vibes?: VibeType[];
   isSingleMode: boolean;
   showInitialsOnly: boolean;
-  matchIntention?: 'paquera' | 'amizade';
-  genderPreference?: 'homens' | 'mulheres' | 'todos';
+  matchIntention?: 'paquera' | 'amizade' | 'networking' | 'casual' | 'serio' | null;
+  genderPreference?: 'homens' | 'mulheres' | 'todos' | null;
+  genderIdentity?: string | null;
   sexuality?: string;
   lookingFor?: string[];
   badges?: string[];
@@ -93,6 +94,7 @@ export interface User {
   relationshipStatus?: string | null;
   isOnline?: boolean;
   lastSeen?: string | null;
+  likedYou?: boolean;
   location?: {
     lat: number;
     lng: number;
@@ -174,9 +176,6 @@ export enum EMAIL_CONTEXT {
 
 // Regra: SMTP do banco permitido SOMENTE em CUSTOM
 export const ALLOWED_SMTP_CONTEXTS = [EMAIL_CONTEXT.CUSTOM];
-
-
-
 
 
 

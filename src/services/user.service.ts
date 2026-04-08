@@ -35,8 +35,9 @@ export interface UpdateUserData {
   single_mode?: boolean;
   match_enabled?: boolean;
   show_initials_only?: boolean;
-  match_intention?: 'paquera' | 'amizade';
-  match_gender_preference?: 'homens' | 'mulheres' | 'todos';
+  match_intention?: 'paquera' | 'amizade' | 'networking' | 'casual' | 'serio' | null;
+  match_gender_preference?: 'homens' | 'mulheres' | 'todos' | null;
+  gender_identity?: string | null;
   sexuality?: string;
   meet_attendees?: boolean;
   looking_for?: string[];
@@ -531,5 +532,3 @@ class UserService {
 }
 
 export const userService = new UserService();
-
-

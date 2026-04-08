@@ -2,6 +2,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { requireAuth } from "../_shared/requireAuth.ts";
+import { getMissingProfileFields, loadCheckoutProfileSnapshot } from "../_shared/profileSync.ts";
 
 Deno.serve(async (req) => {
   // FASE 1: PROVA DEFINITIVA - DIAGNÓSTICO (Logo na entrada)
@@ -61,15 +62,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 1. Verify Profile Exists
-    const { data: profile } = await adminClient
-      .from('buyer_profiles')
-      .select('*')
-      .eq('user_id', user.id)
-      .single();
-
-    if (!profile) {
-      throw new Error('Buyer profile incomplete');
+    // 1. Verify profile completeness using the canonical merged snapshot
+    const profile = await loadCheckoutProfileSnapshot(adminClient, user.id);
+    const missingFields = getMissingProfileFields(profile);
+    if (missingFields.length > 0) {
+      throw new Error(`Buyer profile incomplete: ${missingFields.join(', ')}`);
     }
 
     // 2. Fetch Ticket Type
@@ -225,5 +222,4 @@ Deno.serve(async (req) => {
     });
   }
 });
-
 

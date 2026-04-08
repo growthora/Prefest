@@ -25,11 +25,8 @@ import { TicketPurchase } from '@/components/TicketPurchase';
 import { MatchInterface } from '@/components/MatchCards';
 import { AttendeesList } from '@/components/AttendeesList';
 import { Event, ROUTE_PATHS } from '@/lib/index';
-import { eventService, type Event as SupabaseEvent, MatchCandidate } from '@/services/event.service';
-import { likeService } from '@/services/like.service';
+import { eventService, type Event as SupabaseEvent } from '@/services/event.service';
 import { matchService } from '@/services/match.service';
-import { chatService } from '@/services/chat.service';
-import { supabase } from '@/lib/supabase';
 import { IMAGES } from '@/assets/images';
 import { useAuth } from '@/hooks/useAuth';
 import { useMatch } from '@/hooks/useMatch';
@@ -69,21 +66,26 @@ export default function EventDetails() {
   const [isLiked, setIsLiked] = useState(false);
   const [isLoadingLike, setIsLoadingLike] = useState(false);
 
-  // Received Likes State
-  const [receivedLikes, setReceivedLikes] = useState<any[]>([]);
-  const [loadingReceivedLikes, setLoadingReceivedLikes] = useState(false);
-
   // Match Interface State
   const [showMatchOverlay, setShowMatchOverlay] = useState(false);
   const [lastMatchedUser, setLastMatchedUser] = useState<string | null>(null);
   const [lastMatchedUserName, setLastMatchedUserName] = useState<string>('');
   const [lastMatchedUserPhoto, setLastMatchedUserPhoto] = useState<string>('');
   const [lastMatchChatId, setLastMatchChatId] = useState<string | null>(null);
-  const { likeUser, skipUser, currentQueue, loading: loadingMatchQueue } = useMatch(event?.id);
-
-  // Match Queue State (local to avoid conflicts with hook's auto-removal)
-  const [matchQueue, setMatchQueue] = useState<any[]>([]);
-  const [loadingMatchCandidates, setLoadingMatchCandidates] = useState(false);
+  const {
+    likeUser: likeMatchUser,
+    likeBack,
+    skipUser,
+    ignoreLike,
+    currentQueue,
+    matches: eventMatches,
+    receivedLikes,
+    stats: matchStats,
+    loading: loadingMatchQueue,
+    loadingMatches,
+    loadingReceivedLikes,
+    refreshAll: refreshMatchData,
+  } = useMatch(event?.id);
   const [showSocialOnboarding, setShowSocialOnboarding] = useState(false);
   const [showMatchGuidelines, setShowMatchGuidelines] = useState(false);
 
@@ -96,60 +98,19 @@ export default function EventDetails() {
     loadEvent();
   }, [slug]);
 
-  useEffect(() => {
-    if (activeTab === 'match' && event?.id && profile?.match_enabled) {
-      loadMatchCandidates();
-    }
-  }, [activeTab, event?.id, profile?.match_enabled]);
 
-  useEffect(() => {
-    if (activeTab === 'likes' && event?.id) {
-      loadReceivedLikes();
-
-      // Subscribe to new likes in realtime
-      const subscription = supabase
-        .channel(`likes:${event.id}:${user?.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'likes',
-            filter: `to_user_id=eq.${user?.id}`
-          },
-          (payload) => {
-             if (payload.new.event_id === event.id) {
-                loadReceivedLikes();
-                toast.info('Você recebeu uma nova curtida! ??');
-             }
-          }
-        )
-        .subscribe();
-
-      return () => {
-        subscription.unsubscribe();
-      };
-    }
-  }, [activeTab, event?.id, user?.id]);
-
-  const loadReceivedLikes = async () => {
-    if (!event?.id) return;
-    setLoadingReceivedLikes(true);
-    try {
-      const likes = await likeService.getReceivedLikes(event.id);
-      setReceivedLikes(likes);
-    } catch (error) {
-      // Error loading received likes
-    } finally {
-      setLoadingReceivedLikes(false);
-    }
-  };
 
   const handleLikeBack = async (likeId: string, userId: string) => {
     if (!event?.id) return;
     try {
-      const result = await likeService.likeUser(userId, event.id);
-      setReceivedLikes(prev => prev.filter(l => l.like_id !== likeId));
+      if (!profile?.match_enabled) {
+        await toggleMatchStatus(true);
+      }
+
+      const action = await likeBack(userId, likeId);
+      if (!action) return;
+
+      const result = action.result;
       
       if (result.status === 'match') {
         toast.success("It's a Match! ??");
@@ -165,83 +126,27 @@ export default function EventDetails() {
             origin: { y: 0.6 }
         });
 
-        // Fetch user details to show in overlay
-        try {
-            const profile = await eventService.getPublicProfile(userId);
-            if (profile) {
-                setLastMatchedUser(userId);
-                setLastMatchedUserName(profile.full_name || 'Alguém');
-                setLastMatchedUserPhoto(profile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`);
-                setLastMatchChatId(result.match_id || null);
-                setShowMatchOverlay(true);
-            }
-        } catch (e) {
-            // Error fetching matched profile
-        }
+        setLastMatchedUser(userId);
+        setLastMatchedUserName(action.targetUser?.name || 'Alguém');
+        setLastMatchedUserPhoto(action.targetUser?.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`);
+        setLastMatchChatId(result.match_id || null);
+        setShowMatchOverlay(true);
+
       }
     } catch (error) {
       toast.error('Erro ao curtir de volta');
     }
   };
 
-  const handleIgnoreLike = async (likeId: string) => {
+  const handleIgnoreLike = async (likeId: string, userId: string) => {
     try {
-      await likeService.ignoreLike(likeId);
-      setReceivedLikes(prev => prev.filter(l => l.like_id !== likeId));
+      await ignoreLike(userId, likeId);
       toast.info('Curtida ignorada');
     } catch (error) {
       toast.error('Erro ao ignorar');
     }
   };
 
-  const loadMatchCandidates = async () => {
-    if (!event?.id || !user) return;
-    try {
-      setLoadingMatchCandidates(true);
-      // Try to get match candidates, fallback to attendees if method fails
-      let candidates = [];
-      try {
-        candidates = await eventService.getMatchCandidates(event.id);
-      } catch (e) {
-        // Fallback to getEventAttendees
-        candidates = await eventService.getEventAttendees(event.id);
-      }
-
-      // Filter current user and map to User interface
-      const mapped = candidates
-        .filter((c: any) => {
-          // Basic self-filter
-          if (c.id === user.id || c.user_id === user.id) return false;
-          
-          // Privacy filter: Must have match_enabled explicit or implicit via endpoint context
-          // If coming from getMatchCandidates (RPC), it's already filtered.
-          // If coming from fallback getEventAttendees, we must check match_enabled if available
-          if (c.match_enabled === false) return false;
-          
-          return true;
-        })
-        .map((c: any) => ({
-          id: c.id || c.user_id,
-          name: c.full_name || c.name || 'Usuário',
-          photo: c.avatar_url || c.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.id || c.user_id}`,
-          age: c.age || 25,
-          bio: c.bio || '',
-          vibes: c.vibes || [],
-          isSingleMode: c.single_mode || false,
-          showInitialsOnly: c.show_initials_only || false,
-          matchIntention: c.match_intention || 'amizade',
-          genderPreference: c.match_gender_preference,
-          sexuality: c.sexuality,
-          username: c.username // Added username
-        }));
-      
-      setMatchQueue(mapped);
-    } catch (error) {
-      // Error loading match candidates
-    } finally {
-      setLoadingMatchCandidates(false);
-    }
-  };
 
   // Check like status when event and user are loaded
   useEffect(() => {
@@ -333,48 +238,47 @@ export default function EventDetails() {
   };
 
   const handleToggleMeetAttendees = async () => {
-    if (!checkAccess('aparecer na lista de participantes')) return;
+  if (!checkAccess('aparecer na lista de participantes')) return;
 
-    if (!user || !profile) {
-      toast.error('Você precisa estar logado para ativar essa função');
-      return;
-    }
-    
-    // Check if enabling match
-    if (!profile.match_enabled) {
-      setShowMatchGuidelines(true);
-      return;
-    }
+  if (!user || !profile) {
+    toast.error('Voc� precisa estar logado para ativar essa fun��o');
+    return;
+  }
 
-    // Disabling match
-    await toggleMatchStatus(false);
-  };
+  if (!isParticipating) {
+    toast.info('Garanta seu ingresso para liberar o Match deste evento.');
+    document.getElementById('ticket-purchase')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
 
-  const toggleMatchStatus = async (enable: boolean) => {
-    if (!profile) return;
+  if (!profile.match_enabled) {
+    setShowMatchGuidelines(true);
+    return;
+  }
 
-    try {
-      const updates: any = { 
-          match_enabled: enable,
-          meet_attendees: enable, // Sync both for consistency
-          allow_profile_view: enable // Ensure profile is visible if matching
-      };
+  await toggleMatchStatus(false);
+};
 
-      await updateProfile(updates);
-      toast.success(enable ? 'Você entrou no Match! ??' : 'Você ficou invisível. ??');
-      
-      // Se ativou, recarrega candidatos
-      if (enable) {
-        loadMatchCandidates();
-      }
-      
-      fetchAttendees(); 
-    } catch (error) {
-      toast.error('Erro ao atualizar status');
-    }
-  };
+const toggleMatchStatus = async (enable: boolean) => {
+  if (!profile) return;
 
-  const loadEvent = async () => {
+  try {
+    const updates: any = {
+      match_enabled: enable,
+      meet_attendees: enable,
+      allow_profile_view: enable,
+    };
+
+    await updateProfile(updates);
+    await refreshMatchData();
+    fetchAttendees();
+    toast.success(enable ? 'Voc� entrou no Match! ??' : 'Voc� ficou invis�vel. ??');
+  } catch (error) {
+    toast.error('Erro ao atualizar status');
+  }
+};
+
+const loadEvent = async () => {
     if (!slug) return;
     
     try {
@@ -488,90 +392,79 @@ export default function EventDetails() {
   };
 
   const handleLikeMatch = async (userId: string) => {
-    if (!event?.id || !user?.id) {
-      toast.error('Erro ao processar like');
+  if (!event?.id || !user?.id) {
+    toast.error('Erro ao processar like');
+    return;
+  }
+
+  try {
+    const action = await likeMatchUser(userId);
+    if (!action) return;
+
+    const likeResult = action.result;
+    const likedUser = action.targetUser;
+
+    if (likeResult.status === 'already_liked') {
+      toast.info('Voc� j� curtiu esta pessoa');
       return;
     }
 
-    try {
-      // Registrar o like no banco de dados
-      const likeResult = await likeService.likeUser(userId, event.id);
-      
-      // Encontrar o usuário que recebeu o like para pegar o nome e foto
-      const likedUser = matchQueue.find(p => p.id === userId); 
-      
-      if (likeResult.status === 'already_liked') {
-        toast.info('Você já curtiu esta pessoa');
-        return;
-      }
+    if (likeResult.status === 'match') {
+      const duration = 3000;
+      const end = Date.now() + duration;
 
-      if (likeResult.status === 'match') {
-        // É um match!
-        
-        // Disparar confetes
-        const duration = 3000;
-        const end = Date.now() + duration;
+      const frame = () => {
+        confetti({
+          particleCount: 2,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0 },
+          colors: ['#ff0000', '#ff69b4', '#ffff00']
+        });
+        confetti({
+          particleCount: 2,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1 },
+          colors: ['#ff0000', '#ff69b4', '#ffff00']
+        });
 
-        const frame = () => {
-          confetti({
-            particleCount: 2,
-            angle: 60,
-            spread: 55,
-            origin: { x: 0 },
-            colors: ['#ff0000', '#ff69b4', '#ffff00']
-          });
-          confetti({
-            particleCount: 2,
-            angle: 120,
-            spread: 55,
-            origin: { x: 1 },
-            colors: ['#ff0000', '#ff69b4', '#ffff00']
-          });
-
-          if (Date.now() < end) {
-            requestAnimationFrame(frame);
-          }
-        };
-        frame();
-
-        setLastMatchedUser(userId);
-        setLastMatchedUserName(likedUser?.name || 'Alguém');
-        setLastMatchedUserPhoto(likedUser?.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`);
-        
-        setLastMatchChatId(likeResult.match_id || null);
-
-        setShowMatchOverlay(true);
-        toast.success('É um Match!');
-        
-        // Tocar som de match se existir
-        const audio = new Audio('/sounds/match.mp3');
-        audio.play().catch(() => {});
-
-        // Marcar match como visto imediatamente (UI feedback loop)
-        if (likeResult.match_id) {
-          matchService.markMatchSeen(likeResult.match_id).catch(() => {});
+        if (Date.now() < end) {
+          requestAnimationFrame(frame);
         }
-        
-      } else {
-        toast.success('Like enviado! ??');
+      };
+      frame();
+
+      setLastMatchedUser(userId);
+      setLastMatchedUserName(likedUser?.name || 'Algu�m');
+      setLastMatchedUserPhoto(likedUser?.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`);
+      setLastMatchChatId(likeResult.match_id || null);
+      setShowMatchOverlay(true);
+      toast.success('� um Match!');
+
+      const audio = new Audio('/sounds/match.mp3');
+      audio.play().catch(() => {});
+
+      if (likeResult.match_id) {
+        matchService.markMatchSeen(likeResult.match_id).catch(() => {});
       }
-      
-      // Removed likeUser(userId) to prevent queue from shifting and double-skipping
-      // The MatchInterface handles navigation internally
-    } catch (error: any) {
-      if (error.code === '23505') {
-        toast.info('Você já curtiu esta pessoa');
-      } else {
-        toast.error('Erro ao processar like');
-      }
+    } else {
+      toast.success('Like enviado! ??');
     }
-  };
+  } catch (error: any) {
+    if (error.code === '23505') {
+      toast.info('Voc� j� curtiu esta pessoa');
+    } else {
+      toast.error('Erro ao processar like');
+    }
+  }
+};
 
-  const handleSkipMatch = (userId: string) => {
-    skipUser(userId);
-  };
+const handleSkipMatch = async (userId: string) => {
+  await skipUser(userId);
+};
 
-  const shouldShowSocialOnboarding = () => {
+const shouldShowSocialOnboarding = () => {
     if (!profile) return false;
     const isBioEmpty = !profile.bio;
     const isAvatarEmpty = !profile.avatar_url;
@@ -722,6 +615,11 @@ export default function EventDetails() {
             >
               <Heart size={14} className="lg:w-4 lg:h-4" />
               Curtidas
+              {matchStats.receivedLikesCount > 0 && (
+                <Badge variant="secondary" className="h-5 min-w-5 rounded-full px-1.5 text-[10px]">
+                  {matchStats.receivedLikesCount}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger 
               value="match" 
@@ -729,6 +627,11 @@ export default function EventDetails() {
             >
               <HeartHandshake size={14} className="lg:w-4 lg:h-4" />
               Match
+              {matchStats.totalMatches > 0 && (
+                <Badge variant="secondary" className="h-5 min-w-5 rounded-full px-1.5 text-[10px]">
+                  {matchStats.totalMatches}
+                </Badge>
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -993,7 +896,46 @@ export default function EventDetails() {
                 </div>
               </div>
 
-              {loadingReceivedLikes ? (
+              {!user ? (
+                <div className="bg-primary/5 border border-primary/20 rounded-xl p-8 text-center">
+                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <UserPlus className="w-8 h-8 text-primary" />
+                  </div>
+                  <h4 className="font-semibold text-xl mb-2">Fa�a login para ver suas curtidas</h4>
+                  <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                    Entre na sua conta para acompanhar quem se interessou por voc� neste evento.
+                  </p>
+                  <Button onClick={() => navigate('/login')} size="lg" className="px-8">Fazer Login</Button>
+                </div>
+              ) : isUnderage ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center bg-destructive/5 rounded-xl border border-destructive/20 p-8">
+                  <div className="w-20 h-20 bg-destructive/10 rounded-full flex items-center justify-center mb-6">
+                    <Ban className="w-10 h-10 text-destructive" />
+                  </div>
+                  <h3 className="text-2xl font-bold mb-3 text-destructive">Acesso Restrito</h3>
+                  <p className="text-muted-foreground max-w-md text-lg">
+                    A funcionalidade de Match � exclusiva para maiores de 18 anos.
+                  </p>
+                </div>
+              ) : !isParticipating ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center bg-card/30 rounded-xl border border-border/40 p-8">
+                  <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
+                    <Ticket className="w-10 h-10 text-primary" />
+                  </div>
+                  <h3 className="text-2xl font-bold mb-3">As curtidas ficam dispon�veis ap�s a compra</h3>
+                  <p className="text-muted-foreground max-w-md mb-8 text-lg">
+                    Garanta seu ingresso para liberar o Match e acompanhar suas conex�es neste evento.
+                  </p>
+                  <Button
+                    size="lg"
+                    className="gap-2 text-lg px-8 py-6 rounded-xl"
+                    onClick={() => document.getElementById('ticket-purchase')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  >
+                    <Ticket size={20} />
+                    Garantir ingresso
+                  </Button>
+                </div>
+              ) : loadingReceivedLikes ? (
                 <div className="flex justify-center py-12">
                   <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                 </div>
@@ -1045,7 +987,7 @@ export default function EventDetails() {
                             size="sm" 
                             variant="outline"
                             className="h-8 px-3"
-                            onClick={() => handleIgnoreLike(like.like_id)}
+                            onClick={() => handleIgnoreLike(like.like_id, like.from_user_id)}
                           >
                             <span className="sr-only">Ignorar</span>
                             <span className="text-xs">Ignorar</span>
@@ -1135,6 +1077,70 @@ export default function EventDetails() {
                 )}
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="rounded-xl border border-border/40 bg-card/20 p-4">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Fila do evento</p>
+                  <p className="text-3xl font-bold mt-2">{matchStats.activeQueueCount}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Pessoas dispon�veis para conhecer agora.</p>
+                </div>
+                <div className="rounded-xl border border-border/40 bg-card/20 p-4">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Curtiram voc�</p>
+                  <p className="text-3xl font-bold mt-2">{matchStats.receivedLikesCount}</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {matchStats.priorityQueueCount > 0
+                      ? `${matchStats.priorityQueueCount} pessoa(s) da fila j� demonstraram interesse.`
+                      : 'Veja e responda as curtidas deste evento.'}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border/40 bg-card/20 p-4">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Seus matches</p>
+                  <p className="text-3xl font-bold mt-2">{matchStats.totalMatches}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Conex�es confirmadas dentro deste evento.</p>
+                </div>
+              </div>
+
+              {loadingMatches ? (
+                <div className="flex justify-center py-8">
+                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : eventMatches.length > 0 ? (
+                <div className="space-y-4 rounded-xl border border-border/40 bg-card/20 p-6">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <h4 className="text-lg font-semibold">Matches deste evento</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Entre na conversa sem sair do contexto do evento.
+                      </p>
+                    </div>
+                    <Button variant="outline" className="gap-2" onClick={() => navigate(ROUTE_PATHS.CHAT_LIST)}>
+                      <MessageCircle size={16} />
+                      Ver conversas
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                    {eventMatches.slice(0, 3).map((match) => (
+                      <button
+                        key={match.match_id}
+                        onClick={() => navigate(`/chat/${match.match_id}`)}
+                        className="flex items-center gap-3 rounded-xl border border-border/40 bg-background/40 p-4 text-left transition-colors hover:bg-background/70"
+                      >
+                        <Avatar className="h-12 w-12 border border-primary/20">
+                          <AvatarImage src={match.partner_avatar} />
+                          <AvatarFallback>{match.partner_name?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium truncate">{match.partner_name}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {match.last_message || 'Abrir conversa do match'}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               {!user ? (
                 <div className="bg-primary/5 border border-primary/20 rounded-xl p-8 text-center">
                   <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -1155,6 +1161,24 @@ export default function EventDetails() {
                   <p className="text-muted-foreground max-w-md mb-8 text-lg">
                     A funcionalidade de Match é exclusiva para maiores de 18 anos, conforme nossos termos de uso e legislação vigente.
                   </p>
+                </div>
+              ) : !isParticipating ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center bg-card/30 rounded-xl border border-border/40 p-8">
+                   <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
+                     <Ticket className="w-10 h-10 text-primary" />
+                   </div>
+                   <h3 className="text-2xl font-bold mb-3">Desbloqueie o Match do Evento</h3>
+                   <p className="text-muted-foreground max-w-md mb-8 text-lg">
+                     O Match deste evento � exclusivo para quem j� garantiu ingresso confirmado.
+                   </p>
+                   <Button
+                     size="lg"
+                     className="gap-2 text-lg px-8 py-6 rounded-xl"
+                     onClick={() => document.getElementById('ticket-purchase')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                   >
+                     <Ticket size={20} />
+                     Garantir ingresso
+                   </Button>
                 </div>
               ) : !profile?.match_enabled ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center bg-card/30 rounded-xl border border-border/40 p-8">
@@ -1180,15 +1204,16 @@ export default function EventDetails() {
                 </div>
               ) : (
                 <div className="py-4">
-                   {loadingMatchCandidates ? (
+                   {loadingMatchQueue ? (
                      <div className="flex justify-center py-20">
                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
                      </div>
                    ) : (
-                     <MatchInterface 
-                       queue={matchQueue}
+                      <MatchInterface 
+                       queue={currentQueue}
                        onLike={handleLikeMatch}
                        onSkip={handleSkipMatch}
+                       onRefresh={refreshMatchData}
                      />
                    )}
                 </div>
@@ -1413,13 +1438,6 @@ export default function EventDetails() {
     </Layout>
   );
 }
-
-
-
-
-
-
-
 
 
 

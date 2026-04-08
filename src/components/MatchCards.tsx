@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { Heart, X, Info, Sparkles, MapPin, Zap, Ruler, Users, Clock } from 'lucide-react';
-import { User, VibeType } from '@/lib/index';
+import { User } from '@/lib/index';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -10,6 +10,7 @@ import { springPresets } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { getGenderIdentityLabel, getMatchIntentionLabel, getSexualityLabel } from '@/constants/profile-options';
 
 interface MatchCardProps {
   user: User;
@@ -140,18 +141,31 @@ export function MatchCard({ user, onLike, onSkip, onDetails, isTop = false }: Ma
                     {displayName}
                     {user.age && `, ${user.age}`}
                 </h3>
+
+                {user.genderIdentity && (
+                  <Badge className="bg-white/10 text-white border-white/20 flex gap-1 items-center">
+                    {getGenderIdentityLabel(user.genderIdentity)}
+                  </Badge>
+                )}
+
+                {user.likedYou && (
+                  <Badge className="bg-rose-500/20 text-white border-rose-300/30 flex gap-1 items-center">
+                    <Heart size={12} className="fill-current" />
+                    Curtiu você
+                  </Badge>
+                )}
                 
                 {/* Badge de Sexualidade */}
                 {user.sexuality && (
                   <Badge className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-white border-purple-400/30 flex gap-1 items-center">
-                    {user.sexuality.charAt(0).toUpperCase() + user.sexuality.slice(1)}
+                    {getSexualityLabel(user.sexuality)}
                   </Badge>
                 )}
                 
                 {/* Badge de Intenção */}
                 {user.matchIntention && (
                   <Badge className="bg-primary/20 text-primary border-primary/30 flex gap-1 items-center">
-                    {intentionEmoji[user.matchIntention]} {intentionText[user.matchIntention]}
+                    {intentionEmoji[user.matchIntention] || '✨'} {getMatchIntentionLabel(user.matchIntention)}
                   </Badge>
                 )}
                 
@@ -207,23 +221,21 @@ interface MatchInterfaceProps {
   queue: User[];
   onLike: (userId: string) => void;
   onSkip: (userId: string) => void;
+  onRefresh?: () => void;
 }
 
-export function MatchInterface({ queue, onLike, onSkip }: MatchInterfaceProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+export function MatchInterface({ queue, onLike, onSkip, onRefresh }: MatchInterfaceProps) {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   const handleLike = (userId: string) => {
     onLike(userId);
-    setCurrentIndex(prev => prev + 1);
   };
 
   const handleSkip = (userId: string) => {
     onSkip(userId);
-    setCurrentIndex(prev => prev + 1);
   };
 
-  const currentQueue = queue.slice(currentIndex, currentIndex + 3);
+  const currentQueue = queue.slice(0, 3);
 
   return (
     <div className="relative w-full max-w-md aspect-[3/4] mx-auto">
@@ -259,7 +271,7 @@ export function MatchInterface({ queue, onLike, onSkip }: MatchInterfaceProps) {
             <Button 
               variant="outline" 
               className="border-primary/50 text-primary hover:bg-primary/10"
-              onClick={() => window.location.reload()}
+              onClick={onRefresh}
             >
               Recarregar Perfis
             </Button>
@@ -303,5 +315,3 @@ export function MatchInterface({ queue, onLike, onSkip }: MatchInterfaceProps) {
     </div>
   );
 }
-
-

@@ -33,8 +33,9 @@ export interface Profile {
   account_type?: 'comprador' | 'organizador' | 'comprador_organizador';
   single_mode: boolean;
   show_initials_only: boolean;
-  match_intention: 'paquera' | 'amizade';
-  match_gender_preference: 'homens' | 'mulheres' | 'todos';
+  match_intention: 'paquera' | 'amizade' | 'networking' | 'casual' | 'serio' | null;
+  match_gender_preference: 'homens' | 'mulheres' | 'todos' | null;
+  gender_identity?: string | null;
   sexuality?: string;
   meet_attendees?: boolean;
   match_enabled?: boolean;

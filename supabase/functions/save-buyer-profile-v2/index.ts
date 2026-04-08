@@ -2,6 +2,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCors } from '../_shared/cors.ts';
 import { requireAuth } from "../_shared/requireAuth.ts";
+import { getMissingProfileFields, syncCheckoutProfileSnapshot } from "../_shared/profileSync.ts";
 
 Deno.serve(async (req) => {
   // FASE 1: PROVA DEFINITIVA - DIAGNÓSTICO (Logo na entrada)
@@ -22,32 +23,27 @@ Deno.serve(async (req) => {
     // Verify User Authentication
     const { user } = await requireAuth(req);
 
-    const { full_name, cpf, phone, email } = await req.json();
+    const { full_name, cpf, phone, email, birth_date } = await req.json();
 
-    if (!full_name || !cpf || !phone || !email) {
+    if (!full_name || !cpf || !phone || !(user.email || email)) {
       throw new Error('Missing required fields');
     }
 
-    // Use admin client for upsert
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { error: upsertError } = await adminClient
-      .from('buyer_profiles')
-      .upsert({
-        user_id: user.id,
-        full_name,
-        cpf,
-        phone,
-        email,
-        updated_at: new Date().toISOString()
-      });
+    const snapshot = await syncCheckoutProfileSnapshot(adminClient, user.id, {
+      full_name,
+      cpf,
+      phone,
+      email: user.email ?? email,
+      birth_date,
+    });
 
-    if (upsertError) {
-      // console.error('Upsert error:', upsertError);
-      throw new Error('Failed to save profile');
-    }
-
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({
+      success: true,
+      profile: snapshot,
+      missing_fields: getMissingProfileFields(snapshot),
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
     });
 
@@ -61,4 +57,3 @@ Deno.serve(async (req) => {
     });
   }
 });
-

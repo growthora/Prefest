@@ -134,8 +134,12 @@ class LikeService {
             birth_date,
             match_enabled,
             allow_profile_view,
+            gender_identity,
             match_intention,
-            match_gender_preference
+            match_gender_preference,
+            sexuality,
+            height,
+            relationship_status
           )
         `)
         .eq('event_id', eventId)
@@ -171,6 +175,5 @@ class LikeService {
 }
 
 export const likeService = new LikeService();
-
 
 
