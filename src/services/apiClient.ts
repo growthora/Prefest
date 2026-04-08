@@ -5,21 +5,44 @@ import { AUTH_EMAIL_PROVIDER, EMAIL_CONTEXT } from '@/lib';
 interface InvokeOptions {
   body?: any;
   headers?: { [key: string]: string };
-  method?: 'POST' | 'GET' | 'PUT' | 'DELETE';
+  method?: 'POST' | 'GET' | 'PUT' | 'DELETE' | 'PATCH';
   requiresAuth?: boolean; // Default: true
+}
+
+async function extractEdgeErrorMessage(error: any): Promise<string | null> {
+  try {
+    const context = error?.context;
+    if (!context) return null;
+    const cloned = typeof context.clone === 'function' ? context.clone() : context;
+    const contentType = cloned?.headers?.get?.('content-type') || '';
+
+    if (contentType.includes('application/json')) {
+      const payload = await cloned.json();
+      const jsonMessage = payload?.error || payload?.message;
+      if (jsonMessage) return String(jsonMessage);
+    }
+
+    const text = await cloned.text?.();
+    if (typeof text === 'string' && text.trim().length > 0) {
+      return text.trim();
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 /**
  * Helper padronizado para chamar Supabase Edge Functions.
- * Garante que o token de autenticação seja SEMPRE enviado no header Authorization (se requiresAuth=true).
- * Substitui chamadas diretas a supabase.functions.invoke para maior segurança e consistência.
+ * Garante que o token de autenticaï¿½ï¿½o seja SEMPRE enviado no header Authorization (se requiresAuth=true).
+ * Substitui chamadas diretas a supabase.functions.invoke para maior seguranï¿½a e consistï¿½ncia.
  */
 export async function invokeEdgeFunction<T = any>(
   functionName: string,
   options: InvokeOptions = {}
 ): Promise<{ data: T | null; error: any }> {
   
-  // [SECURITY] Bloqueio de funções de email de auth via SMTP do banco
+  // [SECURITY] Bloqueio de funï¿½ï¿½es de email de auth via SMTP do banco
   if (AUTH_EMAIL_PROVIDER === 'SUPABASE') {
     const PROHIBITED_AUTH_FUNCTIONS = [
       'send-password-reset',
@@ -29,14 +52,14 @@ export async function invokeEdgeFunction<T = any>(
     ];
     
     if (PROHIBITED_AUTH_FUNCTIONS.includes(functionName)) {
-      const errorMsg = `[SECURITY] A função '${functionName}' foi bloqueada. Contexto: ${EMAIL_CONTEXT.AUTH}. O projeto está configurado para usar Supabase Auth Nativo (AUTH_EMAIL_PROVIDER='SUPABASE').`;
+      const errorMsg = `[SECURITY] A funï¿½ï¿½o '${functionName}' foi bloqueada. Contexto: ${EMAIL_CONTEXT.AUTH}. O projeto estï¿½ configurado para usar Supabase Auth Nativo (AUTH_EMAIL_PROVIDER='SUPABASE').`;
       
       if (import.meta.env.DEV) {
         // console.error(errorMsg);
         throw new Error(errorMsg);
       } else {
         // console.warn(errorMsg);
-        return { data: null, error: new Error('Função de email desativada por política de segurança') };
+        return { data: null, error: new Error('Funï¿½ï¿½o de email desativada por polï¿½tica de seguranï¿½a') };
       }
     }
   }
@@ -46,13 +69,13 @@ export async function invokeEdgeFunction<T = any>(
 
   try {
     if (requiresAuth) {
-      // 1. Obter sessão atual
+      // 1. Obter sessï¿½o atual
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       token = session?.access_token;
 
       if (sessionError || !token) {
-        // console.warn(`[apiClient] Tentativa de chamada à função '${functionName}' sem sessão ativa.`);
-        throw new Error('Usuário não autenticado');
+        // console.warn(`[apiClient] Tentativa de chamada ï¿½ funï¿½ï¿½o '${functionName}' sem sessï¿½o ativa.`);
+        throw new Error('Usuï¿½rio nï¿½o autenticado');
       }
     }
 
@@ -65,7 +88,7 @@ export async function invokeEdgeFunction<T = any>(
       headers['Authorization'] = `Bearer ${token}`; // Garante o envio do token
     }
 
-    // 3. Invocar função
+    // 3. Invocar funï¿½ï¿½o
     const invokeOptions: any = {
       method: options.method || 'POST',
       headers,
@@ -79,10 +102,15 @@ export async function invokeEdgeFunction<T = any>(
     const { data, error } = await supabase.functions.invoke(functionName, invokeOptions);
 
     if (error) {
+      const detailedMessage = await extractEdgeErrorMessage(error);
+      if (detailedMessage) {
+        error.message = detailedMessage;
+      }
+
       // console.error(`[apiClient] Raw error from ${functionName}:`, error);
 
-      // FASE 6: Tratamento de erro 401 (Sessão Expirada/Inválida)
-      // O SDK pode retornar erro como objeto ou string dependendo da versão/falha
+      // FASE 6: Tratamento de erro 401 (Sessï¿½o Expirada/Invï¿½lida)
+      // O SDK pode retornar erro como objeto ou string dependendo da versï¿½o/falha
       const errorStr = (error.message || '').toLowerCase();
       const errorCode = error.code || error.status;
       const errorJson = JSON.stringify(error).toLowerCase();
@@ -118,12 +146,12 @@ export async function invokeEdgeFunction<T = any>(
              // Keep default auth handling below if fallback call fails.
            }
          }
-         // console.error(`[apiClient] Erro 401/JWT Inválido na função ${functionName}. Forçando logout.`);
+         // console.error(`[apiClient] Erro 401/JWT Invï¿½lido na funï¿½ï¿½o ${functionName}. Forï¿½ando logout.`);
          
-         // Limpar sessão local
+         // Limpar sessï¿½o local
          await supabase.auth.signOut();
          
-         // Redirecionar para login preservando o contexto (se possível)
+         // Redirecionar para login preservando o contexto (se possï¿½vel)
          if (typeof window !== 'undefined') {
              // Append context to URL if not already present
              const currentPath = window.location.pathname;
@@ -137,20 +165,20 @@ export async function invokeEdgeFunction<T = any>(
 
     return { data, error: null };
   } catch (err: any) {
-    // console.error(`[apiClient] Erro na função '${functionName}':`, err);
+    // console.error(`[apiClient] Erro na funï¿½ï¿½o '${functionName}':`, err);
     return { data: null, error: err };
   }
 }
 
 /**
- * Wrapper genérico para fetch com autenticação (se necessário para APIs externas ou endpoints customizados).
- * Segue o padrão solicitado pelo usuário.
+ * Wrapper genï¿½rico para fetch com autenticaï¿½ï¿½o (se necessï¿½rio para APIs externas ou endpoints customizados).
+ * Segue o padrï¿½o solicitado pelo usuï¿½rio.
  */
 export async function apiFetch(url: string, options: RequestInit = {}) {
   const { data } = await supabase.auth.getSession();
   const token = data?.session?.access_token;
 
-  if (!token) throw new Error('Usuário não autenticado');
+  if (!token) throw new Error('Usuï¿½rio nï¿½o autenticado');
 
   return fetch(url, {
     ...options,

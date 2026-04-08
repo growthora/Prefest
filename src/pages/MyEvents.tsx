@@ -30,7 +30,7 @@ const EventCard = ({ ticket, isPast = false, navigate }: { ticket: TicketWithEve
               {isPast && (
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[1px]">
                       <Badge variant="secondary" className="text-sm font-medium px-3 py-1 shadow-sm">
-                        Evento Realizado
+                        EVENTO JÁ ACONTECEU
                       </Badge>
                   </div>
               )}
@@ -67,16 +67,18 @@ const EventCard = ({ ticket, isPast = false, navigate }: { ticket: TicketWithEve
           </CardContent>
 
           <CardFooter className="p-4 pt-0 grid grid-cols-2 md:grid-cols-1 gap-3">
+              {!isPast && (
+                <Button
+                  variant="outline"
+                  className="w-full hover:bg-secondary/50 col-span-1 md:col-span-1"
+                  onClick={() => navigate(`/ingressos/${ticket.id}`)}
+                >
+                    <Ticket className="mr-2 h-4 w-4" />
+                    Ver Ingresso
+                </Button>
+              )}
               <Button
-                variant="outline"
-                className="w-full hover:bg-secondary/50 col-span-1 md:col-span-1"
-                onClick={() => navigate(`/ingressos/${ticket.id}`)}
-              >
-                  <Ticket className="mr-2 h-4 w-4" />
-                  Ver Ingresso
-              </Button>
-              <Button
-                className="w-full bg-primary hover:bg-primary/90 md:hidden col-span-1"
+                className={`w-full bg-primary hover:bg-primary/90 ${isPast ? 'col-span-2 md:col-span-1' : 'md:hidden col-span-1'}`}
                 onClick={() => navigate(`/eventos/${event.id}?tab=match`)}
               >
                   <Heart className="mr-2 h-4 w-4 fill-current" />
@@ -120,7 +122,7 @@ export default function MyEvents() {
   };
 
   // Agrupar por evento para exibir um card por evento
-  const uniqueEventsMap = new Map();
+  const uniqueEventsMap = new Map<string, TicketWithEvent>();
   tickets.forEach(t => {
     const eventId = t?.event?.id;
     if (!eventId) return;
@@ -131,8 +133,15 @@ export default function MyEvents() {
 
   const uniqueTickets = Array.from(uniqueEventsMap.values());
 
-  const upcomingEvents = uniqueTickets.filter(t => t.event.status !== 'realizado');
-  const pastEvents = uniqueTickets.filter(t => t.event.status === 'realizado');
+  const now = Date.now();
+  const isPastEvent = (event: Event) => {
+    const eventTime = new Date(event.event_date).getTime();
+    if (Number.isNaN(eventTime)) return event.status === 'realizado';
+    return eventTime < now;
+  };
+
+  const upcomingEvents = uniqueTickets.filter(t => !isPastEvent(t.event));
+  const pastEvents = uniqueTickets.filter(t => isPastEvent(t.event));
 
   if (loading) return <GlobalLoader />;
 
@@ -197,7 +206,6 @@ export default function MyEvents() {
     </div>
   );
 }
-
 
 
 

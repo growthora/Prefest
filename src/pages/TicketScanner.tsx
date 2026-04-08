@@ -255,9 +255,11 @@ export default function TicketScanner() {
   };
 
   const handleError = (error: any) => {
-    // console.error(error);
-    if (error?.message?.includes('permission')) {
+    const message = String(error?.message || '').toLowerCase();
+    if (message.includes('permission') || message.includes('notallowederror')) {
       setCameraError('Permissão da câmera negada. Verifique as configurações do navegador.');
+    } else if (message.includes('notfounderror') || message.includes('device not found')) {
+      setCameraError('Nenhuma câmera foi encontrada neste dispositivo.');
     } else {
       setCameraError('Erro ao acessar a câmera.');
     }
@@ -366,6 +368,7 @@ export default function TicketScanner() {
             onClick={() => {
               setScanning(true);
               setLastResult(null);
+              setCameraError(null);
             }}
           >
             <Camera className="w-4 h-4 mr-2" />
@@ -423,6 +426,7 @@ export default function TicketScanner() {
                 <Scanner 
                   onScan={handleScan}
                   onError={handleError}
+                  constraints={{ facingMode: { ideal: 'environment' } }}
                   components={{ audio: false, finder: false }} 
                   styles={{ container: { width: '100%', height: '100%' } }}
                 />
