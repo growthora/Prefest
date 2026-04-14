@@ -31,6 +31,7 @@ import { IMAGES } from '@/assets/images';
 import { useAuth } from '@/hooks/useAuth';
 import { useMatch } from '@/hooks/useMatch';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
+import { useEventParticipants } from '@/hooks/useEventParticipants';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -56,12 +57,18 @@ export default function EventDetails() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'details');
   const [isParticipating, setIsParticipating] = useState(false);
-  const [participants, setParticipants] = useState<{ id: string; avatar_url: string; name: string }[]>([]);
-  
-  // New state for Conheça a Galera
-  const [attendees, setAttendees] = useState<any[]>([]);
-  const [loadingAttendees, setLoadingAttendees] = useState(false);
-  
+
+  // ── Single Source of Truth for confirmed participants ──────────────────────
+  // confirmedParticipants feeds BOTH the header avatar strip AND the Quem vai
+  // tab, guaranteeing the counter always matches the displayed list.
+  const {
+    confirmedParticipants,
+    confirmedCount,
+    isLoading: isLoadingParticipants,
+    refresh: refreshParticipants,
+  } = useEventParticipants(event?.id);
+  // ──────────────────────────────────────────────────────────────────────────
+
   // Like state
   const [isLiked, setIsLiked] = useState(false);
   const [isLoadingLike, setIsLoadingLike] = useState(false);
@@ -208,26 +215,7 @@ export default function EventDetails() {
     }
   };
 
-  // Fetch attendees when tab is active
-  useEffect(() => {
-    if (activeTab === 'attendees' && event?.id) {
-      fetchAttendees();
-    }
-  }, [activeTab, event?.id]);
-
-  const fetchAttendees = async () => {
-    if (!event?.id) return;
-    try {
-      setLoadingAttendees(true);
-      const data = await eventService.getEventAttendees(event.id);
-      setAttendees(data);
-    } catch (error) {
-      // Error fetching attendees
-      toast.error('Erro ao carregar lista de participantes');
-    } finally {
-      setLoadingAttendees(false);
-    }
-  };
+  // NOTE: Attendees are now fetched via useEventParticipants hook above.
 
   const handleSelectAttendee = (attendeeOrId: string | any) => {
     // Helper handles both ID string and user object
@@ -241,7 +229,7 @@ export default function EventDetails() {
   if (!checkAccess('aparecer na lista de participantes')) return;
 
   if (!user || !profile) {
-    toast.error('Voc� precisa estar logado para ativar essa fun��o');
+    toast.error('Você precisa estar logado para ativar essa função');
     return;
   }
 
@@ -271,8 +259,8 @@ const toggleMatchStatus = async (enable: boolean) => {
 
     await updateProfile(updates);
     await refreshMatchData();
-    fetchAttendees();
-    toast.success(enable ? 'Voc� entrou no Match! ??' : 'Voc� ficou invis�vel. ??');
+    await refreshParticipants();
+    toast.success(enable ? 'Você entrou no Match! 🎉' : 'Você ficou invisível. 👻');
   } catch (error) {
     toast.error('Erro ao atualizar status');
   }
@@ -366,9 +354,7 @@ const loadEvent = async () => {
         };
         setEvent(convertedEvent);
         
-        // Fetch real participants (header summary)
-        const parts = await eventService.getEventParticipants(supabaseEvent.id);
-        setParticipants(parts);
+        // Participants are fetched reactively by useEventParticipants hook.
 
         // Verificar se usuário já está inscrito
         if (user) {
@@ -405,7 +391,7 @@ const loadEvent = async () => {
     const likedUser = action.targetUser;
 
     if (likeResult.status === 'already_liked') {
-      toast.info('Voc� j� curtiu esta pessoa');
+      toast.info('Você já curtiu esta pessoa');
       return;
     }
 
@@ -436,11 +422,11 @@ const loadEvent = async () => {
       frame();
 
       setLastMatchedUser(userId);
-      setLastMatchedUserName(likedUser?.name || 'Algu�m');
+      setLastMatchedUserName(likedUser?.name || 'Alguém');
       setLastMatchedUserPhoto(likedUser?.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`);
       setLastMatchChatId(likeResult.match_id || null);
       setShowMatchOverlay(true);
-      toast.success('� um Match!');
+      toast.success('É um Match! 🎉');
 
       const audio = new Audio('/sounds/match.mp3');
       audio.play().catch(() => {});
@@ -453,7 +439,7 @@ const loadEvent = async () => {
     }
   } catch (error: any) {
     if (error.code === '23505') {
-      toast.info('Voc� j� curtiu esta pessoa');
+      toast.info('Você já curtiu esta pessoa');
     } else {
       toast.error('Erro ao processar like');
     }
@@ -524,9 +510,10 @@ const shouldShowSocialOnboarding = () => {
           : 'Ingresso reservado com sucesso!'
         );
       
-      // Recarregar evento para atualizar contagem
+      // Recarregar evento e participantes para atualizar contagem
       setIsParticipating(true);
       await loadEvent();
+      await refreshParticipants();
 
       if (shouldShowSocialOnboarding()) {
         setShowSocialOnboarding(true);
@@ -811,14 +798,21 @@ const shouldShowSocialOnboarding = () => {
 
               <Separator className="bg-border/40" />
 
+              {/* ── Confirmed counter + avatar strip (single source of truth) ───── */}
               <div className="flex items-center gap-6">
                 <div className="flex items-center gap-2">
                   <Users className="w-5 h-5 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">
-                    <strong className="text-foreground">{event.attendeesCount}</strong> confirmados
+                    {isLoadingParticipants ? (
+                      <span className="inline-block w-16 h-4 bg-muted animate-pulse rounded" />
+                    ) : (
+                      <>
+                        <strong className="text-foreground">{confirmedCount}</strong> confirmados
+                      </>
+                    )}
                   </span>
                 </div>
-                {participants.length > 0 ? (
+                {confirmedParticipants.length > 0 ? (
                   <div className="relative">
                     <div
                       className={cn(
@@ -826,21 +820,21 @@ const shouldShowSocialOnboarding = () => {
                         !isParticipating && 'blur-sm'
                       )}
                     >
-                      {participants.map((p) => (
+                      {confirmedParticipants.slice(0, 5).map((p) => (
                         <div
-                          key={p.id}
+                          key={p.user_id}
                           className="inline-block h-8 w-8 rounded-full ring-2 ring-background bg-secondary flex items-center justify-center text-[10px] font-bold overflow-hidden"
                         >
-                          <img 
-                            src={p.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name)}`} 
+                          <img
+                            src={p.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name)}`}
                             alt={p.name}
                             className="w-full h-full object-cover"
                           />
                         </div>
                       ))}
-                      {event.attendeesCount > participants.length && (
+                      {confirmedCount > 5 && (
                         <div className="inline-block h-8 w-8 rounded-full ring-2 ring-background bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">
-                          +{event.attendeesCount - participants.length}
+                          +{confirmedCount - 5}
                         </div>
                       )}
                     </div>
@@ -852,10 +846,11 @@ const shouldShowSocialOnboarding = () => {
                       </div>
                     )}
                   </div>
-                ) : (
+                ) : isLoadingParticipants ? null : (
                   <span className="text-xs text-muted-foreground">Seja o primeiro a confirmar!</span>
                 )}
               </div>
+              {/* ──────────────────────────────────────────────────────────────── */}
             </div>
             </motion.div>
 
@@ -901,9 +896,9 @@ const shouldShowSocialOnboarding = () => {
                   <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
                     <UserPlus className="w-8 h-8 text-primary" />
                   </div>
-                  <h4 className="font-semibold text-xl mb-2">Fa�a login para ver suas curtidas</h4>
+                  <h4 className="font-semibold text-xl mb-2">Faça login para ver suas curtidas</h4>
                   <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-                    Entre na sua conta para acompanhar quem se interessou por voc� neste evento.
+                    Entre na sua conta para acompanhar quem se interessou por você neste evento.
                   </p>
                   <Button onClick={() => navigate('/login')} size="lg" className="px-8">Fazer Login</Button>
                 </div>
@@ -914,7 +909,7 @@ const shouldShowSocialOnboarding = () => {
                   </div>
                   <h3 className="text-2xl font-bold mb-3 text-destructive">Acesso Restrito</h3>
                   <p className="text-muted-foreground max-w-md text-lg">
-                    A funcionalidade de Match � exclusiva para maiores de 18 anos.
+                    A funcionalidade de Match é exclusiva para maiores de 18 anos.
                   </p>
                 </div>
               ) : !isParticipating ? (
@@ -922,9 +917,9 @@ const shouldShowSocialOnboarding = () => {
                   <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
                     <Ticket className="w-10 h-10 text-primary" />
                   </div>
-                  <h3 className="text-2xl font-bold mb-3">As curtidas ficam dispon�veis ap�s a compra</h3>
+                  <h3 className="text-2xl font-bold mb-3">As curtidas ficam disponíveis após a compra</h3>
                   <p className="text-muted-foreground max-w-md mb-8 text-lg">
-                    Garanta seu ingresso para liberar o Match e acompanhar suas conex�es neste evento.
+                    Garanta seu ingresso para liberar o Match e acompanhar suas conexões neste evento.
                   </p>
                   <Button
                     size="lg"
@@ -1007,7 +1002,7 @@ const shouldShowSocialOnboarding = () => {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
             >
-              {/* Header */}
+              {/* Header – count comes from the SAME array passed to the list */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card/30 p-6 rounded-xl border border-border/40">
                 <div>
                   <h3 className="text-2xl font-bold flex items-center gap-2">
@@ -1015,14 +1010,20 @@ const shouldShowSocialOnboarding = () => {
                     Quem vai
                   </h3>
                   <p className="text-muted-foreground mt-1">
-                    {attendees.length} pessoas confirmadas
+                    {isLoadingParticipants ? (
+                      <span className="inline-block w-32 h-4 bg-muted animate-pulse rounded" />
+                    ) : confirmedCount === 0 ? (
+                      'Ninguém confirmado ainda'
+                    ) : (
+                      `${confirmedCount} ${confirmedCount === 1 ? 'pessoa confirmada' : 'pessoas confirmadas'}`
+                    )}
                   </p>
                 </div>
               </div>
 
-              <AttendeesList 
-                attendees={attendees}
-                loading={loadingAttendees}
+              <AttendeesList
+                attendees={confirmedParticipants}
+                loading={isLoadingParticipants}
                 onSelectAttendee={handleSelectAttendee}
               />
             </motion.div>
@@ -1081,21 +1082,21 @@ const shouldShowSocialOnboarding = () => {
                 <div className="rounded-xl border border-border/40 bg-card/20 p-4">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">Fila do evento</p>
                   <p className="text-3xl font-bold mt-2">{matchStats.activeQueueCount}</p>
-                  <p className="text-sm text-muted-foreground mt-1">Pessoas dispon�veis para conhecer agora.</p>
+                  <p className="text-sm text-muted-foreground mt-1">Pessoas disponíveis para conhecer agora.</p>
                 </div>
                 <div className="rounded-xl border border-border/40 bg-card/20 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Curtiram voc�</p>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Curtiram você</p>
                   <p className="text-3xl font-bold mt-2">{matchStats.receivedLikesCount}</p>
                   <p className="text-sm text-muted-foreground mt-1">
                     {matchStats.priorityQueueCount > 0
-                      ? `${matchStats.priorityQueueCount} pessoa(s) da fila j� demonstraram interesse.`
+                      ? `${matchStats.priorityQueueCount} pessoa(s) da fila já demonstraram interesse.`
                       : 'Veja e responda as curtidas deste evento.'}
                   </p>
                 </div>
                 <div className="rounded-xl border border-border/40 bg-card/20 p-4">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">Seus matches</p>
                   <p className="text-3xl font-bold mt-2">{matchStats.totalMatches}</p>
-                  <p className="text-sm text-muted-foreground mt-1">Conex�es confirmadas dentro deste evento.</p>
+                  <p className="text-sm text-muted-foreground mt-1">Conexões confirmadas dentro deste evento.</p>
                 </div>
               </div>
 
@@ -1169,7 +1170,7 @@ const shouldShowSocialOnboarding = () => {
                    </div>
                    <h3 className="text-2xl font-bold mb-3">Desbloqueie o Match do Evento</h3>
                    <p className="text-muted-foreground max-w-md mb-8 text-lg">
-                     O Match deste evento � exclusivo para quem j� garantiu ingresso confirmado.
+                     O Match deste evento é exclusivo para quem já garantiu ingresso confirmado.
                    </p>
                    <Button
                      size="lg"

@@ -34,15 +34,15 @@ async function extractEdgeErrorMessage(error: any): Promise<string | null> {
 
 /**
  * Helper padronizado para chamar Supabase Edge Functions.
- * Garante que o token de autentica��o seja SEMPRE enviado no header Authorization (se requiresAuth=true).
- * Substitui chamadas diretas a supabase.functions.invoke para maior seguran�a e consist�ncia.
+ * Garante que o token de autenticação seja SEMPRE enviado no header Authorization (se requiresAuth=true).
+ * Substitui chamadas diretas a supabase.functions.invoke para maior segurança e consistência.
  */
 export async function invokeEdgeFunction<T = any>(
   functionName: string,
   options: InvokeOptions = {}
 ): Promise<{ data: T | null; error: any }> {
   
-  // [SECURITY] Bloqueio de fun��es de email de auth via SMTP do banco
+  // [SECURITY] Bloqueio de funções de email de auth via SMTP do banco
   if (AUTH_EMAIL_PROVIDER === 'SUPABASE') {
     const PROHIBITED_AUTH_FUNCTIONS = [
       'send-password-reset',
@@ -52,14 +52,14 @@ export async function invokeEdgeFunction<T = any>(
     ];
     
     if (PROHIBITED_AUTH_FUNCTIONS.includes(functionName)) {
-      const errorMsg = `[SECURITY] A fun��o '${functionName}' foi bloqueada. Contexto: ${EMAIL_CONTEXT.AUTH}. O projeto est� configurado para usar Supabase Auth Nativo (AUTH_EMAIL_PROVIDER='SUPABASE').`;
+      const errorMsg = `[SECURITY] A função '${functionName}' foi bloqueada. Contexto: ${EMAIL_CONTEXT.AUTH}. O projeto está configurado para usar Supabase Auth Nativo (AUTH_EMAIL_PROVIDER='SUPABASE').`;
       
       if (import.meta.env.DEV) {
         // console.error(errorMsg);
         throw new Error(errorMsg);
       } else {
         // console.warn(errorMsg);
-        return { data: null, error: new Error('Fun��o de email desativada por pol�tica de seguran�a') };
+        return { data: null, error: new Error('Função de email desativada por política de segurança') };
       }
     }
   }
@@ -69,13 +69,13 @@ export async function invokeEdgeFunction<T = any>(
 
   try {
     if (requiresAuth) {
-      // 1. Obter sess�o atual
+      // 1. Obter sessão atual
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       token = session?.access_token;
 
       if (sessionError || !token) {
-        // console.warn(`[apiClient] Tentativa de chamada � fun��o '${functionName}' sem sess�o ativa.`);
-        throw new Error('Usu�rio n�o autenticado');
+        // console.warn(`[apiClient] Tentativa de chamada à função '${functionName}' sem sessão ativa.`);
+        throw new Error('Usuário não autenticado');
       }
     }
 
@@ -88,7 +88,7 @@ export async function invokeEdgeFunction<T = any>(
       headers['Authorization'] = `Bearer ${token}`; // Garante o envio do token
     }
 
-    // 3. Invocar fun��o
+    // 3. Invocar função
     const invokeOptions: any = {
       method: options.method || 'POST',
       headers,
@@ -109,8 +109,8 @@ export async function invokeEdgeFunction<T = any>(
 
       // console.error(`[apiClient] Raw error from ${functionName}:`, error);
 
-      // FASE 6: Tratamento de erro 401 (Sess�o Expirada/Inv�lida)
-      // O SDK pode retornar erro como objeto ou string dependendo da vers�o/falha
+      // FASE 6: Tratamento de erro 401 (Sessão Expirada/Inválida)
+      // O SDK pode retornar erro como objeto ou string dependendo da versão/falha
       const errorStr = (error.message || '').toLowerCase();
       const errorCode = error.code || error.status;
       const errorJson = JSON.stringify(error).toLowerCase();
@@ -146,12 +146,12 @@ export async function invokeEdgeFunction<T = any>(
              // Keep default auth handling below if fallback call fails.
            }
          }
-         // console.error(`[apiClient] Erro 401/JWT Inv�lido na fun��o ${functionName}. For�ando logout.`);
+         // console.error(`[apiClient] Erro 401/JWT Inválido na função ${functionName}. Forçando logout.`);
          
-         // Limpar sess�o local
+         // Limpar sessão local
          await supabase.auth.signOut();
          
-         // Redirecionar para login preservando o contexto (se poss�vel)
+         // Redirecionar para login preservando o contexto (se possível)
          if (typeof window !== 'undefined') {
              // Append context to URL if not already present
              const currentPath = window.location.pathname;
@@ -165,20 +165,20 @@ export async function invokeEdgeFunction<T = any>(
 
     return { data, error: null };
   } catch (err: any) {
-    // console.error(`[apiClient] Erro na fun��o '${functionName}':`, err);
+    // console.error(`[apiClient] Erro na função '${functionName}':`, err);
     return { data: null, error: err };
   }
 }
 
 /**
- * Wrapper gen�rico para fetch com autentica��o (se necess�rio para APIs externas ou endpoints customizados).
- * Segue o padr�o solicitado pelo usu�rio.
+ * Wrapper genérico para fetch com autenticação (se necessário para APIs externas ou endpoints customizados).
+ * Segue o padrão solicitado pelo usuário.
  */
 export async function apiFetch(url: string, options: RequestInit = {}) {
   const { data } = await supabase.auth.getSession();
   const token = data?.session?.access_token;
 
-  if (!token) throw new Error('Usu�rio n�o autenticado');
+  if (!token) throw new Error('Usuário não autenticado');
 
   return fetch(url, {
     ...options,

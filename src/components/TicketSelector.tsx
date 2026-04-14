@@ -37,9 +37,9 @@ export function TicketSelector({
 
     try {
       return value
-        .replace(/padr�o/gi, 'padrão')
-        .replace(/n�o/gi, 'não')
-        .replace(/op��o/gi, 'opção');
+        .replace(/padrão/gi, 'padrão')
+        .replace(/não/gi, 'não')
+        .replace(/opção/gi, 'opção');
     } catch {
       return value;
     }

@@ -22,7 +22,7 @@ export default function TicketDetails() {
     try {
       setLoading(true);
       if (!user) return;
-      // Reutilizando getUserTickets para garantir consistência e segurança via RLS
+      // Reutilizando getUserTickets para garantir consistÃªncia e seguranÃ§a via RLS
       const tickets = await eventService.getUserTickets(user.id);
       const found = tickets.find(t => t.id === ticketId);
       
@@ -41,9 +41,9 @@ export default function TicketDetails() {
   if (!ticket) {
     return (
       <div className="min-h-screen bg-background p-4 flex flex-col items-center justify-center text-center">
-        <h2 className="text-xl font-semibold mb-2">Ingresso não encontrado</h2>
+        <h2 className="text-xl font-semibold mb-2">Ingresso nÃ£o encontrado</h2>
         <p className="text-muted-foreground mb-4">
-          Não conseguimos encontrar este ingresso. Verifique se você está logado na conta correta.
+          NÃ£o conseguimos encontrar este ingresso. Verifique se vocÃª estÃ¡ logado na conta correta.
         </p>
         <Button onClick={() => navigate('/meus-eventos')}>
           Ver meus eventos
