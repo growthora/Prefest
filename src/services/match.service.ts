@@ -18,7 +18,6 @@ export interface Match {
 }
 
 class MatchService {
-  // Listar matches do usuário
   async getUserMatches(): Promise<Match[]> {
     const { data, error } = await supabase.rpc('list_matches');
 
@@ -32,13 +31,21 @@ class MatchService {
     return data && data.length > 0 ? data[0] : null;
   }
 
-  // Listar matches de um evento específico
   async getEventMatches(eventId: string): Promise<Match[]> {
-    // Como a RPC list_matches não filtra por evento, vamos fazer uma query direta na view ou tabela se possível
-    // Ou filtrar o resultado da RPC se ela retornar event_id
-    const { data, error } = await supabase.rpc('list_matches');
-    if (error) throw error;
-    return (data || []).filter((m: Match) => m.event_id === eventId);
+    const { data, error } = await supabase.rpc('list_event_matches', {
+      p_event_id: eventId,
+    });
+
+    if (!error) {
+      return data || [];
+    }
+
+    if (error.code !== '42883') {
+      throw error;
+    }
+
+    const matches = await this.getUserMatches();
+    return matches.filter((match) => match.event_id === eventId);
   }
 
   async markMatchSeen(matchId: string): Promise<void> {
@@ -53,4 +60,3 @@ class MatchService {
 }
 
 export const matchService = new MatchService();
-

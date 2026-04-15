@@ -41,6 +41,7 @@ import {
   getRelationshipStatusLabel,
   getSexualityLabel,
 } from '@/constants/profile-options';
+import { hasValidMatchPhoto, MATCH_PHOTO_REQUIRED_MESSAGE } from '@/utils/matchPhoto';
 
 import { MatchGuidelinesModal } from "@/components/MatchGuidelinesModal";
 
@@ -283,6 +284,12 @@ export default function Profile() {
   // Toggles
   const handleToggleMatchEnabled = async (checked: boolean) => {
     if (checked) {
+      if (!hasValidMatchPhoto(formData.avatar_url || profile?.avatar_url)) {
+        toast.info(MATCH_PHOTO_REQUIRED_MESSAGE);
+        setIsEditing(true);
+        return;
+      }
+
       setShowMatchGuidelines(true);
       return;
     }
@@ -299,6 +306,12 @@ export default function Profile() {
 
   const confirmMatchEnabled = async () => {
     try {
+      if (!hasValidMatchPhoto(formData.avatar_url || profile?.avatar_url)) {
+        toast.info(MATCH_PHOTO_REQUIRED_MESSAGE);
+        setIsEditing(true);
+        return;
+      }
+
       setShowMatchGuidelines(false);
       setMatchEnabled(true);
       await updateProfile({ match_enabled: true });
@@ -826,4 +839,3 @@ export default function Profile() {
     </Layout>
   );
 }
-

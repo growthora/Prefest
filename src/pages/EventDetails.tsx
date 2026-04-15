@@ -17,6 +17,7 @@ import {
   Ticket,
   HeartHandshake,
   Ban,
+  Camera,
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -44,6 +45,7 @@ import { differenceInYears, parseISO } from 'date-fns';
 import { toUserFriendlyErrorMessage } from '@/lib/appErrors';
 
 import { goToPublicProfile } from '@/utils/navigation';
+import { hasValidMatchPhoto, MATCH_PHOTO_REQUIRED_MESSAGE } from '@/utils/matchPhoto';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { MatchGuidelinesModal } from '@/components/MatchGuidelinesModal';
 
@@ -89,9 +91,13 @@ export default function EventDetails() {
     receivedLikes,
     stats: matchStats,
     loading: loadingMatchQueue,
+    isReloadingQueue,
     loadingMatches,
     loadingReceivedLikes,
     refreshAll: refreshMatchData,
+    reloadQueue,
+    hasOwnValidPhoto,
+    isCheckingOwnPhoto,
   } = useMatch(event?.id);
   const [showSocialOnboarding, setShowSocialOnboarding] = useState(false);
   const [showMatchGuidelines, setShowMatchGuidelines] = useState(false);
@@ -101,13 +107,84 @@ export default function EventDetails() {
     return differenceInYears(new Date(), parseISO(profile.birth_date)) < 18;
   }, [profile]);
 
+  const isMatchPhotoMissing = Boolean(user && profile && !isCheckingOwnPhoto && !hasOwnValidPhoto);
+
+  const openMatchProfileSetup = () => {
+    navigate(ROUTE_PATHS.PROFILE, { state: { activeTab: 'profile', startEditing: true } });
+  };
+
+  const redirectToMatchProfileSetup = () => {
+    setActiveTab('details');
+    toast.info(MATCH_PHOTO_REQUIRED_MESSAGE);
+    openMatchProfileSetup();
+  };
+
+  const handleTabChange = (nextTab: string) => {
+    const isMatchAreaTab = nextTab === 'match' || nextTab === 'likes';
+
+    if (isMatchAreaTab && user && profile) {
+      if (isCheckingOwnPhoto) {
+        toast.info('Validando sua foto de perfil...');
+        return;
+      }
+
+      if (isMatchPhotoMissing) {
+        redirectToMatchProfileSetup();
+        return;
+      }
+    }
+
+    setActiveTab(nextTab);
+  };
+
   useEffect(() => {
     loadEvent();
   }, [slug]);
 
+  useEffect(() => {
+    if ((activeTab === 'match' || activeTab === 'likes') && isMatchPhotoMissing) {
+      redirectToMatchProfileSetup();
+    }
+  }, [activeTab, isMatchPhotoMissing]);
+
+  const renderMatchPhotoRequiredState = (description: string) => (
+    <div className="flex flex-col items-center justify-center py-12 text-center bg-card/30 rounded-xl border border-border/40 p-8">
+      <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
+        <Camera className="w-10 h-10 text-primary" />
+      </div>
+      <h3 className="text-2xl font-bold mb-3">Adicione uma foto para começar a dar match</h3>
+      <p className="text-muted-foreground max-w-md mb-8 text-lg">
+        {description}
+      </p>
+      <Button size="lg" className="gap-2 text-lg px-8 py-6 rounded-xl" onClick={openMatchProfileSetup}>
+        <Camera size={20} />
+        Adicionar foto
+      </Button>
+      <p className="text-xs text-muted-foreground mt-4">
+        Assim que sua foto principal estiver válida, o evento libera o match automaticamente.
+      </p>
+    </div>
+  );
+
+  const renderMatchPhotoValidationState = () => (
+    <div className="flex justify-center py-12">
+      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
 
 
   const handleLikeBack = async (likeId: string, userId: string) => {
+    if (isCheckingOwnPhoto) {
+      toast.info('Validando sua foto de perfil...');
+      return;
+    }
+
+    if (isMatchPhotoMissing) {
+      redirectToMatchProfileSetup();
+      return;
+    }
+
     if (!event?.id) return;
     try {
       if (!profile?.match_enabled) {
@@ -135,13 +212,13 @@ export default function EventDetails() {
 
         setLastMatchedUser(userId);
         setLastMatchedUserName(action.targetUser?.name || 'Alguém');
-        setLastMatchedUserPhoto(action.targetUser?.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`);
+        setLastMatchedUserPhoto(action.targetUser?.photo || '');
         setLastMatchChatId(result.match_id || null);
         setShowMatchOverlay(true);
 
       }
     } catch (error) {
-      toast.error('Erro ao curtir de volta');
+      toast.error(error instanceof Error ? error.message : 'Erro ao curtir de volta');
     }
   };
 
@@ -239,6 +316,16 @@ export default function EventDetails() {
     return;
   }
 
+  if (!profile.match_enabled && isCheckingOwnPhoto) {
+    toast.info('Validando sua foto de perfil...');
+    return;
+  }
+
+  if (!profile.match_enabled && isMatchPhotoMissing) {
+    redirectToMatchProfileSetup();
+    return;
+  }
+
   if (!profile.match_enabled) {
     setShowMatchGuidelines(true);
     return;
@@ -251,6 +338,16 @@ const toggleMatchStatus = async (enable: boolean) => {
   if (!profile) return;
 
   try {
+    if (enable && isCheckingOwnPhoto) {
+      toast.info('Validando sua foto de perfil...');
+      return;
+    }
+
+    if (enable && isMatchPhotoMissing) {
+      redirectToMatchProfileSetup();
+      return;
+    }
+
     const updates: any = {
       match_enabled: enable,
       meet_attendees: enable,
@@ -378,6 +475,16 @@ const loadEvent = async () => {
   };
 
   const handleLikeMatch = async (userId: string) => {
+  if (isCheckingOwnPhoto) {
+    toast.info('Validando sua foto de perfil...');
+    return;
+  }
+
+  if (isMatchPhotoMissing) {
+    redirectToMatchProfileSetup();
+    return;
+  }
+
   if (!event?.id || !user?.id) {
     toast.error('Erro ao processar like');
     return;
@@ -423,7 +530,7 @@ const loadEvent = async () => {
 
       setLastMatchedUser(userId);
       setLastMatchedUserName(likedUser?.name || 'Alguém');
-      setLastMatchedUserPhoto(likedUser?.photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`);
+      setLastMatchedUserPhoto(likedUser?.photo || '');
       setLastMatchChatId(likeResult.match_id || null);
       setShowMatchOverlay(true);
       toast.success('É um Match! 🎉');
@@ -441,7 +548,7 @@ const loadEvent = async () => {
     if (error.code === '23505') {
       toast.info('Você já curtiu esta pessoa');
     } else {
-      toast.error('Erro ao processar like');
+      toast.error(error instanceof Error ? error.message : 'Erro ao processar like');
     }
   }
 };
@@ -453,7 +560,7 @@ const handleSkipMatch = async (userId: string) => {
 const shouldShowSocialOnboarding = () => {
     if (!profile) return false;
     const isBioEmpty = !profile.bio;
-    const isAvatarEmpty = !profile.avatar_url;
+    const isAvatarEmpty = !hasValidMatchPhoto(profile.avatar_url);
     const isObjectiveEmpty = !profile.match_intention;
     const hasLookingFor = Array.isArray(profile.looking_for) && profile.looking_for.length > 0;
     const isPreferenceEmpty = !profile.match_gender_preference && !hasLookingFor;
@@ -515,19 +622,21 @@ const shouldShowSocialOnboarding = () => {
       await loadEvent();
       await refreshParticipants();
 
-      if (shouldShowSocialOnboarding()) {
+      if (shouldShowSocialOnboarding() || !hasOwnValidPhoto) {
         setShowSocialOnboarding(true);
       }
       
       if (singleMode) {
-        // Suggest activating meet_attendees if they bought in single mode
-        if (!profile?.meet_attendees || !profile?.match_enabled) {
-            await updateProfile({ 
-                meet_attendees: true,
-                match_enabled: true,
-                allow_profile_view: true
-            });
-            toast.success('Conheça a Galera ativado automaticamente!');
+        // Só ativa o match automaticamente quando a foto já estiver pronta.
+        if (hasOwnValidPhoto && (!profile?.meet_attendees || !profile?.match_enabled)) {
+          await updateProfile({ 
+            meet_attendees: true,
+            match_enabled: true,
+            allow_profile_view: true
+          });
+          toast.success('Conheça a Galera ativado automaticamente!');
+        } else if (!hasOwnValidPhoto) {
+          toast.info(MATCH_PHOTO_REQUIRED_MESSAGE);
         }
         setActiveTab('attendees');
       }
@@ -581,7 +690,7 @@ const shouldShowSocialOnboarding = () => {
         </motion.div>
 
         {/* Tabs Navigation */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full grid-cols-4 mb-6 lg:mb-8 bg-card/50 border border-border/40 h-auto p-1">
             <TabsTrigger 
               value="details" 
@@ -912,6 +1021,10 @@ const shouldShowSocialOnboarding = () => {
                     A funcionalidade de Match é exclusiva para maiores de 18 anos.
                   </p>
                 </div>
+              ) : isCheckingOwnPhoto ? (
+                renderMatchPhotoValidationState()
+              ) : isMatchPhotoMissing ? (
+                renderMatchPhotoRequiredState('As curtidas e o swipe só ficam disponíveis quando sua foto principal está válida e pronta para aparecer para outras pessoas.')
               ) : !isParticipating ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center bg-card/30 rounded-xl border border-border/40 p-8">
                   <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
@@ -943,7 +1056,7 @@ const shouldShowSocialOnboarding = () => {
                   {user && (
                     <Button 
                       onClick={() => {
-                        setActiveTab('match');
+                        handleTabChange('match');
                         // If not enabled, the match tab will show the big CTA
                       }}
                       variant="outline"
@@ -1051,18 +1164,41 @@ const shouldShowSocialOnboarding = () => {
                   <div className="flex items-center gap-4">
                     <div className="text-right hidden md:block">
                       <p className="text-sm font-medium">
-                        {profile?.match_enabled ? 'Você está visível' : 'Você está invisível'}
+                        {isCheckingOwnPhoto
+                          ? 'Validando sua foto'
+                          : isMatchPhotoMissing
+                            ? 'Foto obrigatória para o Match'
+                            : profile?.match_enabled
+                              ? 'Você está visível'
+                              : 'Você está invisível'}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {profile?.match_enabled ? 'Outros podem ver seu perfil' : 'Ative para participar do Match'}
+                        {isCheckingOwnPhoto
+                          ? 'Estamos conferindo se sua foto está pronta para aparecer no swipe.'
+                          : isMatchPhotoMissing
+                            ? 'Adicione uma foto válida para aparecer, curtir e receber curtidas.'
+                            : profile?.match_enabled
+                              ? 'Outros podem ver seu perfil'
+                              : 'Ative para participar do Match'}
                       </p>
                     </div>
                     <Button 
-                      variant={profile?.match_enabled ? "outline" : "default"}
-                      onClick={handleToggleMeetAttendees}
+                      variant={isMatchPhotoMissing ? "default" : profile?.match_enabled ? "outline" : "default"}
+                      onClick={isMatchPhotoMissing ? openMatchProfileSetup : handleToggleMeetAttendees}
+                      disabled={isCheckingOwnPhoto}
                       className="gap-2"
                     >
-                      {profile?.match_enabled ? (
+                      {isCheckingOwnPhoto ? (
+                        <>
+                          <Camera size={16} />
+                          Validando foto...
+                        </>
+                      ) : isMatchPhotoMissing ? (
+                        <>
+                          <Camera size={16} />
+                          Adicionar foto
+                        </>
+                      ) : profile?.match_enabled ? (
                         <>
                           <EyeOff size={16} />
                           Sair do Match
@@ -1163,6 +1299,10 @@ const shouldShowSocialOnboarding = () => {
                     A funcionalidade de Match é exclusiva para maiores de 18 anos, conforme nossos termos de uso e legislação vigente.
                   </p>
                 </div>
+              ) : isCheckingOwnPhoto ? (
+                renderMatchPhotoValidationState()
+              ) : isMatchPhotoMissing ? (
+                renderMatchPhotoRequiredState('Seu perfil só entra no swipe, recebe curtidas e gera match quando a foto principal estiver válida e visível para outras pessoas.')
               ) : !isParticipating ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center bg-card/30 rounded-xl border border-border/40 p-8">
                    <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
@@ -1205,7 +1345,7 @@ const shouldShowSocialOnboarding = () => {
                 </div>
               ) : (
                 <div className="py-4">
-                   {loadingMatchQueue ? (
+                   {loadingMatchQueue && currentQueue.length === 0 && !isReloadingQueue ? (
                      <div className="flex justify-center py-20">
                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
                      </div>
@@ -1214,7 +1354,8 @@ const shouldShowSocialOnboarding = () => {
                        queue={currentQueue}
                        onLike={handleLikeMatch}
                        onSkip={handleSkipMatch}
-                       onRefresh={refreshMatchData}
+                       onRefresh={reloadQueue}
+                       isRefreshing={isReloadingQueue}
                      />
                    )}
                 </div>
@@ -1251,7 +1392,7 @@ const shouldShowSocialOnboarding = () => {
                   />
                   <div className="relative w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-4 border-primary shadow-2xl">
                     <img 
-                      src={profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
+                      src={profile?.avatar_url ?? undefined}
                       alt="Você"
                       className="w-full h-full object-cover"
                     />
@@ -1279,7 +1420,7 @@ const shouldShowSocialOnboarding = () => {
                   />
                   <div className="relative w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-4 border-pink-500 shadow-2xl">
                     <img 
-                      src={lastMatchedUserPhoto}
+                      src={lastMatchedUserPhoto || undefined}
                       alt={lastMatchedUserName}
                       className="w-full h-full object-cover"
                     />

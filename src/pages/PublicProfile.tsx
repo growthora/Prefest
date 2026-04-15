@@ -18,6 +18,7 @@ import {
 import { toast } from 'sonner';
 import { GlobalLoader } from '@/components/GlobalLoader';
 import { likeService } from '@/services/like.service';
+import { ROUTE_PATHS } from '@/lib';
 import { supabase } from '@/lib/supabase';
 import {
   getGenderIdentityLabel,
@@ -25,6 +26,7 @@ import {
   getRelationshipStatusLabel,
   getSexualityLabel,
 } from '@/constants/profile-options';
+import { hasValidMatchPhoto, MATCH_PHOTO_REQUIRED_MESSAGE } from '@/utils/matchPhoto';
 
 interface PublicUser {
   id: string;
@@ -58,7 +60,7 @@ export default function PublicProfile() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, profile: currentUserProfile } = useAuth();
   
   const [profile, setProfile] = useState<PublicUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -190,9 +192,20 @@ export default function PublicProfile() {
 
   const handleLike = async () => {
     if (!profile || !currentUser) return;
-    
+
     if (!eventContext) {
       toast.error('É necessário acessar através de um evento para dar match');
+      return;
+    }
+
+    if (!hasValidMatchPhoto(currentUserProfile?.avatar_url)) {
+      toast.info(MATCH_PHOTO_REQUIRED_MESSAGE);
+      navigate(ROUTE_PATHS.PROFILE, { state: { activeTab: 'profile', startEditing: true } });
+      return;
+    }
+
+    if (!hasValidMatchPhoto(profile.photo)) {
+      toast.info('Este perfil precisa de uma foto válida para participar do match');
       return;
     }
 
@@ -201,7 +214,7 @@ export default function PublicProfile() {
       toast.success(`Você curtiu ${profile.name}!`);
       // Optional: Add visual feedback or disable button
     } catch (error) {
-      toast.error('Erro ao curtir usuário');
+      toast.error(error instanceof Error ? error.message : 'Erro ao curtir usuário');
     }
   };
 

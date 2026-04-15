@@ -39,11 +39,20 @@ export function ProfileModal({ isOpen, onClose, user, onLike, onSkip }: ProfileM
         <div className="h-full overflow-y-auto">
           {/* Header Image */}
           <div className="relative h-56 sm:h-64 w-full bg-zinc-900">
-            <img 
-              src={user.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || 'User')}`} 
-              alt={user.name} 
-              className={`w-full h-full object-cover ${isPrivate ? 'blur-md brightness-50' : ''}`}
-            />
+            {user.photo ? (
+              <img 
+                src={user.photo}
+                alt={user.name} 
+                className={`w-full h-full object-cover ${isPrivate ? 'blur-md brightness-50' : ''}`}
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-b from-zinc-800 to-zinc-950">
+                <div className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-center backdrop-blur-sm">
+                  <p className="text-sm font-semibold text-white">Foto indisponível</p>
+                  <p className="text-xs text-zinc-400">Este perfil precisa de uma foto válida para participar do match.</p>
+                </div>
+              </div>
+            )}
             <div className="absolute inset-0 bg-gradient-to-b from-transparent to-zinc-950" />
             
             <Button 

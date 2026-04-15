@@ -1,31 +1,60 @@
 import { supabase } from '@/lib/supabase';
+import { logMatchDebug } from '@/utils/matchDebug';
+import { hasValidMatchPhoto } from '@/utils/matchPhoto';
 
 export interface LikeResult {
   status: 'liked' | 'match' | 'already_liked' | 'error';
+  like_id?: string;
   match_id?: string;
   chat_id?: string;
+  is_new_match?: boolean;
+  match_reactivated?: boolean;
   message?: string;
 }
 
 class LikeService {
-  // Dar like em um usuário via RPC
   async likeUser(toUserId: string, eventId: string): Promise<LikeResult> {
-    
+    logMatchDebug('LIKE ENVIADO', {
+      eventId,
+      toUserId,
+    });
+
     const { data, error } = await supabase.rpc('like_user', {
       p_event_id: eventId,
-      p_to_user_id: toUserId
+      p_to_user_id: toUserId,
     });
 
     if (error) {
-      // Handle duplicate like gracefully if it's a unique constraint violation
+      logMatchDebug('LIKE ERRO', {
+        eventId,
+        toUserId,
+        code: error.code,
+        message: error.message,
+      });
+
       if (error.code === '23505') {
         return { status: 'already_liked' };
       }
-      
+
       throw error;
     }
 
-    return data as LikeResult;
+    const result = data as LikeResult;
+
+    logMatchDebug('LIKE RESULTADO', {
+      eventId,
+      toUserId,
+      status: result?.status,
+      matchId: result?.match_id,
+      reciprocalLike: result?.status === 'match',
+      reactivated: result?.match_reactivated ?? false,
+    });
+
+    if (result.status === 'error') {
+      throw new Error(result.message || 'Nao foi possivel processar essa curtida');
+    }
+
+    return result;
   }
 
   async getLikesSummary(): Promise<{ total_likes: number; recent_likes: any[] }> {
@@ -44,6 +73,7 @@ class LikeService {
     if (typeof window === 'undefined') return [];
     const raw = window.localStorage.getItem('prefest_read_likes');
     if (!raw) return [];
+
     try {
       const parsed = JSON.parse(raw);
       return Array.isArray(parsed) ? parsed : [];
@@ -70,10 +100,7 @@ class LikeService {
   }
 
   async getUnreadLikes(userId: string): Promise<any[]> {
-    
     try {
-      // Busca os últimos 20 likes recebidos pelo usuário
-      // Ordenados por data de criação (mais recentes primeiro)
       const { data, error } = await supabase
         .from('likes')
         .select(`
@@ -93,87 +120,73 @@ class LikeService {
         .limit(20);
 
       if (error) throw error;
-      
-      const mapped = (data || []).map(like => ({
+
+      const mapped = (data || []).map((like) => ({
         ...like,
-        is_match: like.status === 'matched'
+        is_match: like.status === 'matched',
       }));
 
       const readIds = this.getReadLikeIds();
-      return mapped.filter(like => !readIds.includes(like.id));
-    } catch (error) {
+      return mapped.filter((like) => !readIds.includes(like.id));
+    } catch {
       return [];
     }
   }
 
-  // Buscar usuários para dar match (fila)
   async getPotentialMatches(eventId: string, currentUserId: string): Promise<any[]> {
-      // 1. Buscar IDs já avaliados (likes)
-      const { data: evaluatedData, error: evaluatedError } = await supabase
-          .from('likes')
-          .select('to_user_id')
-          .eq('from_user_id', currentUserId)
-          .eq('event_id', eventId);
-          
-      if (evaluatedError) throw evaluatedError;
-      
-      const evaluatedIds = (evaluatedData || []).map(l => l.to_user_id);
-      evaluatedIds.push(currentUserId); // Excluir o próprio usuário
+    const { data: evaluatedData, error: evaluatedError } = await supabase
+      .from('likes')
+      .select('to_user_id')
+      .eq('from_user_id', currentUserId)
+      .eq('event_id', eventId);
 
-      // 2. Buscar participantes elegíveis
-      // Precisamos fazer query na tabela de participantes e join com profiles
-      
-      const { data, error } = await supabase
-        .from('event_participants')
-        .select(`
-          user:profiles!event_participants_user_id_fkey (
-            id,
-            full_name,
-            avatar_url,
-            bio,
-            birth_date,
-            match_enabled,
-            allow_profile_view,
-            gender_identity,
-            match_intention,
-            match_gender_preference,
-            sexuality,
-            height,
-            relationship_status
-          )
-        `)
-        .eq('event_id', eventId)
-        .neq('status', 'canceled'); // Ignorar cancelados
+    if (evaluatedError) throw evaluatedError;
 
-      if (error) throw error;
+    const evaluatedIds = (evaluatedData || []).map((like) => like.to_user_id);
+    evaluatedIds.push(currentUserId);
 
-      // 3. Filtrar resultados no cliente
-      const candidates = (data || [])
-        .map((item: any) => item.user)
-        .filter((user: any) => {
-          if (!user) return false;
-          
-          const isEvaluated = evaluatedIds.includes(user.id);
-          const isMatchEnabled = user.match_enabled;
-          const isProfileViewAllowed = user.allow_profile_view;
+    const { data, error } = await supabase
+      .from('event_participants')
+      .select(`
+        user:profiles!event_participants_user_id_fkey (
+          id,
+          full_name,
+          avatar_url,
+          bio,
+          birth_date,
+          match_enabled,
+          allow_profile_view,
+          gender_identity,
+          match_intention,
+          match_gender_preference,
+          sexuality,
+          height,
+          relationship_status
+        )
+      `)
+      .eq('event_id', eventId)
+      .neq('status', 'canceled');
 
-          if (isEvaluated) {
-             return false;
-          }
-          if (!isMatchEnabled) {
-             return false;
-          }
-          if (!isProfileViewAllowed) {
-             return false;
-          }
+    if (error) throw error;
 
-          return true;
-        });
+    return (data || [])
+      .map((item: any) => item.user)
+      .filter((user: any) => {
+        if (!user) return false;
 
-      return candidates;
+        const isEvaluated = evaluatedIds.includes(user.id);
+        const isMatchEnabled = user.match_enabled;
+        const isProfileViewAllowed = user.allow_profile_view;
+        const hasProfilePhoto = hasValidMatchPhoto(user.avatar_url);
+
+        if (isEvaluated) return false;
+        if (!isMatchEnabled) return false;
+        if (!isProfileViewAllowed) return false;
+        if (!hasProfilePhoto) return false;
+
+        return true;
+      });
   }
 }
 
 export const likeService = new LikeService();
-
-
