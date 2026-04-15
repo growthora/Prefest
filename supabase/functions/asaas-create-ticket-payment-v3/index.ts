@@ -2,6 +2,143 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { getCorsHeaders, handleCors } from "../_shared/cors.ts"
 import { requireAuth } from "../_shared/requireAuth.ts"
 
+type AsaasPayload = {
+  id?: string
+  error?: string
+  message?: string
+  raw?: string
+  status?: string
+  payload?: string
+  invoiceUrl?: string
+  encodedImage?: string
+  data?: Array<Record<string, unknown>>
+  errors?: Array<{ description?: string; code?: string }>
+}
+
+const parseAsaasResponse = async (response: Response): Promise<AsaasPayload> => {
+  const raw = await response.text()
+
+  if (!raw) {
+    return {}
+  }
+
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return { raw }
+  }
+}
+
+const getAsaasErrorMessage = (payload: AsaasPayload | null | undefined, fallback: string) => {
+  if (!payload) return fallback
+
+  if (Array.isArray(payload.errors) && payload.errors.length > 0) {
+    const descriptions = payload.errors
+      .map((item) => item?.description || item?.code)
+      .filter(Boolean)
+
+    if (descriptions.length > 0) {
+      return descriptions.join(" | ")
+    }
+  }
+
+  if (typeof payload.message === "string" && payload.message.trim()) {
+    return payload.message.trim()
+  }
+
+  if (typeof payload.error === "string" && payload.error.trim()) {
+    return payload.error.trim()
+  }
+
+  if (typeof payload.raw === "string" && payload.raw.trim()) {
+    return payload.raw.trim()
+  }
+
+  return fallback
+}
+
+const isCustomerReferenceError = (message: string) => {
+  const normalized = message.toLowerCase()
+
+  return (
+    normalized.includes("customer not found") ||
+    normalized.includes("cliente não encontrado") ||
+    normalized.includes("cliente nao encontrado") ||
+    normalized.includes("invalid customer") ||
+    normalized.includes("customer does not exist")
+  )
+}
+
+const buildDueDate = () => {
+  const dueDate = new Date()
+  dueDate.setUTCDate(dueDate.getUTCDate() + 1)
+  return dueDate.toISOString().split("T")[0]
+}
+
+const isMissingColumnError = (error: any) => {
+  const code = String(error?.code || '')
+  const message = String(error?.message || '').toLowerCase()
+
+  return (
+    code === '42703' ||
+    code === 'PGRST204' ||
+    message.includes('does not exist') ||
+    message.includes('could not find the')
+  )
+}
+
+const extractMissingColumnName = (error: any): string | null => {
+  const rawMessage = String(error?.message || error?.details || error?.hint || '')
+
+  if (!rawMessage) {
+    return null
+  }
+
+  const patterns = [
+    /column ["']?(?:public\.)?(?:\w+\.)?(\w+)["']? does not exist/i,
+    /Could not find the ['"](\w+)['"] column/i,
+    /schema cache.*['"](\w+)['"]/i,
+  ]
+
+  for (const pattern of patterns) {
+    const match = rawMessage.match(pattern)
+    if (match?.[1]) {
+      return match[1]
+    }
+  }
+
+  return null
+}
+
+async function loadBuyerProfile(adminClient: ReturnType<typeof createClient>, userId: string) {
+  let selectedColumns = ['full_name', 'cpf', 'email', 'asaas_customer_id']
+
+  while (selectedColumns.length > 0) {
+    const { data, error } = await adminClient
+      .from('profiles')
+      .select(selectedColumns.join(', '))
+      .eq('id', userId)
+      .single()
+
+    if (!error) {
+      return data
+    }
+
+    if (!isMissingColumnError(error)) {
+      throw error
+    }
+
+    const missingColumn = extractMissingColumnName(error)
+    if (!missingColumn || !selectedColumns.includes(missingColumn)) {
+      throw error
+    }
+
+    selectedColumns = selectedColumns.filter((column) => column !== missingColumn)
+  }
+
+  return null
+}
+
 Deno.serve(async (req) => {
   // FASE 1: PROVA DEFINITIVA - DIAGN�STICO (Logo na entrada)
   const authProbe = req.headers.get("Authorization") ?? ""
@@ -318,11 +455,7 @@ Deno.serve(async (req) => {
     //   .single();
 
     // 8.1 Fetch Buyer Profile (Primary source for CPF)
-    const { data: buyerProfile } = await adminClient
-      .from('profiles')
-      .select('full_name, cpf, email, asaas_customer_id')
-      .eq('id', user.id)
-      .single();
+    const buyerProfile = await loadBuyerProfile(adminClient, user.id);
 
     // console.log(`V3: Buyer Profile: ${user.id} - CPF: ${buyerProfile?.cpf ? '***' : 'MISSING'} - Asaas ID: ${buyerProfile?.asaas_customer_id}`);
     
@@ -402,37 +535,11 @@ Deno.serve(async (req) => {
 
     // console.log(`V3: Preparing Asaas Customer for User ${user.id} (Email and CPF validated)`);
 
-    // 13. Create/Find Customer in Asaas
-    let customerId = '';
-    
-    // Check if we already have the customer ID in our database
-    if (buyerProfile?.asaas_customer_id) {
-        // console.log(`V3: Using cached Asaas Customer ID: ${buyerProfile.asaas_customer_id}`);
-        customerId = buyerProfile.asaas_customer_id;
-    } else {
-        // Search by email
-        const searchRes = await fetch(`${baseUrl}/customers?email=${customerInfo.email}`, { headers });
-        const searchData = await searchRes.json();
-        
-        if (searchData.data && searchData.data.length > 0) {
-            customerId = searchData.data[0].id;
-            // console.log(`V3: Found existing Asaas Customer ID by email: ${customerId}`);
-        } else {
-            // Create new customer
-            const createCustomerRes = await fetch(`${baseUrl}/customers`, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(customerInfo)
-            });
-            const newCustomer = await createCustomerRes.json();
-            if (newCustomer.errors) {
-                 throw new Error(`Customer Creation Error: ${newCustomer.errors[0].description}`);
-            }
-            customerId = newCustomer.id;
-            // console.log(`V3: Created new Asaas Customer ID: ${customerId}`);
+    const persistCustomerId = async (customerId: string) => {
+        if (!customerId || buyerProfile?.asaas_customer_id === customerId) {
+          return;
         }
 
-        // Update Profile with new Asaas Customer ID
         const { error: updateProfileError } = await adminClient
             .from('profiles')
             .update({ asaas_customer_id: customerId })
@@ -441,7 +548,79 @@ Deno.serve(async (req) => {
         if (updateProfileError) {
             // console.error('V3 Error: Failed to update profile with Asaas Customer ID', updateProfileError);
         }
-    }
+    };
+
+    const getCustomerById = async (customerId: string) => {
+      const response = await fetch(`${baseUrl}/customers/${encodeURIComponent(customerId)}`, { headers });
+      const payload = await parseAsaasResponse(response);
+
+      if (response.ok && payload?.id) {
+        return payload;
+      }
+
+      if (response.status === 404 || isCustomerReferenceError(getAsaasErrorMessage(payload, ''))) {
+        return null;
+      }
+
+      throw new Error(`Customer Lookup Error: ${getAsaasErrorMessage(payload, 'Não foi possível validar o cliente no Asaas.')}`);
+    };
+
+    const searchCustomerByEmail = async () => {
+      const query = new URLSearchParams({ email: customerInfo.email });
+      const response = await fetch(`${baseUrl}/customers?${query.toString()}`, { headers });
+      const payload = await parseAsaasResponse(response);
+
+      if (!response.ok) {
+        throw new Error(`Customer Lookup Error: ${getAsaasErrorMessage(payload, 'Não foi possível buscar o cliente no Asaas.')}`);
+      }
+
+      return Array.isArray(payload.data) && payload.data.length > 0
+        ? payload.data[0]
+        : null;
+    };
+
+    const createCustomer = async () => {
+      const response = await fetch(`${baseUrl}/customers`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(customerInfo)
+      });
+      const payload = await parseAsaasResponse(response);
+
+      if (!response.ok || payload.errors) {
+        throw new Error(`Customer Creation Error: ${getAsaasErrorMessage(payload, 'Não foi possível criar o cliente no Asaas.')}`);
+      }
+
+      return payload;
+    };
+
+    const resolveCustomerId = async (forceRefresh = false) => {
+      if (!forceRefresh && buyerProfile?.asaas_customer_id) {
+        const cachedCustomer = await getCustomerById(buyerProfile.asaas_customer_id);
+        if (cachedCustomer?.id) {
+          return cachedCustomer.id;
+        }
+      }
+
+      const existingCustomer = await searchCustomerByEmail();
+      if (existingCustomer?.id && typeof existingCustomer.id === 'string') {
+        await persistCustomerId(existingCustomer.id);
+        return existingCustomer.id;
+      }
+
+      const createdCustomer = await createCustomer();
+      const createdCustomerId = String(createdCustomer.id || '').trim();
+
+      if (!createdCustomerId) {
+        throw new Error('Customer Creation Error: O Asaas não retornou um identificador válido para o cliente.');
+      }
+
+      await persistCustomerId(createdCustomerId);
+      return createdCustomerId;
+    };
+
+    // 13. Create/Find Customer in Asaas
+    let customerId = await resolveCustomerId();
 
     // 14. Prepare Payment Payload
     // Format description to include fee breakdown
@@ -457,7 +636,7 @@ Deno.serve(async (req) => {
         customer: customerId,
         billingType: billing_type.toUpperCase(),
         value: totalPrice,
-        dueDate: new Date().toISOString().split('T')[0], // Today
+        dueDate: buildDueDate(),
         description: description,
         externalReference: ticket.id,
     };
@@ -503,18 +682,37 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 15. Create Payment
-    const paymentRes = await fetch(`${baseUrl}/payments`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(paymentBody)
-    });
+    const createAsaasPayment = async () => {
+      const paymentRes = await fetch(`${baseUrl}/payments`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(paymentBody)
+      });
 
-    const paymentData = await paymentRes.json();
-    
-    if (paymentData.errors) {
-        // console.error('Asaas Payment Error:', paymentData.errors);
-        throw new Error(`Asaas Payment Error: ${paymentData.errors[0].description}`);
+      const paymentData = await parseAsaasResponse(paymentRes);
+
+      if (!paymentRes.ok || paymentData.errors) {
+          throw new Error(`Asaas Payment Error: ${getAsaasErrorMessage(paymentData, 'Não foi possível criar a cobrança no Asaas.')}`);
+      }
+
+      return paymentData;
+    };
+
+    // 15. Create Payment
+    let paymentData: AsaasPayload;
+
+    try {
+      paymentData = await createAsaasPayment();
+    } catch (paymentError: any) {
+      const rawPaymentError = String(paymentError?.message || '');
+
+      if (!isCustomerReferenceError(rawPaymentError)) {
+        throw paymentError;
+      }
+
+      customerId = await resolveCustomerId(true);
+      paymentBody.customer = customerId;
+      paymentData = await createAsaasPayment();
     }
 
     // 16. Update Ticket Status
@@ -589,7 +787,12 @@ Deno.serve(async (req) => {
     let pixQrCodeText = null;
     if (billing_type.toUpperCase() === 'PIX') {
         const pixRes = await fetch(`${baseUrl}/payments/${paymentData.id}/pixQrCode`, { headers });
-        const pixData = await pixRes.json();
+        const pixData = await parseAsaasResponse(pixRes);
+
+        if (!pixRes.ok || pixData.errors) {
+          throw new Error(`Asaas Payment Error: ${getAsaasErrorMessage(pixData, 'Não foi possível gerar o QR Code PIX.')}`);
+        }
+
         pixQrCode = pixData.encodedImage;
         pixQrCodeText = pixData.payload;
 

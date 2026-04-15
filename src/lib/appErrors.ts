@@ -82,6 +82,86 @@ function extractCodeFromUnknown(value: unknown): string {
   return '';
 }
 
+function extractMessageFromUnknown(value: unknown): string {
+  if (!value) return '';
+
+  if (typeof value === 'string') {
+    const parsed = tryParseJson(value);
+    if (parsed && parsed !== value) {
+      return extractMessageFromUnknown(parsed);
+    }
+    return value.trim();
+  }
+
+  if (typeof value === 'object') {
+    const candidate = value as any;
+
+    return (
+      extractMessageFromUnknown(candidate?.message) ||
+      extractMessageFromUnknown(candidate?.error) ||
+      extractMessageFromUnknown(candidate?.details) ||
+      extractMessageFromUnknown(candidate?.hint) ||
+      extractMessageFromUnknown(candidate?.response?.data?.message) ||
+      extractMessageFromUnknown(candidate?.response?.data?.error) ||
+      extractMessageFromUnknown(candidate?.context?.body) ||
+      extractMessageFromUnknown(candidate?.raw)
+    );
+  }
+
+  return '';
+}
+
+function normalizeUnknownErrorMessage(message: string): string {
+  const trimmed = message.replace(/^Error:\s*/i, '').trim();
+  const normalized = trimmed.toLowerCase();
+
+  if (!trimmed || trimmed === '[object Object]') {
+    return '';
+  }
+
+  if (
+    normalized.includes('functionshttperror') ||
+    normalized.includes('edge function returned a non-2xx status code') ||
+    normalized.includes('non-2xx status code')
+  ) {
+    return '';
+  }
+
+  if (normalized.includes('organizer not ready for payments')) {
+    return 'O organizador deste evento ainda não concluiu a configuração de recebimento no Asaas.';
+  }
+
+  if (trimmed.includes('ORGANIZER_MISSING_DESTINATION_WALLET')) {
+    return 'O organizador deste evento ainda não configurou a conta de recebimento no Asaas.';
+  }
+
+  if (trimmed.includes('ORGANIZER_WALLET_CONFLICT')) {
+    return 'A conta Asaas vinculada ao organizador está inválida para repasse. É preciso reconectar o recebimento.';
+  }
+
+  if (normalized.startsWith('customer creation error:')) {
+    return `Falha ao preparar o cliente no Asaas: ${trimmed.slice('Customer Creation Error:'.length).trim()}`;
+  }
+
+  if (normalized.startsWith('customer lookup error:')) {
+    return `Falha ao validar o cliente no Asaas: ${trimmed.slice('Customer Lookup Error:'.length).trim()}`;
+  }
+
+  if (normalized.startsWith('asaas payment error:')) {
+    return `Pagamento recusado pelo Asaas: ${trimmed.slice('Asaas Payment Error:'.length).trim()}`;
+  }
+
+  if (normalized.startsWith('ticket status invalid for payment')) {
+    return 'Essa compra já está em processamento. Atualize a página e tente novamente.';
+  }
+
+  if (trimmed.length > 220) {
+    return `${trimmed.slice(0, 217)}...`;
+  }
+
+  return trimmed;
+}
+
 export function getAppErrorCode(err: any): AppErrorCode {
   const rawCode = extractCodeFromUnknown(err);
   const rawMsg = String(
@@ -151,5 +231,11 @@ export function getAppErrorCode(err: any): AppErrorCode {
 
 export function toUserFriendlyErrorMessage(err: any): string {
   const code = getAppErrorCode(err);
-  return translateAppErrorCode(code);
+
+  if (code !== 'UNKNOWN') {
+    return translateAppErrorCode(code);
+  }
+
+  const fallbackMessage = normalizeUnknownErrorMessage(extractMessageFromUnknown(err));
+  return fallbackMessage || translateAppErrorCode(code);
 }

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { authService } from '@/services/auth.service';
 import { Button } from '@/components/ui/button';
@@ -10,31 +10,54 @@ import { toast } from 'sonner';
 import { Loader2, User, Phone, Calendar as CalendarIcon, ShieldCheck } from 'lucide-react';
 import { toUserFriendlyErrorMessage } from '@/lib/appErrors';
 import { Layout } from '@/components/Layout';
+import { formatCPF, validateCPF } from '@/utils/validators';
+
+const digitsOnly = (value: string) => value.replace(/\D/g, '');
+
+const normalizeBirthDate = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    return trimmed;
+  }
+
+  const brMatch = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (brMatch) {
+    const [, day, month, year] = brMatch;
+    return `${year}-${month}-${day}`;
+  }
+
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) {
+    return '';
+  }
+
+  return parsed.toISOString().slice(0, 10);
+};
 
 export default function CompleteProfile() {
   const { user, profile, isLoading: isAuthLoading } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  
+
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     cpf: '',
     phone: '',
-    birth_date: ''
+    birth_date: '',
   });
 
-  // Pre-fill data if available in profile
   useEffect(() => {
     if (profile) {
       setFormData({
-        cpf: profile.cpf || '',
-        phone: profile.phone || '',
-        birth_date: profile.birth_date || ''
+        cpf: profile.cpf ? formatCPF(profile.cpf) : '',
+        phone: digitsOnly(profile.phone || ''),
+        birth_date: normalizeBirthDate(profile.birth_date || ''),
       });
     }
   }, [profile]);
 
-  // Redirect if not logged in
   useEffect(() => {
     if (!isAuthLoading && !user) {
       navigate('/login');
@@ -43,81 +66,90 @@ export default function CompleteProfile() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+
+    setFormData((prev) => {
+      if (name === 'cpf') {
+        return { ...prev, cpf: formatCPF(value) };
+      }
+
+      if (name === 'phone') {
+        return { ...prev, phone: digitsOnly(value).slice(0, 15) };
+      }
+
+      if (name === 'birth_date') {
+        return { ...prev, birth_date: normalizeBirthDate(value) };
+      }
+
+      return { ...prev, [name]: value };
+    });
   };
 
-  const validateForm = () => {
-    if (!formData.cpf || formData.cpf.length < 11) {
-      toast.error('CPF inválido');
-      return false;
-    }
-    if (!formData.phone || formData.phone.length < 10) {
-      toast.error('Telefone inválido');
-      return false;
-    }
-    if (!formData.birth_date) {
-      toast.error('Data de nascimento obrigatória');
-      return false;
-    }
-    
-    // Validate age (optional but good practice)
-    const birthDate = new Date(formData.birth_date);
-    const today = new Date();
-    if (birthDate > today) {
-      toast.error('Data de nascimento inválida');
-      return false;
+  const getValidatedPayload = () => {
+    const payload = {
+      cpf: digitsOnly(formData.cpf),
+      phone: digitsOnly(formData.phone),
+      birth_date: normalizeBirthDate(formData.birth_date),
+    };
+
+    if (!validateCPF(payload.cpf)) {
+      toast.error('CPF invalido');
+      return null;
     }
 
-    return true;
+    if (payload.phone.length < 10) {
+      toast.error('Telefone invalido');
+      return null;
+    }
+
+    if (!payload.birth_date) {
+      toast.error('Data de nascimento obrigatoria');
+      return null;
+    }
+
+    const birthDate = new Date(`${payload.birth_date}T00:00:00`);
+    const today = new Date();
+
+    if (Number.isNaN(birthDate.getTime()) || birthDate > today) {
+      toast.error('Data de nascimento invalida');
+      return null;
+    }
+
+    return payload;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!validateForm()) return;
-    if (!user) return;
+
+    const payload = getValidatedPayload();
+    if (!payload || !user) return;
 
     setLoading(true);
 
     try {
-      // Usar a Edge Function via authService para garantir validação segura no servidor
-      // Isso resolve o erro 401 ao garantir que o token seja validado no contexto da função server-side
-      await authService.completeProfile({
-        cpf: formData.cpf,
-        phone: formData.phone,
-        birth_date: formData.birth_date
-      });
+      await authService.completeProfile(payload);
 
-      toast.success('Cadastro atualizado com sucesso! 🎉');
-      
-      // Pequeno delay para garantir propagação
+      toast.success('Cadastro atualizado com sucesso!');
+
       setTimeout(() => {
         const redirectPath = sessionStorage.getItem('postRegisterRedirect');
-        
-        // Validação de segurança: deve começar com / e não conter // ou protocolo
-        const isValidRedirect = redirectPath && 
-          redirectPath.startsWith('/') && 
+        const isValidRedirect = redirectPath &&
+          redirectPath.startsWith('/') &&
           !redirectPath.includes('//') &&
           !redirectPath.toLowerCase().startsWith('http');
 
         if (isValidRedirect) {
           sessionStorage.removeItem('postRegisterRedirect');
-          // Forçar reload na rota correta para atualizar contexto e redirecionar
           window.location.href = redirectPath;
         } else {
-          // Fallback seguro se não houver redirect válido
           window.location.href = '/';
         }
       }, 1000);
-
     } catch (error: any) {
-      // console.error('Erro ao atualizar perfil:', error);
       toast.error(toUserFriendlyErrorMessage(error));
     } finally {
       setLoading(false);
     }
   };
-
 
   if (isAuthLoading) {
     return (
@@ -137,7 +169,7 @@ export default function CompleteProfile() {
               <CardTitle className="text-2xl font-bold">Complete seu Cadastro</CardTitle>
             </div>
             <CardDescription>
-              Precisamos de algumas informações adicionais para garantir sua segurança e acesso aos eventos.
+              Precisamos de algumas informacoes adicionais para garantir sua seguranca e acesso aos eventos.
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleSubmit}>
@@ -156,7 +188,7 @@ export default function CompleteProfile() {
                   required
                 />
                 <p className="text-[10px] text-muted-foreground">
-                  Apenas números. Usado para emissão de ingressos.
+                  Apenas numeros. Usado para emissao de ingressos.
                 </p>
               </div>
 
@@ -190,14 +222,14 @@ export default function CompleteProfile() {
                   required
                 />
                 <p className="text-[10px] text-muted-foreground">
-                  Necessário para verificação de idade em eventos +18.
+                  Necessario para verificacao de idade em eventos +18.
                 </p>
               </div>
             </CardContent>
             <CardFooter>
-              <Button 
-                type="submit" 
-                className="w-full font-bold" 
+              <Button
+                type="submit"
+                className="w-full font-bold"
                 disabled={loading}
               >
                 {loading ? (
@@ -216,5 +248,3 @@ export default function CompleteProfile() {
     </Layout>
   );
 }
-
-
