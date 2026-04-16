@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { eventService } from '@/services/event.service';
 import { toast } from 'sonner';
+import { getStableEventKey, removeDuplicates } from '@/utils/eventDeduplication';
 
 interface EventCardProps {
   event: Event;
@@ -260,6 +261,8 @@ interface EventGridProps {
 }
 
 export function EventGrid({ events, className, onLikeToggle }: EventGridProps) {
+  const uniqueEvents = removeDuplicates(events);
+
   return (
     <div 
       className={cn(
@@ -267,9 +270,9 @@ export function EventGrid({ events, className, onLikeToggle }: EventGridProps) {
         className
       )}
     >
-      {events.map((event, index) => (
+      {uniqueEvents.map((event, index) => (
         <EventCard 
-          key={event.id} 
+          key={getStableEventKey(event)}
           event={event} 
           className={index === 0 ? "md:col-span-1 lg:col-span-1" : ""}
           onLikeToggle={onLikeToggle ? (isLiked) => onLikeToggle(event.id, isLiked) : undefined} 
@@ -283,7 +286,6 @@ export function HorizontalEventCard({ event, className }: { event: Event; classN
   const eventLink = ROUTE_PATHS.EVENT_DETAILS.replace(':slug', event.slug || event.id);
 
   // Formatar data estilo Sympla: "Sábado, 28 de Mar às 17:00"
-  const dateObj = new Date(event.date || Date.now());
   // Se a data vier como string "DD/MM/YYYY", precisamos tratar, mas assumindo ISO ou Date object
   // O frontend mock converte para string "DD/MM/YYYY", então vamos tentar parsear ou usar o que tem
   
@@ -336,8 +338,5 @@ export function HorizontalEventCard({ event, className }: { event: Event; classN
     </Link>
   );
 }
-
-
-
 
 

@@ -7,6 +7,7 @@ import { type Event as FrontendEvent } from '@/lib/index';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChevronRight, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { getStableEventKey, logDuplicateItems, removeDuplicates } from '@/utils/eventDeduplication';
 
 interface CollectionConfig {
   title: string;
@@ -148,8 +149,9 @@ const Collection = () => {
         };
       });
       
-      setEvents(convertedEvents);
-    } catch (err) {
+      logDuplicateItems(`Collection:${slug}`, convertedEvents);
+      setEvents(removeDuplicates(convertedEvents));
+    } catch {
       // console.error('❌ Erro ao carregar coleção:', err);
       setEvents([]);
     } finally {
@@ -170,6 +172,8 @@ const Collection = () => {
       </Layout>
     );
   }
+
+  const uniqueEvents = removeDuplicates(events);
 
   return (
     <Layout>
@@ -221,18 +225,18 @@ const Collection = () => {
                 </div>
               ))}
             </div>
-          ) : events.length > 0 ? (
+          ) : uniqueEvents.length > 0 ? (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-gray-500">
-                  <strong>{events.length}</strong> eventos encontrados
+                  <strong>{uniqueEvents.length}</strong> eventos encontrados
                 </p>
               </div>
               
               <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-                {events.map((event) => (
+                {uniqueEvents.map((event) => (
                   <EventListItem 
-                    key={event.id} 
+                    key={getStableEventKey(event)}
                     event={event} 
                     className="last:border-0"
                   />
@@ -257,5 +261,3 @@ const Collection = () => {
 };
 
 export default Collection;
-
-

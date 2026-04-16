@@ -172,6 +172,7 @@ export interface EventParticipant {
   ticket_type_id: string | null;
   total_paid: number | null;
   joined_at: string;
+  match_enabled?: boolean;
   status?: string;
   check_in_at?: string;
   security_token?: string;
@@ -736,6 +737,7 @@ export class EventService {
         id,
         status,
         user_id,
+        match_enabled,
         user:profiles!event_participants_user_id_fkey!inner(
           id,
           full_name,
@@ -1011,6 +1013,7 @@ export class EventService {
         ticket_quantity: ticketQuantity,
         ticket_type_id: ticketTypeId || null,
         total_paid: finalTotalPaid,
+        match_enabled: false,
       })
       .select()
       .single();
@@ -1031,15 +1034,21 @@ export class EventService {
   }
 
   // Verificar se usuário está inscrito no evento
-  async isUserParticipating(eventId: string, userId: string): Promise<boolean> {
+  async getUserParticipation(eventId: string, userId: string): Promise<EventParticipant | null> {
     const { data, error } = await supabase
       .from('event_participants')
-      .select('id')
+      .select('*')
       .eq('event_id', eventId)
       .eq('user_id', userId)
       .maybeSingle();
 
-    return !error && !!data;
+    if (error) throw error;
+    return (data as EventParticipant | null) ?? null;
+  }
+
+  async isUserParticipating(eventId: string, userId: string): Promise<boolean> {
+    const participation = await this.getUserParticipation(eventId, userId).catch(() => null);
+    return !!participation;
   }
 
 
@@ -1197,7 +1206,8 @@ export class EventService {
           relationship_status
         )
       `)
-      .eq('event_id', eventId);
+      .eq('event_id', eventId)
+      .eq('match_enabled', true);
 
     if (error) {
       // console.error('? [EventService] Erro ao buscar participantes:', error);
@@ -1211,8 +1221,11 @@ export class EventService {
         if (!profile) return null;
 
         // Se match ativo, retorna perfil completo
-        if (profile.match_enabled || profile.single_mode) {
-          return profile;
+        if ((item.match_enabled ?? false) || profile.single_mode) {
+          return {
+            ...profile,
+            match_enabled: item.match_enabled ?? false,
+          };
         }
 
         // Se match inativo, retorna versão anônima
@@ -1520,12 +1533,6 @@ export class EventService {
 }
 
 export const eventService = new EventService();
-
-
-
-
-
-
 
 
 

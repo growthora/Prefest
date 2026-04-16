@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { ROUTE_PATHS } from '@/lib';
+import { getMatchEventSummary } from '@/utils/matchEvents';
 
 interface ChatMobileLayoutProps {
   children: React.ReactNode;
@@ -55,6 +56,9 @@ function ChatListMobile() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
+  const getMatchSortTime = (match: Match) =>
+    new Date(match.last_message_time || match.last_interaction_at || match.created_at).getTime();
+
   useEffect(() => {
     if (!user) return;
 
@@ -88,7 +92,7 @@ function ChatListMobile() {
     const term = searchTerm.toLowerCase();
     return (
       m.partner_name.toLowerCase().includes(term) ||
-      m.event_title.toLowerCase().includes(term)
+      getMatchEventSummary(m).toLowerCase().includes(term)
     );
   });
 
@@ -146,11 +150,7 @@ function ChatListMobile() {
           <div className="flex flex-col">
             {filteredMatches
               .slice()
-              .sort((a, b) => {
-                const aTime = a.last_message_time ? new Date(a.last_message_time).getTime() : 0;
-                const bTime = b.last_message_time ? new Date(b.last_message_time).getTime() : 0;
-                return bTime - aTime;
-              })
+              .sort((a, b) => getMatchSortTime(b) - getMatchSortTime(a))
               .map((m) => (
                 <button
                   key={m.match_id}
@@ -190,7 +190,7 @@ function ChatListMobile() {
                     </div>
                     <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1">
                       <Ticket className="w-3 h-3" />
-                      <span className="truncate">{m.event_title}</span>
+                      <span className="truncate">{getMatchEventSummary(m)}</span>
                     </div>
                   </div>
                 </button>
@@ -445,7 +445,7 @@ function ChatConversationMobile({ matchId }: ChatConversationMobileProps) {
             <span className="text-sm font-semibold leading-tight">{match.partner_name}</span>
             <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
               <Ticket className="w-3 h-3" />
-              <span className="truncate max-w-[180px]">{match.event_title}</span>
+              <span className="truncate max-w-[180px]">{getMatchEventSummary(match, 3)}</span>
             </div>
             <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-0.5">
               {partnerTyping ? (
@@ -545,4 +545,3 @@ function ChatConversationMobile({ matchId }: ChatConversationMobileProps) {
     </>
   );
 }
-

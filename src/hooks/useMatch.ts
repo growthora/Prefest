@@ -19,11 +19,15 @@ interface LikeActionResponse {
 
 type MatchSyncScope = 'queue' | 'likes' | 'matches';
 
+interface UseMatchOptions {
+  matchEnabled?: boolean;
+}
+
 /**
  * Fonte unica de verdade para o Match por evento.
  * Centraliza fila, curtidas recebidas, matches e assinaturas realtime.
  */
-export function useMatch(eventId?: string) {
+export function useMatch(eventId?: string, options?: UseMatchOptions) {
   const { user, profile } = useAuth();
 
   const [matches, setMatches] = useState<Match[]>([]);
@@ -41,7 +45,7 @@ export function useMatch(eventId?: string) {
   const queueRequestIdRef = useRef(0);
   const isQueueFetchInFlightRef = useRef(false);
 
-  const isSingleMode = profile?.match_enabled || false;
+  const isSingleMode = Boolean(options?.matchEnabled);
 
   useEffect(() => {
     let isMounted = true;
@@ -76,7 +80,7 @@ export function useMatch(eventId?: string) {
   }, [profile?.avatar_url, user]);
 
   const loadMatches = useCallback(async () => {
-    if (!user || !eventId || !hasOwnValidPhoto) {
+    if (!user || !eventId || !isSingleMode || !hasOwnValidPhoto) {
       setMatches([]);
       return;
     }
@@ -91,10 +95,10 @@ export function useMatch(eventId?: string) {
     } finally {
       setLoadingMatches(false);
     }
-  }, [eventId, hasOwnValidPhoto, user]);
+  }, [eventId, hasOwnValidPhoto, isSingleMode, user]);
 
   const loadReceivedLikes = useCallback(async () => {
-    if (!user || !eventId || !hasOwnValidPhoto) {
+    if (!user || !eventId || !isSingleMode || !hasOwnValidPhoto) {
       setReceivedLikes([]);
       return;
     }
@@ -109,7 +113,7 @@ export function useMatch(eventId?: string) {
     } finally {
       setLoadingReceivedLikes(false);
     }
-  }, [eventId, hasOwnValidPhoto, user]);
+  }, [eventId, hasOwnValidPhoto, isSingleMode, user]);
 
   const fetchQueue = useCallback(async ({ resetState = false } = {}): Promise<User[]> => {
     if (!user || !eventId || !isSingleMode || !hasOwnValidPhoto) {
@@ -261,6 +265,11 @@ export function useMatch(eventId?: string) {
   const likeUser = useCallback(async (targetUserId: string): Promise<LikeActionResponse | null> => {
     if (!user || !eventId) return null;
 
+    if (!isSingleMode) {
+      toast.info('Ative o Match deste evento para curtir perfis.');
+      return null;
+    }
+
     if (!hasOwnValidPhoto) {
       toast.info(MATCH_PHOTO_REQUIRED_MESSAGE);
       return null;
@@ -293,10 +302,15 @@ export function useMatch(eventId?: string) {
       setCurrentQueue(previousQueue);
       throw error;
     }
-  }, [currentQueue, eventId, hasOwnValidPhoto, loadMatches, loadQueue, loadReceivedLikes, user]);
+  }, [currentQueue, eventId, hasOwnValidPhoto, isSingleMode, loadMatches, loadQueue, loadReceivedLikes, user]);
 
   const likeBack = useCallback(async (targetUserId: string, likeId: string): Promise<LikeActionResponse | null> => {
     if (!user || !eventId) return null;
+
+    if (!isSingleMode) {
+      toast.info('Ative o Match deste evento para responder curtidas.');
+      return null;
+    }
 
     if (!hasOwnValidPhoto) {
       toast.info(MATCH_PHOTO_REQUIRED_MESSAGE);
@@ -346,10 +360,15 @@ export function useMatch(eventId?: string) {
       setReceivedLikes(previousLikes);
       throw error;
     }
-  }, [currentQueue, eventId, hasOwnValidPhoto, loadMatches, loadQueue, loadReceivedLikes, receivedLikes, user]);
+  }, [currentQueue, eventId, hasOwnValidPhoto, isSingleMode, loadMatches, loadQueue, loadReceivedLikes, receivedLikes, user]);
 
   const skipUser = useCallback(async (targetUserId: string) => {
     if (!eventId) return;
+
+    if (!isSingleMode) {
+      toast.info('Ative o Match deste evento para navegar na fila.');
+      return;
+    }
 
     const previousQueue = currentQueue;
     setCurrentQueue((prev) => prev.filter((candidate) => candidate.id !== targetUserId));
@@ -366,9 +385,14 @@ export function useMatch(eventId?: string) {
       setCurrentQueue(previousQueue);
       toast.error('Erro ao ocultar esse perfil');
     }
-  }, [currentQueue, eventId, loadQueue]);
+  }, [currentQueue, eventId, isSingleMode, loadQueue]);
 
   const ignoreLike = useCallback(async (targetUserId: string, likeId: string) => {
+    if (!isSingleMode) {
+      toast.info('Ative o Match deste evento para responder curtidas.');
+      return;
+    }
+
     const previousLikes = receivedLikes;
     setReceivedLikes((prev) => prev.filter((like) => like.like_id !== likeId));
 
@@ -380,7 +404,7 @@ export function useMatch(eventId?: string) {
       setReceivedLikes(previousLikes);
       throw error;
     }
-  }, [eventId, receivedLikes]);
+  }, [eventId, isSingleMode, receivedLikes]);
 
   const stats = useMemo(() => {
     const priorityQueueCount = currentQueue.filter((candidate) => candidate.likedYou).length;
@@ -412,6 +436,7 @@ export function useMatch(eventId?: string) {
     isReloadingQueue,
     loadingMatches,
     loadingReceivedLikes,
+    isMatchEnabled: isSingleMode,
     primaryColor: APP_CONFIG.primaryColor,
   };
 }

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { Search, ChevronDown, Filter, ChevronRight } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { EventListItem } from '@/components/EventListItem';
@@ -8,9 +7,10 @@ import { type Event as FrontendEvent } from '@/lib/index';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/lib';
 import { BRAZIL_STATES } from '@/constants/states';
+import { getStableEventKey, logDuplicateItems, removeDuplicates } from '@/utils/eventDeduplication';
 
 interface ExtendedEvent extends FrontendEvent {
   rawDate: Date;
@@ -21,7 +21,6 @@ const ExploreEvents = () => {
   const [events, setEvents] = useState<ExtendedEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
 
   // URL Params
   const categoryParam = searchParams.get('category');
@@ -76,8 +75,9 @@ const ExploreEvents = () => {
         };
       });
       
-      setEvents(convertedEvents);
-    } catch (err) {
+      logDuplicateItems('ExploreEvents', convertedEvents);
+      setEvents(removeDuplicates(convertedEvents));
+    } catch {
       // console.error('? Erro ao carregar eventos:', err);
       setEvents([]);
     } finally {
@@ -117,6 +117,9 @@ const ExploreEvents = () => {
     }
     return 0; // relevance (default order)
   });
+
+  const uniqueFilteredEvents = removeDuplicates(filteredEvents);
+  const uniqueSortedEvents = removeDuplicates(sortedEvents);
 
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
@@ -179,7 +182,7 @@ const ExploreEvents = () => {
                    {displayTitle}
                  </h1>
                  <p className="text-gray-500">
-                   {filteredEvents.length} eventos encontrados
+                   {uniqueFilteredEvents.length} eventos encontrados
                    {categoryParam && stateLabel && ` em ${stateLabel}`}
                  </p>
               </div>
@@ -320,7 +323,7 @@ const ExploreEvents = () => {
               <div className="flex items-center justify-between mb-6">
                 <div className="text-gray-600 font-medium">
                   {isLoading ? 'Buscando eventos...' : 
-                   sortedEvents.length > 0 ? `${sortedEvents.length} eventos encontrados` : 'Nenhum evento encontrado'}
+                   uniqueSortedEvents.length > 0 ? `${uniqueSortedEvents.length} eventos encontrados` : 'Nenhum evento encontrado'}
                 </div>
                 
                 {/* Sort - Desktop */}
@@ -352,11 +355,11 @@ const ExploreEvents = () => {
                       </div>
                     </div>
                   ))
-                ) : sortedEvents.length > 0 ? (
+                ) : uniqueSortedEvents.length > 0 ? (
                   <div className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm">
-                    {sortedEvents.map((event) => (
+                    {uniqueSortedEvents.map((event) => (
                       <EventListItem 
-                        key={event.id} 
+                        key={getStableEventKey(event)}
                         event={event} 
                         className="last:border-0"
                       />
@@ -395,6 +398,3 @@ const ExploreEvents = () => {
 };
 
 export default ExploreEvents;
-
-
-

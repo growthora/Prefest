@@ -98,6 +98,7 @@ export interface Database {
           ticket_quantity: number
           total_paid: number | null
           joined_at: string
+          match_enabled: boolean
         }
         Insert: {
           id?: string
@@ -106,6 +107,7 @@ export interface Database {
           ticket_quantity?: number
           total_paid?: number | null
           joined_at?: string
+          match_enabled?: boolean
         }
         Update: {
           id?: string
@@ -114,6 +116,7 @@ export interface Database {
           ticket_quantity?: number
           total_paid?: number | null
           joined_at?: string
+          match_enabled?: boolean
         }
       }
       matches: {

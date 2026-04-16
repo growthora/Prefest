@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { matchService, Match } from '@/services/match.service';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
+import { getMatchEventSummary } from '@/utils/matchEvents';
 
 export function MatchPersistentToast() {
   const { user } = useAuth();
@@ -49,7 +50,7 @@ export function MatchPersistentToast() {
         const row = (payload.new || payload.old) as Record<string, any> | null;
         if (!row) return;
 
-        if (row.user_a_id === user.id || row.user_b_id === user.id) {
+        if (row.user1_id === user.id || row.user2_id === user.id) {
           void loadUnseenMatches();
         }
       })
@@ -132,6 +133,9 @@ export function MatchPersistentToast() {
             <h4 className="text-lg font-bold leading-tight">It&apos;s a Match!</h4>
             <p className="truncate text-sm text-white/90">
               Voce e {currentMatch.partner_name} se curtiram.
+            </p>
+            <p className="truncate text-xs text-white/80">
+              Eventos em comum: {getMatchEventSummary(currentMatch)}
             </p>
             <div className="mt-3 flex gap-2">
               <Button

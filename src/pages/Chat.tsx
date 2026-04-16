@@ -51,6 +51,7 @@ import {
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { getMatchEventSummary } from '@/utils/matchEvents';
 
 const ICEBREAKERS = [
   "Qual música você está mais ansioso para ouvir hoje? 🎶",
@@ -284,7 +285,7 @@ export default function Chat() {
   if (!matchId) {
     const filteredMatches = matches.filter(m => 
       m.partner_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.event_title.toLowerCase().includes(searchTerm.toLowerCase())
+      getMatchEventSummary(m).toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     return (
@@ -425,7 +426,7 @@ export default function Chat() {
                           </div>
                           <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1.5">
                             <Ticket className="w-3 h-3" />
-                            <span className="truncate">{m.event_title}</span>
+                            <span className="truncate">{getMatchEventSummary(m)}</span>
                           </div>
                         </div>
                       </button>
@@ -551,10 +552,13 @@ export default function Chat() {
                 <h3 className="font-semibold text-sm leading-tight flex items-center gap-2">
                   {match.partner_name}
                 </h3>
-                <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
-                   <Ticket className="w-3 h-3" />
-                   <span className="truncate max-w-[200px]">{match.event_title}</span>
-                </div>
+                 <div className="flex items-start gap-1 text-[10px] text-muted-foreground mt-0.5">
+                   <Ticket className="w-3 h-3 mt-0.5 shrink-0" />
+                   <div className="flex flex-col">
+                     <span>Voces se encontraram em:</span>
+                     <span className="truncate max-w-[220px]">{getMatchEventSummary(match, 3)}</span>
+                   </div>
+                 </div>
                 <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-widest mt-1">
                   {partnerTyping ? (
                       <span className="text-primary animate-pulse font-bold">digitando...</span>
@@ -703,5 +707,3 @@ export default function Chat() {
     </Layout>
   );
 }
-
-

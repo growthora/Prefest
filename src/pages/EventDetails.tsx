@@ -26,7 +26,8 @@ import { TicketPurchase } from '@/components/TicketPurchase';
 import { MatchInterface } from '@/components/MatchCards';
 import { AttendeesList } from '@/components/AttendeesList';
 import { Event, ROUTE_PATHS } from '@/lib/index';
-import { eventService, type Event as SupabaseEvent } from '@/services/event.service';
+import { eventService, type Event as SupabaseEvent, type EventParticipant } from '@/services/event.service';
+import { eventMatchService } from '@/services/event-match.service';
 import { matchService } from '@/services/match.service';
 import { IMAGES } from '@/assets/images';
 import { useAuth } from '@/hooks/useAuth';
@@ -45,6 +46,7 @@ import { differenceInYears, parseISO } from 'date-fns';
 import { toUserFriendlyErrorMessage } from '@/lib/appErrors';
 
 import { goToPublicProfile } from '@/utils/navigation';
+import { getMatchEventSummary } from '@/utils/matchEvents';
 import { hasValidMatchPhoto, MATCH_PHOTO_REQUIRED_MESSAGE } from '@/utils/matchPhoto';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { MatchGuidelinesModal } from '@/components/MatchGuidelinesModal';
@@ -53,12 +55,13 @@ export default function EventDetails() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, profile, updateProfile } = useAuth();
+  const { user, profile } = useAuth();
   const { checkAccess } = useFeatureAccess();
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'details');
   const [isParticipating, setIsParticipating] = useState(false);
+  const [participation, setParticipation] = useState<EventParticipant | null>(null);
 
   // ── Single Source of Truth for confirmed participants ──────────────────────
   // confirmedParticipants feeds BOTH the header avatar strip AND the Quem vai
@@ -80,7 +83,7 @@ export default function EventDetails() {
   const [lastMatchedUser, setLastMatchedUser] = useState<string | null>(null);
   const [lastMatchedUserName, setLastMatchedUserName] = useState<string>('');
   const [lastMatchedUserPhoto, setLastMatchedUserPhoto] = useState<string>('');
-  const [lastMatchChatId, setLastMatchChatId] = useState<string | null>(null);
+  const [lastMatchedMatchId, setLastMatchedMatchId] = useState<string | null>(null);
   const {
     likeUser: likeMatchUser,
     likeBack,
@@ -98,7 +101,7 @@ export default function EventDetails() {
     reloadQueue,
     hasOwnValidPhoto,
     isCheckingOwnPhoto,
-  } = useMatch(event?.id);
+  } = useMatch(event?.id, { matchEnabled: participation?.match_enabled });
   const [showSocialOnboarding, setShowSocialOnboarding] = useState(false);
   const [showMatchGuidelines, setShowMatchGuidelines] = useState(false);
 
@@ -108,6 +111,7 @@ export default function EventDetails() {
   }, [profile]);
 
   const isMatchPhotoMissing = Boolean(user && profile && !isCheckingOwnPhoto && !hasOwnValidPhoto);
+  const isEventMatchEnabled = participation?.match_enabled ?? false;
 
   const openMatchProfileSetup = () => {
     navigate(ROUTE_PATHS.PROFILE, { state: { activeTab: 'profile', startEditing: true } });
@@ -187,7 +191,7 @@ export default function EventDetails() {
 
     if (!event?.id) return;
     try {
-      if (!profile?.match_enabled) {
+      if (!isEventMatchEnabled) {
         await toggleMatchStatus(true);
       }
 
@@ -213,7 +217,7 @@ export default function EventDetails() {
         setLastMatchedUser(userId);
         setLastMatchedUserName(action.targetUser?.name || 'Alguém');
         setLastMatchedUserPhoto(action.targetUser?.photo || '');
-        setLastMatchChatId(result.match_id || null);
+        setLastMatchedMatchId(result.match_id || null);
         setShowMatchOverlay(true);
 
       }
@@ -302,6 +306,13 @@ export default function EventDetails() {
     });
   };
 
+  const loadParticipationState = async (eventId: string, userId: string) => {
+    const nextParticipation = await eventService.getUserParticipation(eventId, userId);
+    setParticipation(nextParticipation);
+    setIsParticipating(Boolean(nextParticipation));
+    return nextParticipation;
+  };
+
   const handleToggleMeetAttendees = async () => {
   if (!checkAccess('aparecer na lista de participantes')) return;
 
@@ -316,17 +327,17 @@ export default function EventDetails() {
     return;
   }
 
-  if (!profile.match_enabled && isCheckingOwnPhoto) {
+  if (!isEventMatchEnabled && isCheckingOwnPhoto) {
     toast.info('Validando sua foto de perfil...');
     return;
   }
 
-  if (!profile.match_enabled && isMatchPhotoMissing) {
+  if (!isEventMatchEnabled && isMatchPhotoMissing) {
     redirectToMatchProfileSetup();
     return;
   }
 
-  if (!profile.match_enabled) {
+  if (!isEventMatchEnabled) {
     setShowMatchGuidelines(true);
     return;
   }
@@ -335,7 +346,7 @@ export default function EventDetails() {
 };
 
 const toggleMatchStatus = async (enable: boolean) => {
-  if (!profile) return;
+  if (!profile || !user || !event?.id) return;
 
   try {
     if (enable && isCheckingOwnPhoto) {
@@ -348,18 +359,26 @@ const toggleMatchStatus = async (enable: boolean) => {
       return;
     }
 
-    const updates: any = {
-      match_enabled: enable,
-      meet_attendees: enable,
-      allow_profile_view: enable,
-    };
+    const result = await eventMatchService.setMatchOptIn(event.id, enable);
 
-    await updateProfile(updates);
-    await refreshMatchData();
-    await refreshParticipants();
-    toast.success(enable ? 'Você entrou no Match! 🎉' : 'Você ficou invisível. 👻');
+    await Promise.all([
+      loadParticipationState(event.id, user.id),
+      refreshMatchData(),
+      refreshParticipants(),
+    ]);
+
+    if (!enable) {
+      const removedLikes = Number(result.removed_likes || 0);
+      toast.success(
+        removedLikes > 0
+          ? 'Voce saiu do Match deste evento e limpamos as curtidas pendentes.'
+          : 'Voce saiu do Match deste evento.'
+      );
+      return;
+    }
+    toast.success('Voce entrou no Match deste evento!');
   } catch (error) {
-    toast.error('Erro ao atualizar status');
+    toast.error(toUserFriendlyErrorMessage(error));
   }
 };
 
@@ -455,8 +474,10 @@ const loadEvent = async () => {
 
         // Verificar se usuário já está inscrito
         if (user) {
-          const participating = await eventService.isUserParticipating(supabaseEvent.id, user.id);
-          setIsParticipating(participating);
+          await loadParticipationState(supabaseEvent.id, user.id);
+        } else {
+          setParticipation(null);
+          setIsParticipating(false);
         }
       } else {
         toast.error('Evento não encontrado');
@@ -531,7 +552,7 @@ const loadEvent = async () => {
       setLastMatchedUser(userId);
       setLastMatchedUserName(likedUser?.name || 'Alguém');
       setLastMatchedUserPhoto(likedUser?.photo || '');
-      setLastMatchChatId(likeResult.match_id || null);
+      setLastMatchedMatchId(likeResult.match_id || null);
       setShowMatchOverlay(true);
       toast.success('É um Match! 🎉');
 
@@ -628,13 +649,15 @@ const shouldShowSocialOnboarding = () => {
       
       if (singleMode) {
         // Só ativa o match automaticamente quando a foto já estiver pronta.
-        if (hasOwnValidPhoto && (!profile?.meet_attendees || !profile?.match_enabled)) {
-          await updateProfile({ 
-            meet_attendees: true,
-            match_enabled: true,
-            allow_profile_view: true
-          });
+        if (hasOwnValidPhoto) {
+          try {
+          await eventMatchService.setMatchOptIn(event.id, true);
+          await loadParticipationState(event.id, user.id);
+          await refreshMatchData();
           toast.success('Conheça a Galera ativado automaticamente!');
+          } catch (matchError) {
+            toast.info(toUserFriendlyErrorMessage(matchError));
+          }
         } else if (!hasOwnValidPhoto) {
           toast.info(MATCH_PHOTO_REQUIRED_MESSAGE);
         }
@@ -1168,7 +1191,7 @@ const shouldShowSocialOnboarding = () => {
                           ? 'Validando sua foto'
                           : isMatchPhotoMissing
                             ? 'Foto obrigatória para o Match'
-                            : profile?.match_enabled
+                            : isEventMatchEnabled
                               ? 'Você está visível'
                               : 'Você está invisível'}
                       </p>
@@ -1177,13 +1200,13 @@ const shouldShowSocialOnboarding = () => {
                           ? 'Estamos conferindo se sua foto está pronta para aparecer no swipe.'
                           : isMatchPhotoMissing
                             ? 'Adicione uma foto válida para aparecer, curtir e receber curtidas.'
-                            : profile?.match_enabled
+                            : isEventMatchEnabled
                               ? 'Outros podem ver seu perfil'
                               : 'Ative para participar do Match'}
                       </p>
                     </div>
                     <Button 
-                      variant={isMatchPhotoMissing ? "default" : profile?.match_enabled ? "outline" : "default"}
+                      variant={isMatchPhotoMissing ? "default" : isEventMatchEnabled ? "outline" : "default"}
                       onClick={isMatchPhotoMissing ? openMatchProfileSetup : handleToggleMeetAttendees}
                       disabled={isCheckingOwnPhoto}
                       className="gap-2"
@@ -1198,7 +1221,7 @@ const shouldShowSocialOnboarding = () => {
                           <Camera size={16} />
                           Adicionar foto
                         </>
-                      ) : profile?.match_enabled ? (
+                      ) : isEventMatchEnabled ? (
                         <>
                           <EyeOff size={16} />
                           Sair do Match
@@ -1271,6 +1294,9 @@ const shouldShowSocialOnboarding = () => {
                           <p className="text-xs text-muted-foreground truncate">
                             {match.last_message || 'Abrir conversa do match'}
                           </p>
+                          <p className="text-[11px] text-muted-foreground truncate mt-1">
+                            {getMatchEventSummary(match, 3)}
+                          </p>
                         </div>
                       </button>
                     ))}
@@ -1321,7 +1347,7 @@ const shouldShowSocialOnboarding = () => {
                      Garantir ingresso
                    </Button>
                 </div>
-              ) : !profile?.match_enabled ? (
+              ) : !isEventMatchEnabled ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center bg-card/30 rounded-xl border border-border/40 p-8">
                    <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6 relative">
                      <Flame className="w-10 h-10 text-primary animate-pulse" />
@@ -1455,10 +1481,10 @@ const shouldShowSocialOnboarding = () => {
                 <Button 
                   onClick={() => {
                     setShowMatchOverlay(false);
-                    if (lastMatchChatId) {
+                    if (lastMatchedMatchId) {
                         // Marcar interação iniciada antes de navegar
-                        // matchService.markChatOpened(lastMatchChatId).catch(console.error); // Optional: if needed
-                        navigate(`/chat/${lastMatchChatId}`);
+                        // matchService.markChatOpened(lastMatchedMatchId).catch(console.error); // Optional: if needed
+                        navigate(`/chat/${lastMatchedMatchId}`);
                     } else {
                        toast.error('Erro ao redirecionar para o chat');
                     }

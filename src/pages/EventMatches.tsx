@@ -8,6 +8,7 @@ import { ArrowLeft, MessageCircle, Heart, Lock } from 'lucide-react';
 import { GlobalLoader } from '@/components/GlobalLoader';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
+import { getMatchEventTitles } from '@/utils/matchEvents';
 
 export default function EventMatches() {
   const { eventId } = useParams();
@@ -16,9 +17,15 @@ export default function EventMatches() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasTicket, setHasTicket] = useState<boolean | null>(null);
+  const [isMatchEnabled, setIsMatchEnabled] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (eventId && user) loadMatches();
+    if (eventId && user) {
+      loadMatches();
+      return;
+    }
+
+    setLoading(false);
   }, [eventId, user]);
 
   const loadMatches = async () => {
@@ -27,10 +34,12 @@ export default function EventMatches() {
       if (!user || !eventId) return;
 
       // Verificar se o usuário tem ingresso para este evento
-      const hasAccess = await eventService.isUserParticipating(eventId, user.id);
+      const participation = await eventService.getUserParticipation(eventId, user.id);
+      const hasAccess = Boolean(participation);
       setHasTicket(hasAccess);
+      setIsMatchEnabled(participation?.match_enabled ?? false);
 
-      if (!hasAccess) {
+      if (!hasAccess || !participation?.match_enabled) {
         setLoading(false);
         return;
       }
@@ -58,6 +67,23 @@ export default function EventMatches() {
         </p>
         <Button onClick={() => navigate('/meus-eventos')}>
           Ver meus eventos
+        </Button>
+      </div>
+    );
+  }
+
+  if (isMatchEnabled === false) {
+    return (
+      <div className="min-h-screen bg-background p-4 flex flex-col items-center justify-center text-center">
+        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
+          <Lock className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h2 className="text-xl font-semibold mb-2">Ative o Match deste evento</h2>
+        <p className="text-muted-foreground mb-6 max-w-xs">
+          VocÃª precisa entrar no Match para ver curtidas, filas e conversas deste evento.
+        </p>
+        <Button onClick={() => navigate(`/evento/${eventId}?tab=match`)}>
+          Entrar no Match
         </Button>
       </div>
     );
@@ -97,14 +123,27 @@ export default function EventMatches() {
                 </Avatar>
                 <div>
                   <h3 className="font-semibold">{match.partner_name}</h3>
-                  <p className="text-xs text-muted-foreground">Match realizado</p>
+                  <p className="text-xs text-muted-foreground">Match global ativo</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Vocês se encontraram em:
+                  </p>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {getMatchEventTitles(match).map((eventTitle) => (
+                      <span
+                        key={`${match.match_id}-${eventTitle}`}
+                        className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary"
+                      >
+                        {eventTitle}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
               <Button 
                 size="icon" 
                 variant="ghost" 
                 className="bg-primary/10 hover:bg-primary/20 text-primary rounded-full h-10 w-10"
-                onClick={() => navigate(`/m/chat/${match.chat_id}`)}
+                onClick={() => navigate(`/chat/${match.match_id}`)}
               >
                 <MessageCircle className="h-5 w-5" />
               </Button>
@@ -115,4 +154,3 @@ export default function EventMatches() {
     </div>
   );
 }
-

@@ -1,5 +1,5 @@
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- Enable UUID generation helpers
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- 0. Add Columns to Profiles (if not exist)
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS match_enabled BOOLEAN DEFAULT false;
@@ -7,7 +7,7 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS allow_profile_view BOOLEAN DEFAULT
 
 -- 1. Likes Table
 CREATE TABLE IF NOT EXISTS likes (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     from_user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     to_user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS likes (
 
 -- 2. Matches Table
 CREATE TABLE IF NOT EXISTS matches (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     user_a_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     user_b_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS matches (
 
 -- 3. Chats Table
 CREATE TABLE IF NOT EXISTS chats (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_id UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     match_id UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS chat_participants (
 
 -- 5. Messages Table
 CREATE TABLE IF NOT EXISTS messages (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     chat_id UUID NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
     sender_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS messages (
 
 -- 6. Notifications Table
 CREATE TABLE IF NOT EXISTS notifications (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     type TEXT NOT NULL CHECK (type IN ('like', 'match', 'system')),
     event_id UUID REFERENCES events(id) ON DELETE CASCADE,
@@ -337,4 +337,3 @@ BEGIN
     RETURN v_chat_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-

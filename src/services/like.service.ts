@@ -148,13 +148,13 @@ class LikeService {
     const { data, error } = await supabase
       .from('event_participants')
       .select(`
+        match_enabled,
         user:profiles!event_participants_user_id_fkey (
           id,
           full_name,
           avatar_url,
           bio,
           birth_date,
-          match_enabled,
           allow_profile_view,
           gender_identity,
           match_intention,
@@ -165,17 +165,18 @@ class LikeService {
         )
       `)
       .eq('event_id', eventId)
+      .eq('match_enabled', true)
       .neq('status', 'canceled');
 
     if (error) throw error;
 
     return (data || [])
-      .map((item: any) => item.user)
+      .map((item: any) => ({ ...item.user, event_match_enabled: item.match_enabled }))
       .filter((user: any) => {
         if (!user) return false;
 
         const isEvaluated = evaluatedIds.includes(user.id);
-        const isMatchEnabled = user.match_enabled;
+        const isMatchEnabled = user.event_match_enabled;
         const isProfileViewAllowed = user.allow_profile_view;
         const hasProfilePhoto = hasValidMatchPhoto(user.avatar_url);
 

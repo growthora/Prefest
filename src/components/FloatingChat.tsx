@@ -31,6 +31,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { getMatchEventSummary } from '@/utils/matchEvents';
 
 export function FloatingChat() {
   const { user } = useAuth();
@@ -341,11 +342,27 @@ export function FloatingChat() {
 
   const handleMatchClick = async (match: Match) => {
     try {
+      const hydratedMatch =
+        !location.pathname.startsWith('/chat') && !match.chat_id
+          ? {
+              ...match,
+              chat_id: await chatService.getOrCreateChat(match.match_id),
+            }
+          : match;
+
+      if (hydratedMatch.chat_id !== match.chat_id) {
+        setMatches((prev) =>
+          prev.map((item) =>
+            item.match_id === hydratedMatch.match_id ? hydratedMatch : item
+          )
+        );
+      }
+
       if (location.pathname.startsWith('/chat')) {
          navigate(`/chat/${match.match_id}`);
          setIsOpen(false);
       } else {
-         setActiveChat(match);
+         setActiveChat(hydratedMatch);
       }
     } catch (error) {
       // console.error('Error opening chat:', error);
@@ -364,7 +381,8 @@ export function FloatingChat() {
   };
 
   const filteredMatches = matches.filter(m => 
-    m.partner_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    m.partner_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    getMatchEventSummary(m).toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const totalUnread = matches.reduce((acc, curr) => acc + (curr.unread_count || 0), 0);
@@ -423,7 +441,7 @@ export function FloatingChat() {
                     <span className="font-semibold text-sm leading-none truncate">{activeChat.partner_name}</span>
                     <div className="flex items-center gap-1 text-[10px] text-primary-foreground/80 mt-1">
                         <Ticket className="w-3 h-3 shrink-0" />
-                        <span className="truncate max-w-[150px]">{activeChat.event_title}</span>
+                        <span className="truncate max-w-[150px]">{getMatchEventSummary(activeChat)}</span>
                     </div>
                     <span className="text-[10px] opacity-80 mt-0.5">
                         {partnerTyping ? (
@@ -585,10 +603,10 @@ export function FloatingChat() {
                             <div className="flex-1 min-w-0">
                               <div className="flex justify-between items-baseline mb-1">
                                 <span className="font-semibold text-sm truncate">{match.partner_name}</span>
-                                {match.last_message_at && (
-                                  <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
-                                    {formatTime(match.last_message_at)}
-                                  </span>
+                                {match.last_message_time && (
+                                    <span className="text-[10px] text-muted-foreground whitespace-nowrap ml-2">
+                                        {formatTime(match.last_message_time)}
+                                    </span>
                                 )}
                               </div>
                               <div className="flex items-center justify-between">
@@ -596,6 +614,9 @@ export function FloatingChat() {
                                     {match.last_message || 'Inicie a conversa'}
                                 </p>
                               </div>
+                              <p className="mt-1 text-[10px] text-muted-foreground truncate max-w-[220px]">
+                                {getMatchEventSummary(match)}
+                              </p>
                             </div>
                           </button>
                         ))}
@@ -628,5 +649,3 @@ export function FloatingChat() {
     </>
   );
 }
-
-

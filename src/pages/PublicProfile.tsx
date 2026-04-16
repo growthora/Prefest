@@ -56,6 +56,11 @@ interface PublicUser {
   };
 }
 
+interface EventMatchParticipation {
+  status?: string | null;
+  match_enabled?: boolean | null;
+}
+
 export default function PublicProfile() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -81,24 +86,27 @@ export default function PublicProfile() {
     if (slug) {
       loadProfile(slug);
     }
-  }, [slug, eventContext]); // Re-run if eventContext changes (though usually set once)
+  }, [slug, eventContext, currentUser?.id]); // Re-run if eventContext changes (though usually set once)
 
-  const validateEventAttendance = async (eventId: string, targetUserId: string): Promise<boolean> => {
+  const getEventParticipation = async (
+    eventId: string,
+    targetUserId: string
+  ): Promise<EventMatchParticipation | null> => {
     try {
       const { data, error } = await supabase
         .from('event_participants')
-        .select('status')
+        .select('status, match_enabled')
         .eq('event_id', eventId)
         .eq('user_id', targetUserId)
         .in('status', ['confirmed', 'paid', 'valid', 'used']) // Only valid tickets (including used)
-        .single();
+        .maybeSingle();
 
       if (error || !data) {
-        return false;
+        return null;
       }
-      return true;
+      return data as EventMatchParticipation;
     } catch (err) {
-      return false;
+      return null;
     }
   };
 
@@ -130,11 +138,32 @@ export default function PublicProfile() {
       
       // If we have an event context, validate that the user is actually attending that event
       if (eventContext) {
-        const isAttending = await validateEventAttendance(eventContext.id, userData.id);
-        if (!isAttending) {
+        if (!currentUser) {
+          setError('Faca login para acessar perfis do Match deste evento');
+          return;
+        }
+
+        const viewerParticipation = await getEventParticipation(eventContext.id, currentUser.id);
+        if (!viewerParticipation?.match_enabled) {
+          setError('Ative o Match deste evento para ver perfis e interagir');
+          return;
+        }
+
+        const targetParticipation = await getEventParticipation(eventContext.id, userData.id);
+        if (!targetParticipation) {
           setError('Participante não encontrado neste evento');
           return;
         }
+
+        if (!targetParticipation.match_enabled) {
+          setError('Esta pessoa nao esta participando do Match neste evento');
+          return;
+        }
+
+        userData = {
+          ...userData,
+          match_enabled: targetParticipation.match_enabled ?? false,
+        };
       }
 
       setProfile({
@@ -155,7 +184,7 @@ export default function PublicProfile() {
         looking_for: userData.looking_for || null,
         is_online: false, // Need to implement presence check if needed
         last_seen: userData.last_seen || null,
-        match_enabled: userData.match_enabled ?? true,
+        match_enabled: userData.match_enabled ?? false,
         show_initials_only: userData.show_initials_only ?? false,
         allow_profile_view: userData.allow_profile_view ?? true,
         privacy_settings: userData.privacy_settings
@@ -195,6 +224,11 @@ export default function PublicProfile() {
 
     if (!eventContext) {
       toast.error('É necessário acessar através de um evento para dar match');
+      return;
+    }
+
+    if (!profile.match_enabled) {
+      toast.info('Essa pessoa nao esta participando do Match neste evento');
       return;
     }
 

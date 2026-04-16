@@ -45,6 +45,14 @@ export interface EventMatchRealtimeHandlers {
   onMatchesChanged?: () => void;
 }
 
+interface EventMatchOptInResult {
+  status?: 'ok' | 'error';
+  match_enabled?: boolean;
+  removed_likes?: number;
+  removed_passes?: number;
+  message?: string;
+}
+
 const DEFAULT_AGE = 25;
 
 class EventMatchService {
@@ -156,6 +164,25 @@ class EventMatchService {
     return likeService.likeUser(targetUserId, eventId);
   }
 
+  async setMatchOptIn(eventId: string, enabled: boolean): Promise<EventMatchOptInResult> {
+    const { data, error } = await supabase.rpc('set_event_match_opt_in', {
+      p_event_id: eventId,
+      p_enabled: enabled,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    const result = (data || {}) as EventMatchOptInResult;
+
+    if (result.status === 'error') {
+      throw new Error(result.message || 'Nao foi possivel atualizar o Match deste evento');
+    }
+
+    return result;
+  }
+
   async resetQueue(eventId: string): Promise<number | null> {
     const { data, error } = await supabase.rpc('reset_match_queue', {
       p_event_id: eventId,
@@ -215,14 +242,27 @@ class EventMatchService {
         {
           event: '*',
           schema: 'public',
-          table: 'matches',
+          table: 'match_events',
           filter: `event_id=eq.${eventId}`,
+        },
+        () => {
+          handlers.onMatchesChanged?.();
+          handlers.onLikesChanged?.();
+          handlers.onQueueChanged?.();
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'matches',
         },
         (payload) => {
           const row = (payload.new || payload.old) as Record<string, any> | null;
           if (!row) return;
 
-          if (row.user_a_id === userId || row.user_b_id === userId) {
+          if (row.user1_id === userId || row.user2_id === userId) {
             handlers.onMatchesChanged?.();
             handlers.onLikesChanged?.();
             handlers.onQueueChanged?.();
