@@ -1,4 +1,4 @@
-import { invokeEdgeFunction } from './apiClient';
+import { invokeEdgeRoute } from './apiClient';
 
 export interface Coupon {
   id: string;
@@ -37,8 +37,10 @@ export interface CreateCouponData {
 class CouponService {
   // Criar cupom (apenas admin)
   async createCoupon(couponData: CreateCouponData, createdBy: string): Promise<Coupon> {
-    const { data, error } = await invokeEdgeFunction<{ coupon: Coupon }>('events-api', {
-      body: { op: 'coupons.create', params: { couponData, createdBy } },
+    void createdBy;
+    const { data, error } = await invokeEdgeRoute<{ coupon: Coupon }>('admin-api/coupons', {
+      method: 'POST',
+      body: { couponData },
     });
 
     if (error) throw error;
@@ -49,8 +51,8 @@ class CouponService {
   // Listar todos os cupons (admin)
   async getAllCoupons(): Promise<Coupon[]> {
     // console.log('🔍 [CouponService] Buscando cupons...');
-    const { data, error } = await invokeEdgeFunction<{ coupons: Coupon[] }>('events-api', {
-      body: { op: 'coupons.listAll' },
+    const { data, error } = await invokeEdgeRoute<{ coupons: Coupon[] }>('admin-api/coupons', {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -59,8 +61,8 @@ class CouponService {
 
   // Listar cupons ativos
   async getActiveCoupons(): Promise<Coupon[]> {
-    const { data, error } = await invokeEdgeFunction<{ coupons: Coupon[] }>('events-api', {
-      body: { op: 'coupons.listActive' },
+    const { data, error } = await invokeEdgeRoute<{ coupons: Coupon[] }>('ticket-api/coupons', {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -69,8 +71,8 @@ class CouponService {
 
   // Validar cupom
   async validateCoupon(code: string): Promise<Coupon> {
-    const { data, error } = await invokeEdgeFunction<{ coupon: Coupon }>('events-api', {
-      body: { op: 'coupons.validate', params: { code } },
+    const { data, error } = await invokeEdgeRoute<{ coupon: Coupon }>(`ticket-api/coupons/validate?code=${encodeURIComponent(code)}`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -85,12 +87,13 @@ class CouponService {
     eventId: string, 
     originalPrice: number
   ): Promise<{ discount: number; finalPrice: number; couponUsage: CouponUsage }> {
-    const { data, error } = await invokeEdgeFunction<{
+    const { data, error } = await invokeEdgeRoute<{
       discount: number;
       finalPrice: number;
       couponUsage: CouponUsage;
-    }>('events-api', {
-      body: { op: 'coupons.apply', params: { couponId, userId, eventId, originalPrice } },
+    }>('ticket-api/coupons/apply', {
+      method: 'POST',
+      body: { couponId, userId, eventId, originalPrice },
     });
 
     if (error) throw error;
@@ -100,8 +103,9 @@ class CouponService {
 
   // Atualizar cupom
   async updateCoupon(couponId: string, updates: Partial<Coupon>): Promise<Coupon> {
-    const { data, error } = await invokeEdgeFunction<{ coupon: Coupon }>('events-api', {
-      body: { op: 'coupons.update', params: { couponId, updates } },
+    const { data, error } = await invokeEdgeRoute<{ coupon: Coupon }>(`admin-api/coupons/${couponId}`, {
+      method: 'PUT',
+      body: { updates },
     });
 
     if (error) throw error;
@@ -111,8 +115,8 @@ class CouponService {
 
   // Deletar cupom
   async deleteCoupon(couponId: string): Promise<void> {
-    const { error } = await invokeEdgeFunction('events-api', {
-      body: { op: 'coupons.delete', params: { couponId } },
+    const { error } = await invokeEdgeRoute(`admin-api/coupons/${couponId}`, {
+      method: 'DELETE',
     });
 
     if (error) throw error;
@@ -125,8 +129,9 @@ class CouponService {
 
   // Ver uso de cupons (admin)
   async getCouponUsage(couponId?: string): Promise<CouponUsage[]> {
-    const { data, error } = await invokeEdgeFunction<{ usage: CouponUsage[] }>('events-api', {
-      body: { op: 'coupons.usage.list', params: { couponId } },
+    const query = couponId ? `?couponId=${encodeURIComponent(couponId)}` : '';
+    const { data, error } = await invokeEdgeRoute<{ usage: CouponUsage[] }>(`admin-api/coupons/usage${query}`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -135,8 +140,8 @@ class CouponService {
 
   // Ver cupons usados pelo usuário
   async getUserCouponUsage(userId: string): Promise<CouponUsage[]> {
-    const { data, error } = await invokeEdgeFunction<{ usage: CouponUsage[] }>('events-api', {
-      body: { op: 'coupons.usage.listByUser', params: { userId } },
+    const { data, error } = await invokeEdgeRoute<{ usage: CouponUsage[] }>(`ticket-api/coupons/usage?userId=${encodeURIComponent(userId)}`, {
+      method: 'GET',
     });
 
     if (error) throw error;

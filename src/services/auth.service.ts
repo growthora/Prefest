@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { User } from '@supabase/supabase-js';
-import { invokeEdgeFunction } from '@/services/apiClient';
+import { invokeEdgeRoute } from '@/services/apiClient';
 import { assertAuthEmailSafety } from '@/utils/email-security';
 
 export interface SignUpData {
@@ -58,8 +58,9 @@ export interface Profile {
 class AuthService {
   async syncSignupRoles(_userId: string, isOrganizer: boolean): Promise<boolean> {
     for (let attempt = 0; attempt < 5; attempt++) {
-      const { error } = await invokeEdgeFunction('events-api', {
-        body: { op: 'profiles.syncSignupRoles', params: { isOrganizer } },
+      const { error } = await invokeEdgeRoute('auth-api/signup/sync-roles', {
+        method: 'POST',
+        body: { isOrganizer },
       });
 
       if (!error) {
@@ -73,8 +74,9 @@ class AuthService {
   }
 
   async checkRegistrationData(email: string, cpf: string) {
-    const { data, error } = await invokeEdgeFunction<{ email_exists: boolean; cpf_exists: boolean }>('events-api', {
-      body: { op: 'auth.checkRegistrationData', params: { email, cpf } },
+    const { data, error } = await invokeEdgeRoute<{ email_exists: boolean; cpf_exists: boolean }>('auth-api/register/check', {
+      method: 'POST',
+      body: { email, cpf },
       requiresAuth: false,
     });
 
@@ -136,8 +138,8 @@ class AuthService {
   }
 
   async getProfile(_userId: string): Promise<Profile | null> {
-    const { data, error } = await invokeEdgeFunction<{ profile: Profile | null }>('events-api', {
-      body: { op: 'profiles.getSelf' },
+    const { data, error } = await invokeEdgeRoute<{ profile: Profile | null }>('profile-api/me', {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -145,8 +147,9 @@ class AuthService {
   }
 
   async updateProfile(_userId: string, updates: Partial<Profile>) {
-    const { data, error } = await invokeEdgeFunction<{ profile: Profile }>('events-api', {
-      body: { op: 'profiles.updateSelf', params: { updates } },
+    const { data, error } = await invokeEdgeRoute<{ profile: Profile }>('profile-api/me', {
+      method: 'PUT',
+      body: { updates },
     });
 
     if (error) throw error;
@@ -155,7 +158,8 @@ class AuthService {
   }
 
   async completeProfile(data: { cpf: string; phone: string; birth_date: string }) {
-    const { data: result, error } = await invokeEdgeFunction('complete-profile', {
+    const { data: result, error } = await invokeEdgeRoute('profile-api/complete', {
+      method: 'POST',
       body: data
     });
 
@@ -194,6 +198,17 @@ class AuthService {
       password: password
     });
     if (error) throw error;
+    return data;
+  }
+
+  async forceUpdatePassword(currentPassword: string, newPassword: string) {
+    const { data, error } = await invokeEdgeRoute<{ ok: boolean }>('auth-api/password', {
+      method: 'PUT',
+      body: { currentPassword, newPassword },
+    });
+
+    if (error) throw error;
+    if (!data?.ok) throw new Error('Falha ao atualizar senha');
     return data;
   }
 

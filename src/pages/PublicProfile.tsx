@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 import { GlobalLoader } from '@/components/GlobalLoader';
 import { likeService } from '@/services/like.service';
 import { ROUTE_PATHS } from '@/lib';
-import { invokeEdgeFunction } from '@/services/apiClient';
+import { invokeEdgeRoute } from '@/services/apiClient';
 import {
   getGenderIdentityLabel,
   getMatchGenderPreferenceLabel,
@@ -94,11 +94,9 @@ export default function PublicProfile() {
     targetUserId: string
   ): Promise<EventMatchParticipation | null> => {
     try {
-      const { data, error } = await invokeEdgeFunction<{ participation: EventMatchParticipation | null }>(
-        'events-api',
-        {
-          body: { op: 'eventParticipants.getMatchParticipation', params: { eventId, targetUserId } },
-        }
+      const { data, error } = await invokeEdgeRoute<{ participation: EventMatchParticipation | null }>(
+        `profile-api/match-participation/${eventId}/${targetUserId}`,
+        { method: 'GET' }
       );
 
       if (error) return null;

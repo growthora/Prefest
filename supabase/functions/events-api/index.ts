@@ -49,6 +49,16 @@ type EventRow = {
   ticket_types?: TicketTypeRow[];
 };
 
+function mapLegacyParticipationRow(row: any) {
+  if (!row) return null;
+  return {
+    ...row,
+    security_token: row.ticket_token ?? null,
+    match_enabled: row.profile?.match_enabled ?? false,
+    profile: undefined,
+  };
+}
+
 type ManagedEvent = ReturnType<typeof mapEventForClient> & {
   revenue?: number;
   ticketsSold?: number;
@@ -608,6 +618,39 @@ Deno.serve(async (req) => {
 
     const { user, supabase } = await requireAuth(req);
 
+    if (op === "auth.forceUpdatePassword") {
+      const currentPassword = String(params?.currentPassword || "");
+      const newPassword = String(params?.newPassword || "");
+      if (newPassword.length < 6) return jsonResponse(req, { error: "A senha deve ter no mínimo 6 caracteres" }, 400);
+      if (!currentPassword) return jsonResponse(req, { error: "Senha atual é obrigatória" }, 400);
+
+      const email = String((user as any)?.email || "").trim();
+      if (!email) return jsonResponse(req, { error: "Email do usuário não encontrado" }, 400);
+
+      const anon = getAnonClient();
+      const { data: signInData, error: signInError } = await anon.auth.signInWithPassword({
+        email,
+        password: currentPassword,
+      });
+
+      if (signInError || !signInData?.user?.id) {
+        return jsonResponse(req, { error: "Senha atual incorreta" }, 400);
+      }
+
+      if (String(signInData.user.id) !== String(user.id)) {
+        return jsonResponse(req, { error: "Credenciais inválidas" }, 403);
+      }
+
+      const serviceClient = getServiceRoleClient();
+      const { error } = await serviceClient.auth.admin.updateUserById(user.id, {
+        password: newPassword,
+        email_confirm: true,
+      });
+
+      if (error) return jsonResponse(req, { error: error.message }, 400);
+      return jsonResponse(req, { ok: true });
+    }
+
     if (op === "events.list") {
       const { data, error } = await supabase
         .from("events")
@@ -962,13 +1005,13 @@ Deno.serve(async (req) => {
 
       const { data, error } = await supabase
         .from("event_participants")
-        .select("id, event_id, user_id, ticket_quantity, ticket_type_id, total_paid, joined_at, match_enabled, status, check_in_at, security_token, ticket_code, qr_code_data")
+        .select("id, event_id, user_id, ticket_quantity, ticket_type_id, total_paid, joined_at, status, check_in_at, ticket_token, ticket_code, qr_code_data, profile:profiles!event_participants_user_id_fkey(match_enabled)")
         .eq("event_id", eventId)
         .eq("user_id", userId)
         .maybeSingle();
 
       if (error) return jsonResponse(req, { error: error.message }, 400);
-      return jsonResponse(req, { participation: data || null });
+      return jsonResponse(req, { participation: mapLegacyParticipationRow(data) });
     }
 
     if (op === "participants.join") {
@@ -982,13 +1025,13 @@ Deno.serve(async (req) => {
 
       const { data: existing, error: existingError } = await supabase
         .from("event_participants")
-        .select("id, event_id, user_id, ticket_quantity, ticket_type_id, total_paid, joined_at, match_enabled, status, check_in_at, security_token, ticket_code, qr_code_data")
+        .select("id, event_id, user_id, ticket_quantity, ticket_type_id, total_paid, joined_at, status, check_in_at, ticket_token, ticket_code, qr_code_data, profile:profiles!event_participants_user_id_fkey(match_enabled)")
         .eq("event_id", eventId)
         .eq("user_id", user.id)
         .maybeSingle();
 
       if (existingError) return jsonResponse(req, { error: existingError.message }, 400);
-      if (existing) return jsonResponse(req, { participant: existing });
+      if (existing) return jsonResponse(req, { participant: mapLegacyParticipationRow(existing) });
 
       const { data: eventRow, error: eventError } = await supabase
         .from("events")
@@ -1051,13 +1094,12 @@ Deno.serve(async (req) => {
           ticket_quantity: ticketQuantity,
           ticket_type_id: ticketTypeId || null,
           total_paid: finalTotalPaid,
-          match_enabled: false,
         })
-        .select("id, event_id, user_id, ticket_quantity, ticket_type_id, total_paid, joined_at, match_enabled, status, check_in_at, security_token, ticket_code, qr_code_data")
+        .select("id, event_id, user_id, ticket_quantity, ticket_type_id, total_paid, joined_at, status, check_in_at, ticket_token, ticket_code, qr_code_data, profile:profiles!event_participants_user_id_fkey(match_enabled)")
         .single();
 
       if (error) return jsonResponse(req, { error: error.message }, 400);
-      return jsonResponse(req, { participant: data });
+      return jsonResponse(req, { participant: mapLegacyParticipationRow(data) });
     }
 
     if (op === "participants.leave") {
@@ -1336,10 +1378,9 @@ Deno.serve(async (req) => {
       const { data, error } = await supabase
         .from("event_participants")
         .select(
-          "user_id, match_enabled, profiles:profiles!event_participants_user_id_fkey (id, full_name, bio, avatar_url, single_mode, match_enabled, show_initials_only, gender_identity, match_intention, match_gender_preference, sexuality, looking_for, height, relationship_status)",
+          "user_id, profiles:profiles!event_participants_user_id_fkey (id, full_name, bio, avatar_url, single_mode, match_enabled, show_initials_only, gender_identity, match_intention, match_gender_preference, sexuality, looking_for, height, relationship_status)",
         )
-        .eq("event_id", eventId)
-        .eq("match_enabled", true);
+        .eq("event_id", eventId);
 
       if (error) return jsonResponse(req, { error: error.message }, 400);
 
@@ -1348,8 +1389,8 @@ Deno.serve(async (req) => {
           const profile = item?.profiles;
           if (!profile) return null;
 
-          if ((item.match_enabled ?? false) || profile.single_mode) {
-            return { ...profile, match_enabled: item.match_enabled ?? false };
+          if ((profile.match_enabled ?? false) || profile.single_mode) {
+            return { ...profile, match_enabled: profile.match_enabled ?? false };
           }
 
           return {
@@ -1915,16 +1956,16 @@ Deno.serve(async (req) => {
       const { data, error } = await supabase
         .from("event_participants")
         .select(
-          "match_enabled, user:profiles!event_participants_user_id_fkey (id, full_name, avatar_url, bio, birth_date, allow_profile_view, gender_identity, match_intention, match_gender_preference, sexuality, height, relationship_status)",
+          "user:profiles!event_participants_user_id_fkey (id, full_name, avatar_url, bio, birth_date, allow_profile_view, gender_identity, match_intention, match_gender_preference, sexuality, height, relationship_status, match_enabled)",
         )
         .eq("event_id", eventId)
-        .eq("match_enabled", true)
         .neq("status", "canceled");
 
       if (error) return jsonResponse(req, { error: error.message }, 400);
 
       const candidates = (data || [])
-        .map((item: any) => ({ ...item.user, event_match_enabled: item.match_enabled }))
+        .map((item: any) => ({ ...item.user, event_match_enabled: item.user?.match_enabled ?? false }))
+        .filter((candidate: any) => candidate?.event_match_enabled)
         .filter((candidate: any) => candidate && !evaluatedIds.includes(candidate.id));
 
       return jsonResponse(req, { candidates });
@@ -2579,6 +2620,23 @@ Deno.serve(async (req) => {
       return jsonResponse(req, { user: data });
     }
 
+    if (op === "adminUsers.updatePassword") {
+      await requireAdmin(req, supabase, user.id);
+      const userId = String(params?.userId || "").trim();
+      const newPassword = String(params?.newPassword || "");
+      if (!userId || !newPassword) return jsonResponse(req, { error: "Parâmetros inválidos" }, 400);
+      if (newPassword.length < 8) return jsonResponse(req, { error: "A senha deve ter no mínimo 8 caracteres" }, 400);
+
+      const serviceClient = getServiceRoleClient();
+      const { error } = await serviceClient.auth.admin.updateUserById(userId, {
+        password: newPassword,
+        email_confirm: true,
+      });
+
+      if (error) return jsonResponse(req, { error: error.message }, 400);
+      return jsonResponse(req, { ok: true });
+    }
+
     if (op === "adminUsers.create") {
       await requireAdmin(req, supabase, user.id);
       const userData = params?.userData ?? {};
@@ -2932,27 +2990,50 @@ Deno.serve(async (req) => {
       const serviceClient = getServiceRoleClient();
       const validStatuses = ["confirmed", "paid", "valid", "used"];
 
-      const { data: viewer, error: viewerError } = await serviceClient
+      const { data: viewerParticipant, error: viewerError } = await serviceClient
         .from("event_participants")
-        .select("match_enabled")
+        .select("id")
         .eq("event_id", eventId)
         .eq("user_id", user.id)
         .in("status", validStatuses)
         .maybeSingle();
 
       if (viewerError) return jsonResponse(req, { error: viewerError.message }, 400);
-      if (!viewer || !viewer.match_enabled) return jsonResponse(req, { participation: null });
+      if (!viewerParticipant) return jsonResponse(req, { participation: null });
 
-      const { data, error } = await serviceClient
+      const { data: viewerProfile, error: viewerProfileError } = await serviceClient
+        .from("profiles")
+        .select("match_enabled")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (viewerProfileError) return jsonResponse(req, { error: viewerProfileError.message }, 400);
+      if (!viewerProfile?.match_enabled) return jsonResponse(req, { participation: null });
+
+      const { data: targetParticipant, error } = await serviceClient
         .from("event_participants")
-        .select("status, match_enabled")
+        .select("status")
         .eq("event_id", eventId)
         .eq("user_id", targetUserId)
         .in("status", validStatuses)
         .maybeSingle();
 
       if (error) return jsonResponse(req, { error: error.message }, 400);
-      return jsonResponse(req, { participation: data || null });
+      if (!targetParticipant) return jsonResponse(req, { participation: null });
+
+      const { data: targetProfile, error: targetProfileError } = await serviceClient
+        .from("profiles")
+        .select("match_enabled")
+        .eq("id", targetUserId)
+        .maybeSingle();
+
+      if (targetProfileError) return jsonResponse(req, { error: targetProfileError.message }, 400);
+      return jsonResponse(req, {
+        participation: {
+          ...targetParticipant,
+          match_enabled: targetProfile?.match_enabled ?? false,
+        },
+      });
     }
 
     if (op === "organizerAsaas.getAccount") {

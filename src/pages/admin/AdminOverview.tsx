@@ -30,7 +30,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/lib/index';
-import { invokeEdgeFunction } from '@/services/apiClient';
+import { invokeEdgeRoute } from '@/services/apiClient';
 
 function getTrend(current: number, previous: number): { value: number | null; isUp: boolean } {
   if (previous <= 0) {
@@ -64,7 +64,7 @@ export default function AdminOverview() {
     try {
       setIsLoading(true);
       const [overviewRes, statsRes, eventsRes, usersRes, couponsRes] = await Promise.allSettled([
-        invokeEdgeFunction('admin-financial-dashboard?type=overview'),
+        invokeEdgeRoute('financial-api/admin/overview', { method: 'GET' }),
         userService.getStatistics(),
         eventService.getAllEvents(3, true),
         userService.getUsersWithStats(),

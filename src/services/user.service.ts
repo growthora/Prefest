@@ -1,5 +1,5 @@
 import type { Profile } from './auth.service';
-import { invokeEdgeFunction } from './apiClient';
+import { invokeEdgeFunction, invokeEdgeRoute } from './apiClient';
 
 export interface UserWithStats extends Profile {
   total_events: number;
@@ -54,8 +54,8 @@ export interface UpdateUserData {
 class UserService {
   // Listar todos os usuarios
   async getAllUsers(): Promise<Profile[]> {
-    const { data, error } = await invokeEdgeFunction<{ users: Profile[] }>('events-api', {
-      body: { op: 'adminUsers.list' },
+    const { data, error } = await invokeEdgeRoute<{ users: Profile[] }>('admin-api/users', {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -64,8 +64,8 @@ class UserService {
 
   // Listar usuarios com estatisticas
   async getUsersWithStats(): Promise<UserWithStats[]> {
-    const { data, error } = await invokeEdgeFunction<{ users: UserWithStats[] }>('events-api', {
-      body: { op: 'adminUsers.listWithStats' },
+    const { data, error } = await invokeEdgeRoute<{ users: UserWithStats[] }>('admin-api/users/with-stats', {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -74,8 +74,8 @@ class UserService {
 
   // Buscar usuario por ID
   async getUserById(userId: string): Promise<Profile> {
-    const { data, error } = await invokeEdgeFunction<{ user: Profile | null }>('events-api', {
-      body: { op: 'adminUsers.getById', params: { userId } },
+    const { data, error } = await invokeEdgeRoute<{ user: Profile | null }>(`admin-api/users/${userId}`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -85,8 +85,8 @@ class UserService {
 
   // Buscar usuario por username (slug)
   async getUserByUsername(username: string): Promise<Profile | null> {
-    const { data, error } = await invokeEdgeFunction<{ user: Profile | null }>('events-api', {
-      body: { op: 'adminUsers.getByUsername', params: { username } },
+    const { data, error } = await invokeEdgeRoute<{ user: Profile | null }>(`admin-api/users/by-username/${encodeURIComponent(username)}`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -95,8 +95,8 @@ class UserService {
 
   // Listar organizadores pendentes
   async getPendingOrganizers(): Promise<Profile[]> {
-    const { data, error } = await invokeEdgeFunction<{ users: Profile[] }>('events-api', {
-      body: { op: 'adminUsers.pendingOrganizers' },
+    const { data, error } = await invokeEdgeRoute<{ users: Profile[] }>('admin-api/users/pending-organizers', {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -105,8 +105,9 @@ class UserService {
 
   // Atualizar status do organizador
   async updateOrganizerStatus(userId: string, status: 'APPROVED' | 'REJECTED'): Promise<void> {
-    const { error } = await invokeEdgeFunction('events-api', {
-      body: { op: 'adminUsers.updateOrganizerStatus', params: { userId, status } },
+    const { error } = await invokeEdgeRoute(`admin-api/users/${userId}/organizer-status`, {
+      method: 'PUT',
+      body: { status },
     });
 
     if (error) throw error;
@@ -114,8 +115,8 @@ class UserService {
 
   // Solicitar acesso de organizador
   async requestOrganizerAccess(userId: string): Promise<void> {
-    const { error } = await invokeEdgeFunction('events-api', {
-      body: { op: 'adminUsers.requestOrganizerAccess', params: { userId } },
+    const { error } = await invokeEdgeRoute(`admin-api/users/${userId}/request-organizer-access`, {
+      method: 'POST',
     });
 
     if (error) throw error;
@@ -123,8 +124,9 @@ class UserService {
 
   // Criar novo usuario (requer permissao admin)
   async createUser(userData: CreateUserData): Promise<{ user: any; profile: Profile }> {
-    const { data, error } = await invokeEdgeFunction<{ user: any; profile: Profile }>('events-api', {
-      body: { op: 'adminUsers.create', params: { userData } },
+    const { data, error } = await invokeEdgeRoute<{ user: any; profile: Profile }>('admin-api/users', {
+      method: 'POST',
+      body: { userData },
     });
 
     if (error) throw error;
@@ -134,8 +136,9 @@ class UserService {
 
   // Atualizar usuario
   async updateUser(userId: string, updates: UpdateUserData): Promise<Profile> {
-    const { data, error } = await invokeEdgeFunction<{ user: Profile }>('events-api', {
-      body: { op: 'adminUsers.update', params: { userId, updates } },
+    const { data, error } = await invokeEdgeRoute<{ user: Profile }>(`admin-api/users/${userId}`, {
+      method: 'PUT',
+      body: { updates },
     });
 
     if (error) throw error;
@@ -144,23 +147,19 @@ class UserService {
   }
 
   async updateUserPasswordAsAdmin(userId: string, newPassword: string): Promise<void> {
-    const { data, error } = await invokeEdgeFunction('admin-update-user-password', {
-      body: {
-        userId,
-        newPassword,
-      },
-      method: 'POST',
-      requiresAuth: true,
+    const { data, error } = await invokeEdgeRoute<{ ok: boolean }>(`admin-api/users/${userId}/password`, {
+      method: 'PUT',
+      body: { newPassword },
     });
 
     if (error) throw error;
-    if ((data as any)?.ok !== true) {
-      throw new Error((data as any)?.error || 'Falha ao atualizar senha do usuário');
+    if (!data?.ok) {
+      throw new Error('Falha ao atualizar senha do usuário');
     }
   }
   async getOrganizerOptions(): Promise<OrganizerOption[]> {
-    const { data, error } = await invokeEdgeFunction<{ organizers: OrganizerOption[] }>('events-api', {
-      body: { op: 'adminUsers.organizerOptions' },
+    const { data, error } = await invokeEdgeRoute<{ organizers: OrganizerOption[] }>('admin-api/users/organizer-options', {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -168,8 +167,8 @@ class UserService {
   }
 
   async getTeamOrganizerForUser(userId: string): Promise<string | null> {
-    const { data, error } = await invokeEdgeFunction<{ organizerId: string | null }>('events-api', {
-      body: { op: 'adminUsers.team.getOrganizerForUser', params: { userId } },
+    const { data, error } = await invokeEdgeRoute<{ organizerId: string | null }>(`admin-api/users/${userId}/team-organizer`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -177,38 +176,37 @@ class UserService {
   }
 
   async upsertTeamMemberLink(userId: string, organizerId: string): Promise<void> {
-    const { error } = await invokeEdgeFunction('events-api', {
-      body: { op: 'adminUsers.team.upsertLink', params: { userId, organizerId } },
+    const { error } = await invokeEdgeRoute(`admin-api/users/${userId}/team-organizer`, {
+      method: 'PUT',
+      body: { organizerId },
     });
 
     if (error) throw error;
   }
 
   async removeTeamMemberLink(userId: string): Promise<void> {
-    const { error } = await invokeEdgeFunction('events-api', {
-      body: { op: 'adminUsers.team.removeLink', params: { userId } },
+    const { error } = await invokeEdgeRoute(`admin-api/users/${userId}/team-organizer`, {
+      method: 'DELETE',
     });
 
     if (error) throw error;
   }
   // Deletar usuario
   async deleteUser(userId: string): Promise<void> {
-    const { data, error } = await invokeEdgeFunction('admin-delete-user', {
-      body: { userId },
-      method: 'POST',
-      requiresAuth: true,
+    const { data, error } = await invokeEdgeRoute<{ ok: boolean }>(`admin-api/users/${userId}`, {
+      method: 'DELETE',
     });
 
     if (error) throw error;
-    if ((data as any)?.ok !== true) {
-      throw new Error((data as any)?.error || 'Falha ao excluir usuário');
+    if (!data?.ok) {
+      throw new Error('Falha ao excluir usuário');
     }
   }
 
   // Obter estatisticas gerais
   async getStatistics() {
-    const { data, error } = await invokeEdgeFunction('events-api', {
-      body: { op: 'adminUsers.statistics' },
+    const { data, error } = await invokeEdgeRoute('admin-api/users/statistics', {
+      method: 'GET',
     });
 
     if (error) throw error;

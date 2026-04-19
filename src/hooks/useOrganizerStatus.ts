@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { invokeEdgeFunction } from '@/services/apiClient';
+import { invokeEdgeRoute } from '@/services/apiClient';
 
 export function useOrganizerStatus() {
   const { user } = useAuth();
@@ -21,8 +21,8 @@ export function useOrganizerStatus() {
   const checkStatus = async () => {
     try {
       setLoading(true);
-      const { data, error } = await invokeEdgeFunction<{ account: any | null }>('events-api', {
-        body: { op: 'organizerAsaas.getAccount' },
+      const { data, error } = await invokeEdgeRoute<{ account: any | null }>('financial-api/asaas/account', {
+        method: 'GET',
       });
 
       if (error || !data?.account) {

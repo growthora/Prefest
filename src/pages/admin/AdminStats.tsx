@@ -3,7 +3,7 @@ import { userService } from '@/services/user.service';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { eventService, type Event } from '@/services/event.service';
-import { invokeEdgeFunction } from '@/services/apiClient';
+import { invokeEdgeRoute } from '@/services/apiClient';
 import { DollarSign, TrendingUp, Percent, Calendar, PieChart as PieChartIcon, BarChart3 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, Cell, PieChart, Pie, Legend } from 'recharts';
@@ -22,7 +22,7 @@ export default function AdminStats() {
     try {
       setIsLoading(true);
       const [overviewRes, statsRes, eventsRes] = await Promise.allSettled([
-        invokeEdgeFunction('admin-financial-dashboard?type=overview'),
+        invokeEdgeRoute('financial-api/admin/overview', { method: 'GET' }),
         userService.getStatistics(),
         eventService.getAllEvents(3, true),
       ]);

@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { eventService } from '@/services/event.service';
 import { likeService, type LikeResult } from '@/services/like.service';
 import { matchService, type Match } from '@/services/match.service';
-import { invokeEdgeFunction } from '@/services/apiClient';
+import { invokeEdgeRoute } from '@/services/apiClient';
 import {
   filterItemsWithRenderableMatchPhoto,
   hasValidMatchPhoto,
@@ -59,8 +59,8 @@ const DEFAULT_AGE = 25;
 
 class EventMatchService {
   private async getViewerGenderPreference(_userId: string): Promise<MatchGenderPreference> {
-    const { data, error } = await invokeEdgeFunction<{ match_gender_preference: MatchGenderPreference }>('events-api', {
-      body: { op: 'profiles.getMatchGenderPreference' },
+    const { data, error } = await invokeEdgeRoute<{ match_gender_preference: MatchGenderPreference }>('profile-api/me/match-gender-preference', {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -122,8 +122,8 @@ class EventMatchService {
 
   async getCandidates(eventId: string, currentUserId: string): Promise<User[]> {
     const viewerPreference = await this.getViewerGenderPreference(currentUserId);
-    const { data, error } = await invokeEdgeFunction<{ candidates: EventMatchCandidateRow[] }>('events-api', {
-      body: { op: 'eventMatch.getCandidatesV2', params: { eventId } },
+    const { data, error } = await invokeEdgeRoute<{ candidates: EventMatchCandidateRow[] }>(`match-api/candidates?eventId=${encodeURIComponent(eventId)}`, {
+      method: 'GET',
     });
 
     if (!error) {
@@ -167,8 +167,8 @@ class EventMatchService {
   }
 
   async getReceivedLikes(eventId: string): Promise<EventReceivedLike[]> {
-    const { data, error } = await invokeEdgeFunction<{ likes: EventReceivedLike[] }>('events-api', {
-      body: { op: 'eventMatch.getReceivedLikesV2', params: { eventId } },
+    const { data, error } = await invokeEdgeRoute<{ likes: EventReceivedLike[] }>(`match-api/event-likes?eventId=${encodeURIComponent(eventId)}`, {
+      method: 'GET',
     });
 
     if (!error) {
@@ -190,8 +190,9 @@ class EventMatchService {
   }
 
   async setMatchOptIn(eventId: string, enabled: boolean): Promise<EventMatchOptInResult> {
-    const { data, error } = await invokeEdgeFunction<{ result: EventMatchOptInResult }>('events-api', {
-      body: { op: 'eventMatch.setOptIn', params: { eventId, enabled } },
+    const { data, error } = await invokeEdgeRoute<{ result: EventMatchOptInResult }>('match-api/opt-in', {
+      method: 'POST',
+      body: { eventId, enabled },
     });
 
     if (error) throw error;
@@ -206,8 +207,9 @@ class EventMatchService {
   }
 
   async resetQueue(eventId: string): Promise<number | null> {
-    const { data, error } = await invokeEdgeFunction<{ value: number | null }>('events-api', {
-      body: { op: 'eventMatch.resetQueue', params: { eventId } },
+    const { data, error } = await invokeEdgeRoute<{ value: number | null }>('match-api/reset-queue', {
+      method: 'POST',
+      body: { eventId },
     });
 
     if (error) throw error;
@@ -215,8 +217,9 @@ class EventMatchService {
   }
 
   async skipUser(eventId: string, targetUserId: string): Promise<boolean> {
-    const { data, error } = await invokeEdgeFunction<{ ok: boolean }>('events-api', {
-      body: { op: 'eventMatch.skipUser', params: { eventId, toUserId: targetUserId } },
+    const { data, error } = await invokeEdgeRoute<{ ok: boolean }>('match-api/skip', {
+      method: 'POST',
+      body: { eventId, toUserId: targetUserId },
     });
 
     if (error) throw error;

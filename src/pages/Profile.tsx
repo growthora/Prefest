@@ -7,7 +7,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { supabase } from "@/lib/supabase";
 import { storageService } from "@/services/storage.service";
-import { invokeEdgeFunction } from "@/services/apiClient";
+import { invokeEdgeRoute } from "@/services/apiClient";
+import { authService } from "@/services/auth.service";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -127,9 +128,9 @@ export default function Profile() {
 
   useEffect(() => {
     const loadGenderPreferenceOptions = async () => {
-      const { data, error } = await invokeEdgeFunction<{ genders: Array<{ code: string; label: string }> }>(
-        "events-api",
-        { body: { op: "genders.list" } }
+      const { data, error } = await invokeEdgeRoute<{ genders: Array<{ code: string; label: string }> }>(
+        "profile-api/genders",
+        { method: "GET" }
       );
 
       if (error || !data?.genders) {
@@ -294,7 +295,14 @@ export default function Profile() {
         password: passwordData.newPassword
       });
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        const msg = String((updateError as any)?.message || updateError);
+        if (msg.includes("Email confirmation required to update profile details")) {
+          await authService.forceUpdatePassword(passwordData.currentPassword, passwordData.newPassword);
+        } else {
+          throw updateError;
+        }
+      }
 
       toast.success("Senha alterada com sucesso!");
       setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });

@@ -1,6 +1,6 @@
 import { logMatchDebug } from '@/utils/matchDebug';
 import { hasValidMatchPhoto } from '@/utils/matchPhoto';
-import { invokeEdgeFunction } from '@/services/apiClient';
+import { invokeEdgeRoute } from '@/services/apiClient';
 
 export interface LikeResult {
   status: 'liked' | 'match' | 'already_liked' | 'error';
@@ -19,8 +19,9 @@ class LikeService {
       toUserId,
     });
 
-    const { data, error } = await invokeEdgeFunction<LikeResult>('events-api', {
-      body: { op: 'match.likeUser', params: { eventId, toUserId } },
+    const { data, error } = await invokeEdgeRoute<LikeResult>('match-api/like', {
+      method: 'POST',
+      body: { eventId, toUserId },
     });
 
     if (error) {
@@ -51,8 +52,8 @@ class LikeService {
   }
 
   async getLikesSummary(): Promise<{ total_likes: number; recent_likes: any[] }> {
-    const { data, error } = await invokeEdgeFunction<{ total_likes: number; recent_likes: any[] }>('events-api', {
-      body: { op: 'match.likesSummary' },
+    const { data, error } = await invokeEdgeRoute<{ total_likes: number; recent_likes: any[] }>('match-api/likes/summary', {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -60,8 +61,8 @@ class LikeService {
   }
 
   async getReceivedLikes(eventId: string): Promise<any[]> {
-    const { data, error } = await invokeEdgeFunction<{ likes: any[] }>('events-api', {
-      body: { op: 'match.receivedLikes', params: { eventId } },
+    const { data, error } = await invokeEdgeRoute<{ likes: any[] }>(`match-api/likes/received?eventId=${encodeURIComponent(eventId)}`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -94,8 +95,9 @@ class LikeService {
   }
 
   async ignoreLike(likeId: string, eventId?: string): Promise<void> {
-    const { error } = await invokeEdgeFunction('events-api', {
-      body: { op: 'match.ignoreLike', params: { likeId, eventId } },
+    const { error } = await invokeEdgeRoute('match-api/dislike', {
+      method: 'POST',
+      body: { likeId, eventId },
     });
 
     if (error) throw error;
@@ -103,8 +105,9 @@ class LikeService {
 
   async getUnreadLikes(_userId: string, eventId?: string): Promise<any[]> {
     try {
-      const { data, error } = await invokeEdgeFunction<{ likes: any[] }>('events-api', {
-        body: { op: 'match.unreadLikes', params: { eventId } },
+      const query = eventId ? `?eventId=${encodeURIComponent(eventId)}` : '';
+      const { data, error } = await invokeEdgeRoute<{ likes: any[] }>(`match-api/likes/unread${query}`, {
+        method: 'GET',
       });
 
       if (error) throw error;
@@ -122,8 +125,9 @@ class LikeService {
   }
 
   async getPotentialMatches(eventId: string, currentUserId: string): Promise<any[]> {
-    const { data, error } = await invokeEdgeFunction<{ candidates: any[] }>('events-api', {
-      body: { op: 'match.potentialMatches', params: { eventId, currentUserId } },
+    void currentUserId;
+    const { data, error } = await invokeEdgeRoute<{ candidates: any[] }>(`match-api/potential?eventId=${encodeURIComponent(eventId)}`, {
+      method: 'GET',
     });
 
     if (error) throw error;

@@ -49,6 +49,9 @@ export const LoginForm = () => {
     if (location.state?.tab) {
       setActiveTab(location.state.tab);
     }
+    if (location.state?.organizer) {
+      setIsOrganizer(true);
+    }
   }, [location.state]);
 
   const handleLogin = async (e: React.FormEvent) => {

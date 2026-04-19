@@ -1,4 +1,4 @@
-import { invokeEdgeFunction } from '@/services/apiClient';
+import { invokeEdgeRoute } from '@/services/apiClient';
 
 export interface ChatMessage {
   id: string;
@@ -19,8 +19,9 @@ class ChatService {
   // Atualiza a presença do usuário atual (qual chat está aberto)
   async updatePresence(chatId: string | null) {
     // console.log('🔔 [ChatService] Atualizando presença:', chatId);
-    const { error } = await invokeEdgeFunction('events-api', {
-      body: { op: 'chat.updatePresence', params: { chatId } },
+    const { error } = await invokeEdgeRoute('chat-api/presence', {
+      method: 'POST',
+      body: { chatId },
     });
     
     if (error) {
@@ -32,8 +33,8 @@ class ChatService {
   async getMessages(chatId: string): Promise<ChatMessage[]> {
     // console.log('💬 [ChatService] Buscando mensagens do chat:', chatId);
 
-    const { data, error } = await invokeEdgeFunction<{ messages: ChatMessage[] }>('events-api', {
-      body: { op: 'chat.getMessages', params: { chatId } },
+    const { data, error } = await invokeEdgeRoute<{ messages: ChatMessage[] }>(`chat-api/messages?chatId=${encodeURIComponent(chatId)}`, {
+      method: 'GET',
     });
 
     if (error) {
@@ -48,8 +49,8 @@ class ChatService {
   }
 
   async getOrCreateChat(matchId: string): Promise<string> {
-    const { data, error } = await invokeEdgeFunction<{ chatId: string }>('events-api', {
-      body: { op: 'chat.getOrCreate', params: { matchId } },
+    const { data, error } = await invokeEdgeRoute<{ chatId: string }>(`chat-api/match/${matchId}`, {
+      method: 'POST',
     });
     if (error) throw error;
     if (!data?.chatId) throw new Error('Falha ao obter chat');
@@ -57,8 +58,8 @@ class ChatService {
   }
 
   async unmatchUser(matchId: string) {
-    const { error } = await invokeEdgeFunction('events-api', {
-      body: { op: 'chat.unmatchUser', params: { matchId } },
+    const { error } = await invokeEdgeRoute(`chat-api/match/${matchId}`, {
+      method: 'DELETE',
     });
 
     if (error) {
@@ -71,8 +72,9 @@ class ChatService {
   async sendMessage(chatId: string, content: string): Promise<ChatMessage> {
     // console.log('📤 [ChatService] Enviando mensagem:', chatId);
 
-    const { data, error } = await invokeEdgeFunction<{ message: ChatMessage }>('events-api', {
-      body: { op: 'chat.sendMessage', params: { chatId, content } },
+    const { data, error } = await invokeEdgeRoute<{ message: ChatMessage }>('chat-api/send', {
+      method: 'POST',
+      body: { chatId, content },
     });
 
     if (error) {
@@ -151,8 +153,8 @@ class ChatService {
   
   // Obter presença atual de um usuário
   async getPresence(userId: string): Promise<string | null> {
-    const { data, error } = await invokeEdgeFunction<{ active_chat_id: string | null }>('events-api', {
-      body: { op: 'chat.getPresence', params: { userId } },
+    const { data, error } = await invokeEdgeRoute<{ active_chat_id: string | null }>(`chat-api/presence/${userId}`, {
+      method: 'GET',
     });
     
     if (error) {
@@ -200,8 +202,9 @@ class ChatService {
   }
 
   async markMessagesAsRead(chatId: string): Promise<void> {
-    const { error } = await invokeEdgeFunction('events-api', {
-      body: { op: 'chat.markRead', params: { chatId } },
+    const { error } = await invokeEdgeRoute('chat-api/read', {
+      method: 'POST',
+      body: { chatId },
     });
 
     if (error) {

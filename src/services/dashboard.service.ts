@@ -1,4 +1,4 @@
-import { invokeEdgeFunction } from './apiClient';
+import { invokeEdgeRoute } from './apiClient';
 
 export interface DashboardStats {
   totalEvents: number;
@@ -64,8 +64,8 @@ export interface OrganizerFinancialTransaction {
 
 export const dashboardService = {
   async getSales(organizerId: string): Promise<Sale[]> {
-    const { data, error } = await invokeEdgeFunction<{ sales: Sale[] }>('events-api', {
-      body: { op: 'dashboard.getSales', params: { organizerId } },
+    const { data, error } = await invokeEdgeRoute<{ sales: Sale[] }>(`financial-api/sales?organizerId=${encodeURIComponent(organizerId)}`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -73,8 +73,8 @@ export const dashboardService = {
   },
 
   async getStats(organizerId: string): Promise<DashboardStats> {
-    const { data, error } = await invokeEdgeFunction<DashboardStats>('events-api', {
-      body: { op: 'dashboard.getStats', params: { organizerId } },
+    const { data, error } = await invokeEdgeRoute<DashboardStats>(`financial-api/overview?organizerId=${encodeURIComponent(organizerId)}`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -82,16 +82,16 @@ export const dashboardService = {
   },
 
   async getFinancialTransactions(organizerId: string): Promise<OrganizerFinancialTransaction[]> {
-    const { data, error } = await invokeEdgeFunction<{ transactions: OrganizerFinancialTransaction[] }>('events-api', {
-      body: { op: 'dashboard.getFinancialTransactions', params: { organizerId } },
+    const { data, error } = await invokeEdgeRoute<{ transactions: OrganizerFinancialTransaction[] }>(`financial-api/transactions?organizerId=${encodeURIComponent(organizerId)}`, {
+      method: 'GET',
     });
 
     if (error) throw error;
     return data?.transactions || [];
   },
   async getSalesChart(organizerId: string, period: 'day' | 'week' | 'month' = 'week'): Promise<SalesChartData[]> {
-    const { data, error } = await invokeEdgeFunction<{ chart: SalesChartData[] }>('events-api', {
-      body: { op: 'dashboard.getSalesChart', params: { organizerId, period } },
+    const { data, error } = await invokeEdgeRoute<{ chart: SalesChartData[] }>(`financial-api/chart?organizerId=${encodeURIComponent(organizerId)}&period=${encodeURIComponent(period)}`, {
+      method: 'GET',
     });
 
     if (error) throw error;

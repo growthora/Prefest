@@ -3,10 +3,30 @@ import { motion } from 'framer-motion';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, TrendingUp, ShieldCheck, Users, Zap, PieChart } from 'lucide-react';
+import { ROUTE_PATHS } from '@/lib';
 
 const SellTickets = () => {
+  const navigate = useNavigate();
+
+  const handleCreateEventCta = () => {
+    sessionStorage.setItem('postRegisterRedirect', ROUTE_PATHS.CREATE_EVENT);
+    navigate(ROUTE_PATHS.LOGIN, {
+      state: {
+        tab: 'signup',
+        organizer: true,
+        returnTo: ROUTE_PATHS.CREATE_EVENT,
+      },
+    });
+  };
+
+  const handleWhatsappSpecialist = () => {
+    const phone = '5579988538053';
+    const message = encodeURIComponent('Olá quero falar com um Especialista.');
+    window.open(`https://wa.me/${phone}?text=${message}`, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <Layout>
       {/* Hero Section */}
@@ -34,10 +54,19 @@ const SellTickets = () => {
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4">
-                <Button size="lg" className="h-14 px-8 text-lg font-semibold shadow-[0_0_20px_rgba(255,0,127,0.3)]">
+                <Button
+                  size="lg"
+                  className="h-14 px-8 text-lg font-semibold shadow-[0_0_20px_rgba(255,0,127,0.3)]"
+                  onClick={handleCreateEventCta}
+                >
                   Criar meu evento agora
                 </Button>
-                <Button size="lg" variant="outline" className="h-14 px-8 text-lg font-semibold">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="h-14 px-8 text-lg font-semibold"
+                  onClick={handleWhatsappSpecialist}
+                >
                   Falar com especialista
                 </Button>
               </div>
@@ -172,7 +201,11 @@ const SellTickets = () => {
           <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
             Junte-se a milhares de organizadores e leve seu evento para o próximo nível hoje mesmo.
           </p>
-          <Button size="lg" className="h-auto min-h-[64px] w-full sm:w-auto px-6 py-4 text-lg sm:text-xl font-bold shadow-xl hover:scale-105 transition-transform whitespace-normal text-center">
+          <Button
+            size="lg"
+            className="h-auto min-h-[64px] w-full sm:w-auto px-6 py-4 text-lg sm:text-xl font-bold shadow-xl hover:scale-105 transition-transform whitespace-normal text-center"
+            onClick={handleCreateEventCta}
+          >
             Criar meu evento gratuitamente
           </Button>
           <p className="mt-4 text-sm text-muted-foreground">

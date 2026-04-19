@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Bell, Globe, Mail, Save, CreditCard, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { invokeEdgeFunction } from '@/services/apiClient';
+import { invokeEdgeFunction, invokeEdgeRoute } from '@/services/apiClient';
 import { toUserFriendlyErrorMessage } from '@/lib/appErrors';
 
 // Types
@@ -100,13 +100,13 @@ export default function AdminSettings() {
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await invokeEdgeFunction<{
+      const { data, error } = await invokeEdgeRoute<{
         system: SystemSettings | null;
         notifications: NotificationSettings | null;
         smtp: SmtpSettings | null;
         integrations: Integration[] | null;
-      }>('events-api', {
-        body: { op: 'adminSettings.get' },
+      }>('admin-api/settings', {
+        method: 'GET',
       });
 
       if (error) throw error;
@@ -143,7 +143,8 @@ export default function AdminSettings() {
         integrations: integrations.filter(int => int.provider !== 'asaas')
       };
 
-      const { data, error } = await invokeEdgeFunction('save-system-settings', {
+      const { data, error } = await invokeEdgeRoute('admin-api/settings/save', {
+        method: 'POST',
         body: payload,
       });
 
@@ -168,7 +169,8 @@ export default function AdminSettings() {
   const handleTestSmtp = async () => {
     try {
       toast.loading('Testando conexao SMTP...');
-      const { data, error } = await invokeEdgeFunction('test-smtp-connection', {
+      const { data, error } = await invokeEdgeRoute('admin-api/settings/test-smtp', {
+        method: 'POST',
         body: { 
             host: smtp.host, 
             port: smtp.port, 

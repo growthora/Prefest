@@ -16,7 +16,7 @@ import { springPresets } from '@/lib/motion';
 import { couponService } from '@/services/coupon.service';
 import type { Event } from '@/lib/index';
 import { useAuth } from '@/hooks/useAuth';
-import { invokeEdgeFunction } from '@/services/apiClient';
+import { invokeEdgeFunction, invokeEdgeRoute } from '@/services/apiClient';
 import { TicketSelector } from './TicketSelector';
 import { MatchGuidelinesModal } from './MatchGuidelinesModal';
 import { CreditCardForm, CreditCardData } from './payment/CreditCardForm';
@@ -258,8 +258,8 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     }
 
     try {
-      const { data, error } = await invokeEdgeFunction<{ profile: any | null }>('events-api', {
-        body: { op: 'profiles.checkoutData' },
+      const { data, error } = await invokeEdgeRoute<{ profile: any | null }>('profile-api/me/checkout', {
+        method: 'GET',
       });
 
       if (error) throw error;
@@ -446,13 +446,13 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
       
       setIsProcessing(true);
       try {
-        const { data, error } = await invokeEdgeFunction('init-ticket-checkout-v2', {
+        const { data, error } = await invokeEdgeRoute('ticket-api/checkout', {
+            method: 'POST',
             body: { 
                 event_id: event.id,
                 ticket_type_id: selectedTicketTypeId,
                 quantity: 1 
-            },
-            requiresAuth: true
+            }
         });
 
         if (error) throw error;
@@ -587,7 +587,8 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         // FREE FLOW
         // 1. Save Profile (if data exists in state)
         if (hasValidPersonalData(freshProfile)) {
-            const { error: profileError } = await invokeEdgeFunction('save-buyer-profile-v2', {
+            const { error: profileError } = await invokeEdgeRoute('ticket-api/buyer-profile', {
+            method: 'POST',
             body: { full_name: freshProfile.full_name, cpf: freshProfile.cpf, phone: freshProfile.phone, email: freshProfile.email, birth_date: freshProfile.birth_date }
         });
         if (profileError) {
@@ -599,7 +600,8 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         }
 
         // 2. Issue Ticket
-        const { error: ticketError } = await invokeEdgeFunction('issue-free-ticket-v2', {
+        const { error: ticketError } = await invokeEdgeRoute('ticket-api/free', {
+            method: 'POST',
             body: { 
                 event_id: event.id,
                 ticket_type_id: selectedTicketTypeId,
@@ -627,7 +629,8 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
 
         // 1. Save Profile (Mandatory for Paid too)
         if (hasValidPersonalData(freshProfile)) {
-            const { error: profileError } = await invokeEdgeFunction('save-buyer-profile-v2', {
+            const { error: profileError } = await invokeEdgeRoute('ticket-api/buyer-profile', {
+            method: 'POST',
             body: { full_name: freshProfile.full_name, cpf: freshProfile.cpf, phone: freshProfile.phone, email: freshProfile.email, birth_date: freshProfile.birth_date }
         });
         if (profileError) {
@@ -641,7 +644,8 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
             coupon_code: appliedCoupon ? appliedCoupon.code : undefined
         };
 
-        const { data, error } = await invokeEdgeFunction('asaas-create-ticket-payment-v3', {
+        const { data, error } = await invokeEdgeRoute('ticket-api/payment', {
+            method: 'POST',
             body: payload,
             headers: { 
                 'Idempotency-Key': idempotencyKey
@@ -726,13 +730,13 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     if (!ticketId) return false;
     
     try {
-      const { data, error } = await invokeEdgeFunction<{ status: string | null }>('events-api', {
-        body: { op: 'payments.getStatusByTicketId', params: { ticketId } },
+      const { data, error } = await invokeEdgeRoute<{ payment: { status: string | null } | null }>(`ticket-api/payment-status/${ticketId}`, {
+        method: 'GET',
       });
 
       if (error) return false;
 
-      if (data?.status === 'paid') {
+      if (data?.payment?.status === 'paid') {
         handlePaymentSuccess();
         return true;
       }

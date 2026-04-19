@@ -9,6 +9,15 @@ interface InvokeOptions {
   requiresAuth?: boolean; // Default: true
 }
 
+interface EdgeApiEnvelope<T> {
+  success?: boolean;
+  data?: T | null;
+  error?: {
+    code?: string;
+    message?: string;
+  } | null;
+}
+
 async function extractEdgeErrorMessage(error: any): Promise<string | null> {
   try {
     const context = error?.context;
@@ -229,6 +238,89 @@ export async function invokeEdgeFunction<T = any>(
     return { data, error: null };
   } catch (err: any) {
     // console.error(`[apiClient] Erro na função '${functionName}':`, err);
+    return { data: null, error: err };
+  }
+}
+
+export async function invokeEdgeRoute<T = any>(
+  routePath: string,
+  options: InvokeOptions = {}
+): Promise<{ data: T | null; error: any }> {
+  const { requiresAuth = true } = options;
+  let token: string | undefined;
+
+  try {
+    const normalizedPath = routePath.replace(/^\/+/, '');
+
+    if (requiresAuth) {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      token = session?.access_token;
+
+      if (sessionError || !token) {
+        throw new Error('Usuário não autenticado');
+      }
+    }
+
+    const headers: Record<string, string> = {
+      apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+      ...(options.headers || {}),
+    };
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    } else {
+      headers['Authorization'] = `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`;
+    }
+
+    const method = options.method || 'GET';
+    const fetchOptions: RequestInit = {
+      method,
+      headers,
+    };
+
+    if (options.body && method !== 'GET') {
+      const hasContentType = Object.keys(headers).some((key) => key.toLowerCase() === 'content-type');
+      const isStringBody = typeof options.body === 'string';
+      const isFormLikeBody = typeof FormData !== 'undefined' && options.body instanceof FormData;
+
+      if (isFormLikeBody || isStringBody) {
+        fetchOptions.body = options.body;
+      } else {
+        if (!hasContentType) {
+          headers['Content-Type'] = 'application/json';
+        }
+        fetchOptions.body = JSON.stringify(options.body);
+      }
+    }
+
+    const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${normalizedPath}`;
+    const res = await fetch(functionUrl, fetchOptions);
+    const contentType = res.headers.get('content-type') || '';
+    const payload = contentType.includes('application/json')
+      ? await res.json().catch(() => null)
+      : await res.text().catch(() => null);
+
+    const envelope = (payload && typeof payload === 'object' ? payload : null) as EdgeApiEnvelope<T> | null;
+
+    if (!res.ok || envelope?.success === false) {
+      const message =
+        envelope?.error?.message ||
+        (payload && typeof payload === 'object' && ((payload as any).error || (payload as any).message)) ||
+        (typeof payload === 'string' && payload.trim().length > 0 ? payload.trim() : null) ||
+        `Erro ${res.status}`;
+      const error = Object.assign(new Error(String(message)), {
+        status: res.status,
+        code: envelope?.error?.code,
+      });
+      return { data: null, error };
+    }
+
+    if (envelope && typeof envelope.success === 'boolean') {
+      return { data: (envelope.data ?? null) as T | null, error: null };
+    }
+
+    return { data: payload as T, error: null };
+  } catch (err: any) {
     return { data: null, error: err };
   }
 }

@@ -1,8 +1,6 @@
 import { storageService } from './storage.service';
-import { invokeEdgeFunction } from './apiClient';
+import { invokeEdgeRoute } from './apiClient';
 import type { TicketType } from '@/components/CreateEventForm';
-import { generateSlug } from '@/utils/slugify';
-import { differenceInYears } from 'date-fns';
 import { validateEventSchedule, validateTicketSaleWindow } from '@/utils/eventDateValidation';
 
 function toOffsetDateTime(value?: string | null) {
@@ -28,8 +26,8 @@ function toOffsetDateTime(value?: string | null) {
 }
 
 async function getEventScheduleById(eventId: string) {
-  const { data, error } = await invokeEdgeFunction<{ event: Pick<Event, 'id' | 'event_date' | 'end_at'> }>('events-api', {
-    body: { op: 'events.getById', params: { id: eventId } },
+  const { data, error } = await invokeEdgeRoute<{ event: Pick<Event, 'id' | 'event_date' | 'end_at'> }>(`event-api/${eventId}`, {
+    method: 'GET',
   });
 
   if (error) throw error;
@@ -260,8 +258,8 @@ export class EventService {
   private readonly SOLD_TICKET_STATUSES = ['paid', 'issued', 'used', 'valid', 'confirmed', 'received'];
   // Buscar todas as categorias
   async getCategories(): Promise<Category[]> {
-    const { data, error } = await invokeEdgeFunction<{ categories: Category[] }>('events-api', {
-      body: { op: 'categories.list' },
+    const { data, error } = await invokeEdgeRoute<{ categories: Category[] }>('event-api/categories', {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -292,8 +290,9 @@ export class EventService {
       is_active: true,
     };
 
-    const { data, error } = await invokeEdgeFunction<{ event: Event }>('events-api', {
-      body: { op: 'events.create', params: { eventData: eventToInsert } },
+    const { data, error } = await invokeEdgeRoute<{ event: Event }>('event-api', {
+      method: 'POST',
+      body: { eventData: eventToInsert },
     });
 
     if (error) throw error;
@@ -327,8 +326,9 @@ export class EventService {
       sale_end_date: toOffsetDateTime(ticket.sale_end_date) || null,
       };
     });
-    const { data, error } = await invokeEdgeFunction<{ ticket_types: TicketTypeDB[] }>('events-api', {
-      body: { op: 'ticketTypes.createMany', params: { eventId, ticketTypes: ticketsToInsert } },
+    const { data, error } = await invokeEdgeRoute<{ ticket_types: TicketTypeDB[] }>(`ticket-api/event/${eventId}/types/bulk`, {
+      method: 'POST',
+      body: { ticketTypes: ticketsToInsert },
     });
 
     if (error) throw error;
@@ -337,8 +337,8 @@ export class EventService {
 
   // Buscar tipos de ingressos disponíveis para um evento
   async getEventTicketTypes(eventId: string): Promise<TicketTypeDB[]> {
-    const { data, error } = await invokeEdgeFunction<{ ticket_types: TicketTypeDB[] }>('events-api', {
-      body: { op: 'ticketTypes.listForEventPublic', params: { eventId } },
+    const { data, error } = await invokeEdgeRoute<{ ticket_types: TicketTypeDB[] }>(`ticket-api/event/${eventId}/types`, {
+      method: 'GET',
       requiresAuth: false,
     });
 
@@ -348,8 +348,8 @@ export class EventService {
 
   // Buscar todos os tipos de ingressos de um evento (painel organizador/admin)
   async getEventTicketTypesForOrganizer(eventId: string): Promise<TicketTypeDB[]> {
-    const { data, error } = await invokeEdgeFunction<{ ticket_types: TicketTypeDB[] }>('events-api', {
-      body: { op: 'ticketTypes.listForOrganizer', params: { eventId } },
+    const { data, error } = await invokeEdgeRoute<{ ticket_types: TicketTypeDB[] }>(`ticket-api/event/${eventId}/types/organizer`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -380,8 +380,9 @@ export class EventService {
       is_active: payload.is_active ?? true,
     };
 
-    const { data, error } = await invokeEdgeFunction<{ ticket_type: TicketTypeDB }>('events-api', {
-      body: { op: 'ticketTypes.create', params: { eventId, payload: dataToInsert } },
+    const { data, error } = await invokeEdgeRoute<{ ticket_type: TicketTypeDB }>(`ticket-api/event/${eventId}/types`, {
+      method: 'POST',
+      body: { payload: dataToInsert },
     });
 
     if (error) throw error;
@@ -391,10 +392,10 @@ export class EventService {
 
   // Atualizar um tipo de ingresso (lote)
   async updateTicketType(ticketTypeId: string, payload: TicketTypeUpdateData): Promise<TicketTypeDB> {
-    const { data: existingResult, error: existingError } = await invokeEdgeFunction<{
+    const { data: existingResult, error: existingError } = await invokeEdgeRoute<{
       ticket_type: { id: string; event_id: string; quantity_sold: number | null; sale_start_date: string | null; sale_end_date: string | null };
-    }>('events-api', {
-      body: { op: 'ticketTypes.get', params: { ticketTypeId } },
+    }>(`ticket-api/types/${ticketTypeId}`, {
+      method: 'GET',
     });
 
     if (existingError) throw existingError;
@@ -421,16 +422,13 @@ export class EventService {
       throw new Error(saleWindowError);
     }
 
-    const { data, error } = await invokeEdgeFunction<{ ticket_type: TicketTypeDB }>('events-api', {
+    const { data, error } = await invokeEdgeRoute<{ ticket_type: TicketTypeDB }>(`ticket-api/types/${ticketTypeId}`, {
+      method: 'PUT',
       body: {
-        op: 'ticketTypes.update',
-        params: {
-          ticketTypeId,
-          payload: {
-            ...payload,
-            sale_start_date: payload.sale_start_date === undefined ? undefined : toOffsetDateTime(payload.sale_start_date) ?? null,
-            sale_end_date: payload.sale_end_date === undefined ? undefined : toOffsetDateTime(payload.sale_end_date) ?? null,
-          },
+        payload: {
+          ...payload,
+          sale_start_date: payload.sale_start_date === undefined ? undefined : toOffsetDateTime(payload.sale_start_date) ?? null,
+          sale_end_date: payload.sale_end_date === undefined ? undefined : toOffsetDateTime(payload.sale_end_date) ?? null,
         },
       },
     });
@@ -442,8 +440,8 @@ export class EventService {
 
   // Excluir um tipo de ingresso (lote)
   async deleteTicketType(ticketTypeId: string): Promise<void> {
-    const { error } = await invokeEdgeFunction('events-api', {
-      body: { op: 'ticketTypes.delete', params: { ticketTypeId } },
+    const { error } = await invokeEdgeRoute(`ticket-api/types/${ticketTypeId}`, {
+      method: 'DELETE',
     });
 
     if (error) throw error;
@@ -455,14 +453,11 @@ export class EventService {
     for (let i = 0; i < retries; i++) {
       try {
         const { data, error } = await (includeDrafts
-          ? invokeEdgeFunction<{ events: Event[] }>('events-api', {
-              body: {
-                op: 'events.listAll',
-                params: { includeDrafts, includeInactive: includeDrafts },
-              },
+          ? invokeEdgeRoute<{ events: Event[] }>(`event-api?includeDrafts=true&includeInactive=true`, {
+              method: 'GET',
             })
-          : invokeEdgeFunction<{ events: Event[] }>('events-api', {
-              body: { op: 'events.listPublic' },
+          : invokeEdgeRoute<{ events: Event[] }>('event-api/public', {
+              method: 'GET',
               requiresAuth: false,
             }));
 
@@ -481,8 +476,8 @@ export class EventService {
 
   // Listar eventos disponíveis (não lotados e futuros)
   async getAvailableEvents(): Promise<Event[]> {
-    const { data, error } = await invokeEdgeFunction<{ events: Event[] }>('events-api', {
-      body: { op: 'events.listPublic' },
+    const { data, error } = await invokeEdgeRoute<{ events: Event[] }>('event-api/public', {
+      method: 'GET',
       requiresAuth: false,
     });
 
@@ -495,8 +490,8 @@ export class EventService {
   }
 
   async getPublicEventBySlug(slug: string): Promise<Event> {
-    const { data, error } = await invokeEdgeFunction<{ event: Event }>('events-api', {
-      body: { op: 'events.getBySlugPublic', params: { slug } },
+    const { data, error } = await invokeEdgeRoute<{ event: Event }>(`event-api/public/slug/${slug}`, {
+      method: 'GET',
       requiresAuth: false,
     });
 
@@ -506,8 +501,8 @@ export class EventService {
   }
 
   async getPublicEventById(id: string): Promise<Event> {
-    const { data, error } = await invokeEdgeFunction<{ event: Event }>('events-api', {
-      body: { op: 'events.getByIdPublic', params: { id } },
+    const { data, error } = await invokeEdgeRoute<{ event: Event }>(`event-api/public/${id}`, {
+      method: 'GET',
       requiresAuth: false,
     });
 
@@ -518,8 +513,8 @@ export class EventService {
 
   // Buscar evento por Slug
   async getEventBySlug(slug: string): Promise<Event> {
-    const { data, error } = await invokeEdgeFunction<{ event: Event }>('events-api', {
-      body: { op: 'events.getBySlug', params: { slug } },
+    const { data, error } = await invokeEdgeRoute<{ event: Event }>(`event-api/slug/${slug}`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -529,8 +524,8 @@ export class EventService {
 
   // Buscar evento por ID
   async getEventById(id: string): Promise<Event> {
-    const { data, error } = await invokeEdgeFunction<{ event: Event }>('events-api', {
-      body: { op: 'events.getById', params: { id } },
+    const { data, error } = await invokeEdgeRoute<{ event: Event }>(`event-api/${id}`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -563,8 +558,8 @@ export class EventService {
   }
 
   async getEventImages(eventId: string): Promise<EventImage[]> {
-    const { data, error } = await invokeEdgeFunction<{ images: EventImage[] }>('events-api', {
-      body: { op: 'eventImages.list', params: { eventId } },
+    const { data, error } = await invokeEdgeRoute<{ images: EventImage[] }>(`event-api/${eventId}/images`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -572,8 +567,8 @@ export class EventService {
   }
 
   async getPublicEventImages(eventId: string): Promise<EventImage[]> {
-    const { data, error } = await invokeEdgeFunction<{ images: EventImage[] }>('events-api', {
-      body: { op: 'eventImages.listPublic', params: { eventId } },
+    const { data, error } = await invokeEdgeRoute<{ images: EventImage[] }>(`event-api/public/${eventId}/images`, {
+      method: 'GET',
       requiresAuth: false,
     });
 
@@ -593,16 +588,17 @@ export class EventService {
       }))
       // Keep exactly one cover and insert it first to avoid trigger race with unique cover constraint.
       .sort((a, b) => Number(b.is_cover) - Number(a.is_cover));
-    const { data, error } = await invokeEdgeFunction<{ images: EventImage[] }>('events-api', {
-      body: { op: 'eventImages.set', params: { eventId, images: payload } },
+    const { data, error } = await invokeEdgeRoute<{ images: EventImage[] }>(`event-api/${eventId}/images`, {
+      method: 'PUT',
+      body: { images: payload },
     });
 
     if (error) throw error;
     return data?.images || [];
   }
   async getManagedOrganizerId(userId: string): Promise<string> {
-    const { data, error } = await invokeEdgeFunction<{ organizerId: string }>('events-api', {
-      body: { op: 'organizer.getManagedOrganizerId' },
+    const { data, error } = await invokeEdgeRoute<{ organizerId: string }>('event-api/organizer/managed-id', {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -616,10 +612,10 @@ export class EventService {
 
   // Buscar eventos criados por um organizador específico (com estatísticas básicas)
   async getEventsByCreator(creatorId: string): Promise<(Event & { revenue?: number; ticketsSold?: number; totalTicketsConfigured?: number })[]> {
-    const { data, error } = await invokeEdgeFunction<{
+    const { data, error } = await invokeEdgeRoute<{
       events: (Event & { revenue?: number; ticketsSold?: number; totalTicketsConfigured?: number })[];
-    }>('events-api', {
-      body: { op: 'organizer.eventsByCreator', params: { creatorId } },
+    }>(`event-api/organizer/${creatorId}/events`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -628,8 +624,8 @@ export class EventService {
 
   // Buscar participantes do evento (para substituir mocks)
   async getEventParticipants(eventId: string, limit = 100): Promise<any[]> {
-    const { data, error } = await invokeEdgeFunction<{ participants: any[] }>('events-api', {
-      body: { op: 'participants.list', params: { eventId, limit } },
+    const { data, error } = await invokeEdgeRoute<{ participants: any[] }>(`event-api/${eventId}/participants?limit=${limit}`, {
+      method: 'GET',
     });
 
     if (error || !data?.participants) {
@@ -641,8 +637,8 @@ export class EventService {
 
   // Listar eventos que o usuário participa
   async getEventsByParticipant(userId: string): Promise<Event[]> {
-    const { data, error } = await invokeEdgeFunction<{ events: Event[] }>('events-api', {
-      body: { op: 'events.byParticipant', params: { userId } },
+    const { data, error } = await invokeEdgeRoute<{ events: Event[] }>(`event-api/participant/${userId}`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -664,8 +660,9 @@ export class EventService {
       updatesToSave.event_date = `${updates.event_date}:00${offsetSign}${offsetHours}:${offsetMins}`;
     }
 
-    const { data, error } = await invokeEdgeFunction<{ event: Event }>('events-api', {
-      body: { op: 'events.update', params: { eventId, updates: updatesToSave } },
+    const { data, error } = await invokeEdgeRoute<{ event: Event }>(`event-api/${eventId}`, {
+      method: 'PUT',
+      body: { updates: updatesToSave },
     });
 
     if (error) throw error;
@@ -680,8 +677,8 @@ export class EventService {
     const galleryImages = await this.getEventImages(eventId).catch(() => [] as EventImage[]);
     const galleryImageUrls = galleryImages.map((img) => img.image_url).filter(Boolean);
 
-    const { error } = await invokeEdgeFunction('delete-event-safely', {
-      body: { eventId },
+    const { error } = await invokeEdgeRoute(`event-api/${eventId}`, {
+      method: 'DELETE',
     });
 
     if (error) throw error;
@@ -702,8 +699,8 @@ export class EventService {
   }
 
   async deactivateEvent(eventId: string): Promise<Event> {
-    const { data, error } = await invokeEdgeFunction<{ event: Event }>('events-api', {
-      body: { op: 'events.deactivate', params: { eventId } },
+    const { data, error } = await invokeEdgeRoute<{ event: Event }>(`event-api/${eventId}/deactivate`, {
+      method: 'POST',
     });
 
     if (error) throw error;
@@ -712,8 +709,8 @@ export class EventService {
   }
 
   async reactivateEvent(eventId: string): Promise<Event> {
-    const { data, error } = await invokeEdgeFunction<{ event: Event }>('events-api', {
-      body: { op: 'events.reactivate', params: { eventId } },
+    const { data, error } = await invokeEdgeRoute<{ event: Event }>(`event-api/${eventId}/reactivate`, {
+      method: 'POST',
     });
 
     if (error) throw error;
@@ -729,8 +726,10 @@ export class EventService {
     ticketTypeId?: string,
     totalPaid?: number
   ): Promise<EventParticipant> {
-    const { data, error } = await invokeEdgeFunction<{ participant: EventParticipant }>('events-api', {
-      body: { op: 'participants.join', params: { eventId, ticketQuantity, ticketTypeId, totalPaid } },
+    void userId;
+    const { data, error } = await invokeEdgeRoute<{ participant: EventParticipant }>('ticket-api/participants/join', {
+      method: 'POST',
+      body: { eventId, ticketQuantity, ticketTypeId, totalPaid },
     });
 
     if (error) throw error;
@@ -740,8 +739,9 @@ export class EventService {
 
   // Cancelar participação em evento
   async leaveEvent(eventId: string, userId: string): Promise<void> {
-    const { error } = await invokeEdgeFunction('events-api', {
-      body: { op: 'participants.leave', params: { eventId } },
+    void userId;
+    const { error } = await invokeEdgeRoute(`ticket-api/participants/${eventId}`, {
+      method: 'DELETE',
     });
 
     if (error) throw error;
@@ -749,8 +749,8 @@ export class EventService {
 
   // Verificar se usuário está inscrito no evento
   async getUserParticipation(eventId: string, userId: string): Promise<EventParticipant | null> {
-    const { data, error } = await invokeEdgeFunction<{ participation: EventParticipant | null }>('events-api', {
-      body: { op: 'participants.get', params: { eventId, userId } },
+    const { data, error } = await invokeEdgeRoute<{ participation: EventParticipant | null }>(`ticket-api/participants/${eventId}?userId=${userId}`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -766,8 +766,8 @@ export class EventService {
 
   // Buscar eventos por categoria
   async getEventsByCategory(category: string): Promise<Event[]> {
-    const { data, error } = await invokeEdgeFunction<{ events: Event[] }>('events-api', {
-      body: { op: 'events.byCategory', params: { category } },
+    const { data, error } = await invokeEdgeRoute<{ events: Event[] }>(`event-api/category/${encodeURIComponent(category)}`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -776,8 +776,8 @@ export class EventService {
 
   // Buscar eventos por localização
   async getEventsByLocation(location: string): Promise<Event[]> {
-    const { data, error } = await invokeEdgeFunction<{ events: Event[] }>('events-api', {
-      body: { op: 'events.byLocation', params: { location } },
+    const { data, error } = await invokeEdgeRoute<{ events: Event[] }>(`event-api/location?q=${encodeURIComponent(location)}`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -785,8 +785,8 @@ export class EventService {
   }
 
   async getTrendingEvents(limit = 20): Promise<Event[]> {
-    const { data, error } = await invokeEdgeFunction<{ events: Event[] }>('events-api', {
-      body: { op: 'events.trendingPublic', params: { limit } },
+    const { data, error } = await invokeEdgeRoute<{ events: Event[] }>(`event-api/trending?limit=${limit}`, {
+      method: 'GET',
       requiresAuth: false,
     });
 
@@ -795,8 +795,8 @@ export class EventService {
   }
 
   async getNewEvents(): Promise<Event[]> {
-    const { data, error } = await invokeEdgeFunction<{ events: Event[] }>('events-api', {
-      body: { op: 'events.listNewPublic' },
+    const { data, error } = await invokeEdgeRoute<{ events: Event[] }>('event-api/new', {
+      method: 'GET',
       requiresAuth: false,
     });
 
@@ -805,8 +805,8 @@ export class EventService {
   }
 
   async getCategoriesWithUpcomingEvents(): Promise<(Category & { upcoming_events_count: number })[]> {
-    const { data, error } = await invokeEdgeFunction<{ categories: (Category & { upcoming_events_count: number })[] }>('events-api', {
-      body: { op: 'categories.withUpcomingCountsPublic' },
+    const { data, error } = await invokeEdgeRoute<{ categories: (Category & { upcoming_events_count: number })[] }>('event-api/upcoming-categories', {
+      method: 'GET',
       requiresAuth: false,
     });
 
@@ -816,8 +816,8 @@ export class EventService {
 
   // Buscar eventos do usuário (eventos em que está inscrito)
   async getUserEvents(userId: string): Promise<Event[]> {
-    const { data, error } = await invokeEdgeFunction<{ events: Event[] }>('events-api', {
-      body: { op: 'events.byParticipant', params: { userId } },
+    const { data, error } = await invokeEdgeRoute<{ events: Event[] }>(`event-api/participant/${userId}`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -826,8 +826,8 @@ export class EventService {
 
   // Buscar participantes de um evento que estão com single_mode/match_enabled ativo
   async getEventSingles(eventId: string): Promise<any[]> {
-    const { data, error } = await invokeEdgeFunction<{ singles: any[] }>('events-api', {
-      body: { op: 'singles.listForEvent', params: { eventId } },
+    const { data, error } = await invokeEdgeRoute<{ singles: any[] }>(`event-api/${eventId}/singles`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -836,8 +836,8 @@ export class EventService {
 
   // Buscar candidatos de match de forma segura via RPC
   async getMatchCandidates(eventId: string): Promise<MatchCandidate[]> {
-    const { data, error } = await invokeEdgeFunction<{ candidates: MatchCandidate[] }>('events-api', {
-      body: { op: 'matchCandidates.listForEvent', params: { eventId } },
+    const { data, error } = await invokeEdgeRoute<{ candidates: MatchCandidate[] }>(`event-api/${eventId}/match-candidates`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -845,8 +845,8 @@ export class EventService {
   }
 
   async getEventAttendees(eventId: string): Promise<any[]> {
-    const { data, error } = await invokeEdgeFunction<{ attendees: any[] }>('events-api', {
-      body: { op: 'attendees.listForEvent', params: { eventId } },
+    const { data, error } = await invokeEdgeRoute<{ attendees: any[] }>(`event-api/${eventId}/attendees`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -855,8 +855,8 @@ export class EventService {
 
   // Buscar ingressos do usuário com detalhes do evento e token
   async getUserTickets(userId: string): Promise<(EventParticipant & { event: Event })[]> {
-    const { data, error } = await invokeEdgeFunction<{ tickets: (EventParticipant & { event: Event })[] }>('events-api', {
-      body: { op: 'tickets.listByUser', params: { userId } },
+    const { data, error } = await invokeEdgeRoute<{ tickets: (EventParticipant & { event: Event })[] }>(`ticket-api/user/${userId}`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -865,8 +865,8 @@ export class EventService {
 
   // Obter detalhes do ingresso para exibição (incluindo token QR)
   async getTicketDetails(ticketId: string): Promise<EventParticipant> {
-    const { data, error } = await invokeEdgeFunction<{ ticket: EventParticipant }>('events-api', {
-      body: { op: 'tickets.getDetails', params: { ticketId } },
+    const { data, error } = await invokeEdgeRoute<{ ticket: EventParticipant }>(`ticket-api/${ticketId}`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -876,8 +876,10 @@ export class EventService {
 
   // Validar ingresso (Scanner)
   async validateTicket(ticketId: string, eventId: string, token: string, validatorId: string): Promise<any> {
-    const { data, error } = await invokeEdgeFunction<{ result: any }>('events-api', {
-      body: { op: 'tickets.validate', params: { ticketId, eventId, token, validatorId } },
+    void validatorId;
+    const { data, error } = await invokeEdgeRoute<{ result: any }>('ticket-api/validate', {
+      method: 'POST',
+      body: { ticketId, eventId, token },
     });
 
     if (error) throw error;
@@ -886,8 +888,10 @@ export class EventService {
 
   // Validar ingresso via Scanner (Novo Formato Simples)
   async validateTicketScan(code: string, eventId: string, validatorId: string): Promise<any> {
-    const { data, error } = await invokeEdgeFunction<{ result: any }>('events-api', {
-      body: { op: 'tickets.validateScan', params: { code, eventId, validatorId } },
+    void validatorId;
+    const { data, error } = await invokeEdgeRoute<{ result: any }>('ticket-api/validate-scan', {
+      method: 'POST',
+      body: { code, eventId },
     });
 
     if (error) throw error;
@@ -896,8 +900,8 @@ export class EventService {
 
   // Buscar eventos criados pelo organizador (para o Scanner)
   async getOrganizerEvents(organizerId: string): Promise<Event[]> {
-    const { data, error } = await invokeEdgeFunction<{ events: Event[] }>('events-api', {
-      body: { op: 'events.organizerUpcoming', params: { organizerId } },
+    const { data, error } = await invokeEdgeRoute<{ events: Event[] }>(`event-api/organizer/${organizerId}/upcoming`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -910,8 +914,8 @@ export class EventService {
   }
 
   async getEventScanLogs(eventId: string, limit = 50): Promise<EventScanLog[]> {
-    const { data, error } = await invokeEdgeFunction<{ logs: EventScanLog[] }>('events-api', {
-      body: { op: 'scanLogs.list', params: { eventId, limit } },
+    const { data, error } = await invokeEdgeRoute<{ logs: EventScanLog[] }>(`event-api/${eventId}/scan-logs?limit=${limit}`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -920,8 +924,10 @@ export class EventService {
 
   // Validar ingresso manualmente (Código)
   async validateTicketManual(code: string, eventId: string, validatorId: string): Promise<any> {
-    const { data, error } = await invokeEdgeFunction<{ result: any }>('events-api', {
-      body: { op: 'tickets.validateManual', params: { code, eventId, validatorId } },
+    void validatorId;
+    const { data, error } = await invokeEdgeRoute<{ result: any }>('ticket-api/validate-manual', {
+      method: 'POST',
+      body: { code, eventId },
     });
 
     if (error) throw error;
@@ -930,8 +936,8 @@ export class EventService {
 
   // Buscar perfil público de um usuário (com filtro de privacidade)
   async getPublicProfile(userId: string): Promise<any> {
-    const { data, error } = await invokeEdgeFunction<{ profile: any }>('events-api', {
-      body: { op: 'profiles.getPublicProfile', params: { userId } },
+    const { data, error } = await invokeEdgeRoute<{ profile: any }>(`profile-api/public/${userId}`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -942,8 +948,9 @@ export class EventService {
 
   // Alternar like (curtir/descurtir)
   async toggleLike(eventId: string, userId: string): Promise<boolean> {
-    const { data, error } = await invokeEdgeFunction<{ liked: boolean }>('events-api', {
-      body: { op: 'likes.toggle', params: { eventId } },
+    void userId;
+    const { data, error } = await invokeEdgeRoute<{ liked: boolean }>(`event-api/likes/${eventId}/toggle`, {
+      method: 'POST',
     });
 
     if (error) throw error;
@@ -952,8 +959,9 @@ export class EventService {
 
   // Verificar se usuário curtiu evento
   async hasUserLiked(eventId: string, userId: string): Promise<boolean> {
-    const { data, error } = await invokeEdgeFunction<{ hasLiked: boolean }>('events-api', {
-      body: { op: 'likes.has', params: { eventId } },
+    void userId;
+    const { data, error } = await invokeEdgeRoute<{ hasLiked: boolean }>(`event-api/likes/${eventId}/status`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -962,8 +970,8 @@ export class EventService {
 
   // Obter eventos curtidos pelo usuário
   async getUserLikedEvents(userId: string): Promise<Event[]> {
-    const { data, error } = await invokeEdgeFunction<{ events: Event[] }>('events-api', {
-      body: { op: 'likes.listByUser', params: { userId } },
+    const { data, error } = await invokeEdgeRoute<{ events: Event[] }>(`event-api/likes/user/${userId}`, {
+      method: 'GET',
     });
 
     if (error) throw error;

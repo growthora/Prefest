@@ -1,4 +1,4 @@
-import { invokeEdgeFunction } from '@/services/apiClient';
+import { invokeEdgeRoute } from '@/services/apiClient';
 
 export interface MatchEventLink {
   event_id: string;
@@ -83,8 +83,9 @@ const normalizeMatch = (row: any): Match => {
 
 class MatchService {
   async getUserMatches(eventId?: string): Promise<Match[]> {
-    const { data, error } = await invokeEdgeFunction<{ matches: any[] }>('events-api', {
-      body: { op: 'matches.list', params: { eventId } },
+    const query = eventId ? `?eventId=${encodeURIComponent(eventId)}` : '';
+    const { data, error } = await invokeEdgeRoute<{ matches: any[] }>(`match-api/list${query}`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -92,8 +93,8 @@ class MatchService {
   }
 
   async getMatchDetails(matchId: string): Promise<Match | null> {
-    const { data, error } = await invokeEdgeFunction<{ match: any | null }>('events-api', {
-      body: { op: 'matches.getDetails', params: { matchId } },
+    const { data, error } = await invokeEdgeRoute<{ match: any | null }>(`match-api/details/${matchId}`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -102,8 +103,8 @@ class MatchService {
   }
 
   async getEventMatches(eventId: string): Promise<Match[]> {
-    const { data, error } = await invokeEdgeFunction<{ matches: any[] }>('events-api', {
-      body: { op: 'matches.listForEvent', params: { eventId } },
+    const { data, error } = await invokeEdgeRoute<{ matches: any[] }>(`match-api/event/${eventId}/list`, {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -111,16 +112,18 @@ class MatchService {
   }
 
   async markMatchSeen(matchId: string, eventId?: string): Promise<void> {
-    const { error } = await invokeEdgeFunction('events-api', {
-      body: { op: 'matches.markSeen', params: { matchId, eventId } },
+    const { error } = await invokeEdgeRoute('match-api/seen', {
+      method: 'POST',
+      body: { matchId, eventId },
     });
 
     if (error) throw error;
   }
 
   async markChatOpened(matchId: string, eventId?: string): Promise<void> {
-    const { error } = await invokeEdgeFunction('events-api', {
-      body: { op: 'matches.markChatOpened', params: { matchId, eventId } },
+    const { error } = await invokeEdgeRoute('match-api/chat-opened', {
+      method: 'POST',
+      body: { matchId, eventId },
     });
 
     if (error) throw error;

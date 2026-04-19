@@ -111,4 +111,7 @@ verify_jwt = false
 [functions.refund-requests]
 verify_jwt = false
 
+[functions.events-api]
+verify_jwt = false
+
 

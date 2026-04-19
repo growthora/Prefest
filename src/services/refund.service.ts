@@ -1,4 +1,4 @@
-import { invokeEdgeFunction } from '@/services/apiClient';
+import { invokeEdgeRoute } from '@/services/apiClient';
 
 export interface RefundRequestRecord {
   id: string;
@@ -88,9 +88,8 @@ export interface AdminRefundRequest extends RefundRequestRecord {
 
 class RefundService {
   async getMyRefundData(): Promise<{ requests: RefundRequestRecord[]; eligibleTickets: RefundEligibleTicket[] }> {
-    const { data, error } = await invokeEdgeFunction('refund-requests', {
+    const { data, error } = await invokeEdgeRoute('financial-api/refunds', {
       method: 'GET',
-      requiresAuth: true,
     });
 
     if (error) throw error;
@@ -102,10 +101,9 @@ class RefundService {
   }
 
   async createRefundRequest(ticketId: string, reason: string): Promise<void> {
-    const { data, error } = await invokeEdgeFunction('refund-requests', {
+    const { data, error } = await invokeEdgeRoute('financial-api/refunds', {
       method: 'POST',
       body: { ticketId, reason },
-      requiresAuth: true,
     });
 
     if (error) throw error;
@@ -113,9 +111,8 @@ class RefundService {
   }
 
   async getAdminRefundRequests(): Promise<AdminRefundRequest[]> {
-    const { data, error } = await invokeEdgeFunction('refund-requests?scope=admin', {
+    const { data, error } = await invokeEdgeRoute('financial-api/admin/refunds', {
       method: 'GET',
-      requiresAuth: true,
     });
 
     if (error) throw error;
@@ -123,10 +120,9 @@ class RefundService {
   }
 
   async updateRefundRequest(requestId: string, action: 'approve' | 'reject' | 'process', notes?: string): Promise<void> {
-    const { data, error } = await invokeEdgeFunction('refund-requests', {
+    const { data, error } = await invokeEdgeRoute('financial-api/refunds', {
       method: 'PATCH',
       body: { requestId, action, notes },
-      requiresAuth: true,
     });
 
     if (error) throw error;

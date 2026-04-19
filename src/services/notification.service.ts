@@ -1,4 +1,4 @@
-import { invokeEdgeFunction } from '@/services/apiClient';
+import { invokeEdgeRoute } from '@/services/apiClient';
 
 export interface Notification {
   id: string;
@@ -12,8 +12,8 @@ export interface Notification {
 
 export const notificationService = {
   async listNotifications(): Promise<Notification[]> {
-    const { data, error } = await invokeEdgeFunction<{ notifications: Notification[] }>('events-api', {
-      body: { op: 'notifications.list' },
+    const { data, error } = await invokeEdgeRoute<{ notifications: Notification[] }>('match-api/notifications', {
+      method: 'GET',
     });
 
     if (error) throw error;
@@ -25,8 +25,8 @@ export const notificationService = {
   },
 
   async dismissNotification(id: string) {
-    const { error } = await invokeEdgeFunction('events-api', {
-      body: { op: 'notifications.dismiss', params: { id } },
+    const { error } = await invokeEdgeRoute(`match-api/notifications/${id}`, {
+      method: 'DELETE',
     });
 
     if (error) throw error;

@@ -31,7 +31,7 @@ import {
 import { formatCurrency } from '@/utils/format';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { invokeEdgeFunction } from '@/services/apiClient';
+import { invokeEdgeRoute } from '@/services/apiClient';
 
 interface FinancialOverview {
   total_gross_sales: number;
@@ -95,8 +95,9 @@ export default function AdminFinancial() {
       if (dateEnd) queryParams.append('dateEnd', dateEnd);
 
       if (activeTab === 'overview') {
-        queryParams.append('type', 'overview');
-        const { data, error } = await invokeEdgeFunction(`admin-financial-dashboard?${queryParams.toString()}`);
+        const { data, error } = await invokeEdgeRoute(`financial-api/admin/overview?${queryParams.toString()}`, {
+          method: 'GET',
+        });
         if (error) throw error;
         
         // Map backend response to frontend interface
@@ -113,12 +114,13 @@ export default function AdminFinancial() {
           top_organizers: data.top_organizers ?? []
         });
       } else if (activeTab === 'transactions') {
-        queryParams.append('type', 'payments');
         queryParams.append('page', page.toString());
         queryParams.append('pageSize', '20');
         if (statusFilter !== 'all') queryParams.append('status', statusFilter);
 
-        const { data, error } = await invokeEdgeFunction(`admin-financial-dashboard?${queryParams.toString()}`);
+        const { data, error } = await invokeEdgeRoute(`financial-api/admin/transactions?${queryParams.toString()}`, {
+          method: 'GET',
+        });
         if (error) throw error;
         
         // Map backend response to frontend interface
@@ -157,7 +159,9 @@ export default function AdminFinancial() {
     if (!paymentId) return;
     try {
         toast.loading('Conciliando pagamento...', { id: 'reconcile' });
-        const { data, error } = await invokeEdgeFunction(`admin-financial-dashboard?type=reconcile&id=${paymentId}`);
+        const { data, error } = await invokeEdgeRoute(`financial-api/admin/reconcile/${paymentId}`, {
+          method: 'POST',
+        });
         if (error) throw error;
         
         toast.dismiss('reconcile');
@@ -177,7 +181,9 @@ export default function AdminFinancial() {
   const handleReconcileAll = async () => {
     try {
       toast.loading('Conciliando pagamentos em lote...', { id: 'reconcile-all' });
-      const { data, error } = await invokeEdgeFunction('admin-financial-dashboard?type=reconcile-all&limit=500');
+      const { data, error } = await invokeEdgeRoute('financial-api/admin/reconcile-all?limit=500', {
+        method: 'POST',
+      });
       if (error) throw error;
 
       toast.dismiss('reconcile-all');
@@ -561,7 +567,6 @@ export default function AdminFinancial() {
     </motion.div>
   );
 }
-
 
 
 

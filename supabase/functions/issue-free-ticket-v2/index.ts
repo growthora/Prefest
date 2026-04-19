@@ -149,6 +149,29 @@ Deno.serve(async (req) => {
       throw new Error('Ingressos esgotados');
     }
 
+    // 4.1 Idempotency by event/user: if participant already exists, reuse it
+    const { data: existingParticipant, error: existingParticipantError } = await adminClient
+      .from('event_participants')
+      .select('id, ticket_id, ticket_code, ticket_token, status')
+      .eq('event_id', event_id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (existingParticipantError) {
+      throw new Error(`Failed to verify existing participant: ${existingParticipantError.message}`);
+    }
+
+    if (existingParticipant) {
+      return new Response(JSON.stringify({
+        success: true,
+        ticket_id: existingParticipant.ticket_id ?? null,
+        participant_id: existingParticipant.id,
+        already_exists: true,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
+      });
+    }
+
     // 5. Create Ticket
     const { data: ticket, error: createError } = await adminClient
       .from('tickets')
@@ -194,6 +217,28 @@ Deno.serve(async (req) => {
       });
       
     if (participantError) {
+       const isDuplicateParticipant =
+         participantError.code === '23505' ||
+         /duplicate key/i.test(participantError.message || '');
+
+       if (isDuplicateParticipant) {
+         const { data: participantAfterDuplicate } = await adminClient
+           .from('event_participants')
+           .select('id, ticket_id')
+           .eq('event_id', event_id)
+           .eq('user_id', user.id)
+           .maybeSingle();
+
+         return new Response(JSON.stringify({
+           success: true,
+           ticket_id: participantAfterDuplicate?.ticket_id ?? ticket.id,
+           participant_id: participantAfterDuplicate?.id ?? null,
+           already_exists: true,
+         }), {
+           headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' },
+         });
+       }
+
        // console.error('Participant creation error:', participantError);
        // Rollback ticket creation
        await adminClient.from('tickets').delete().eq('id', ticket.id);
@@ -222,4 +267,3 @@ Deno.serve(async (req) => {
     });
   }
 });
-

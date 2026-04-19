@@ -1,4 +1,4 @@
-import { invokeEdgeFunction } from '@/services/apiClient';
+import { invokeEdgeRoute } from '@/services/apiClient';
 
 export interface EventRequest {
   id: string;
@@ -27,8 +27,9 @@ class EventRequestService {
   async createRequest(data: CreateEventRequestData): Promise<EventRequest> {
     // console.log('📤 Enviando solicitação:', data);
 
-    const { data: result, error } = await invokeEdgeFunction<{ request: EventRequest }>('events-api', {
-      body: { op: 'eventRequests.create', params: { data } },
+    const { data: result, error } = await invokeEdgeRoute<{ request: EventRequest }>('event-api/requests', {
+      method: 'POST',
+      body: data,
       requiresAuth: false,
     });
 
@@ -49,8 +50,8 @@ class EventRequestService {
   }
 
   async getAllRequests(): Promise<EventRequest[]> {
-    const { data, error } = await invokeEdgeFunction<{ requests: EventRequest[] }>('events-api', {
-      body: { op: 'eventRequests.listAll' },
+    const { data, error } = await invokeEdgeRoute<{ requests: EventRequest[] }>('admin-api/event-requests', {
+      method: 'GET',
     });
 
     if (error) {
@@ -66,8 +67,9 @@ class EventRequestService {
     status: EventRequest['status'],
     notes?: string
   ): Promise<void> {
-    const { error } = await invokeEdgeFunction('events-api', {
-      body: { op: 'eventRequests.updateStatus', params: { id, status, notes } },
+    const { error } = await invokeEdgeRoute(`admin-api/event-requests/${id}`, {
+      method: 'PUT',
+      body: { status, notes },
     });
 
     if (error) {
@@ -77,8 +79,8 @@ class EventRequestService {
   }
 
   async deleteRequest(id: string): Promise<void> {
-    const { error } = await invokeEdgeFunction('events-api', {
-      body: { op: 'eventRequests.delete', params: { id } },
+    const { error } = await invokeEdgeRoute(`admin-api/event-requests/${id}`, {
+      method: 'DELETE',
     });
 
     if (error) {

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { invokeEdgeFunction } from '@/services/apiClient';
+import { invokeEdgeFunction, invokeEdgeRoute } from '@/services/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -49,8 +49,8 @@ export function AsaasConnect() {
   const loadAccount = async () => {
     try {
       setLoading(true);
-      const { data, error } = await invokeEdgeFunction<{ account: AsaasAccount | null }>('events-api', {
-        body: { op: 'organizerAsaas.getAccount' },
+      const { data, error } = await invokeEdgeRoute<{ account: AsaasAccount | null }>('financial-api/asaas/account', {
+        method: 'GET',
       });
 
       if (error) throw error;
@@ -81,8 +81,9 @@ export function AsaasConnect() {
 
     setSubmitting(true);
     try {
-      const { data, error } = await invokeEdgeFunction<{ account: AsaasAccount }>('events-api', {
-        body: { op: 'organizerAsaas.connectExternalWallet', params: { walletId, externalEmail } },
+      const { data, error } = await invokeEdgeRoute<{ account: AsaasAccount }>('financial-api/asaas/account', {
+        method: 'PUT',
+        body: { walletId, externalEmail },
       });
 
       if (error) throw error;
