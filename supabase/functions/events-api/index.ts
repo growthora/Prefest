@@ -456,7 +456,7 @@ Deno.serve(async (req) => {
       const { data, error } = await serviceClient
         .from("events")
         .select(
-          "id, slug, title, description, event_date, end_at, location, state, city, event_type, image_url, category, category_id, status, price, is_paid_event, max_participants, current_participants, is_active, sales_enabled, tickets_sold, views, ticket_types(id, price, quantity_available, quantity_sold, is_active, is_test, is_internal, is_hidden, sale_start_date, sale_end_date)",
+          "id, slug, title, description, event_date, end_at, location, state, city, event_type, image_url, category, category_id, status, price, is_paid_event, max_participants, current_participants, is_active, sales_enabled, ticket_types(id, price, quantity_available, quantity_sold, is_active, is_test, is_internal, is_hidden, sale_start_date, sale_end_date)",
         )
         .eq("status", "published")
         .eq("is_active", true)
@@ -464,12 +464,14 @@ Deno.serve(async (req) => {
 
       if (error) return jsonResponse(req, { error: error.message }, 400);
 
-      const events = (data || []) as Array<EventRow & { tickets_sold?: number | null; views?: number | null }>;
+      const events = (data || []) as Array<EventRow & { ticket_types?: Array<{ quantity_sold?: number | null }> }>;
       const scored = events
         .map((event) => {
-          const tickets = typeof (event as any).tickets_sold === "number" ? Number((event as any).tickets_sold) : 0;
-          const views = typeof (event as any).views === "number" ? Number((event as any).views) : 0;
-          const score = tickets * 0.6 + views * 0.4;
+          const tickets = Array.isArray((event as any).ticket_types)
+            ? (event as any).ticket_types.reduce((acc: number, ticket: any) => acc + Number(ticket?.quantity_sold || 0), 0)
+            : 0;
+          const participants = Number((event as any).current_participants || 0);
+          const score = tickets * 0.7 + participants * 0.3;
           return { event: mapEventForClient(event), score };
         })
         .sort((a, b) => b.score - a.score)
@@ -582,7 +584,7 @@ Deno.serve(async (req) => {
       const serviceClient = getServiceRoleClient();
 
       const [{ data: categories, error: categoriesError }, { data: events, error: eventsError }] = await Promise.all([
-        serviceClient.from("categories").select("id, name, icon, description, is_active, created_at, updated_at").eq("is_active", true).order("name"),
+        serviceClient.from("categories").select("id, name, slug, icon, is_active, created_at").eq("is_active", true).order("name"),
         serviceClient.from("events").select("id, category_id, event_date, status, is_active").eq("status", "published").eq("is_active", true).gte("event_date", now),
       ]);
 
@@ -1305,7 +1307,7 @@ Deno.serve(async (req) => {
       const now = new Date().toISOString();
 
       const [{ data: categories, error: categoriesError }, { data: events, error: eventsError }] = await Promise.all([
-        supabase.from("categories").select("id, name, icon, description, is_active, created_at, updated_at").eq("is_active", true).order("name"),
+        supabase.from("categories").select("id, name, slug, icon, is_active, created_at").eq("is_active", true).order("name"),
         supabase.from("events").select("id, category_id, event_date, status").eq("status", "published").gte("event_date", now),
       ]);
 
@@ -1630,7 +1632,7 @@ Deno.serve(async (req) => {
       const { data, error } = await supabase
         .from("events")
         .select(
-          "id, slug, title, description, event_date, end_at, location, state, city, event_type, image_url, category, category_id, status, price, is_paid_event, max_participants, current_participants, is_active, sales_enabled, tickets_sold, views, ticket_types(id, price, quantity_available, quantity_sold, is_active, is_test, is_internal, is_hidden, sale_start_date, sale_end_date)",
+          "id, slug, title, description, event_date, end_at, location, state, city, event_type, image_url, category, category_id, status, price, is_paid_event, max_participants, current_participants, is_active, sales_enabled, ticket_types(id, price, quantity_available, quantity_sold, is_active, is_test, is_internal, is_hidden, sale_start_date, sale_end_date)",
         )
         .eq("status", "published")
         .eq("is_active", true)
@@ -1638,12 +1640,14 @@ Deno.serve(async (req) => {
 
       if (error) return jsonResponse(req, { error: error.message }, 400);
 
-      const events = (data || []) as Array<EventRow & { tickets_sold?: number | null; views?: number | null }>;
+      const events = (data || []) as Array<EventRow & { ticket_types?: Array<{ quantity_sold?: number | null }> }>;
       const scored = events
         .map((event) => {
-          const tickets = typeof (event as any).tickets_sold === "number" ? Number((event as any).tickets_sold) : 0;
-          const views = typeof (event as any).views === "number" ? Number((event as any).views) : 0;
-          const score = tickets * 0.6 + views * 0.4;
+          const tickets = Array.isArray((event as any).ticket_types)
+            ? (event as any).ticket_types.reduce((acc: number, ticket: any) => acc + Number(ticket?.quantity_sold || 0), 0)
+            : 0;
+          const participants = Number((event as any).current_participants || 0);
+          const score = tickets * 0.7 + participants * 0.3;
           return { event: mapEventForClient(event), score };
         })
         .sort((a, b) => b.score - a.score)

@@ -71,6 +71,7 @@ export async function invokeEdgeFunction<T = any>(
       const method = options.method || 'POST';
       const headers: Record<string, string> = {
         apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         ...(options.headers || {}),
       };
 
@@ -250,4 +251,3 @@ export async function apiFetch(url: string, options: RequestInit = {}) {
     },
   });
 }
-
