@@ -1928,9 +1928,7 @@ Deno.serve(async (req) => {
 
     if (op === "matches.list") {
       const eventId = params?.eventId ? String(params?.eventId || "").trim() : null;
-      const { data, error } = eventId
-        ? await supabase.rpc("list_matches", { p_event_id: eventId })
-        : await supabase.rpc("list_matches");
+      const { data, error } = await supabase.rpc("list_matches", { p_event_id: eventId || null });
 
       if (error) return jsonResponse(req, { error: error.message, code: (error as any).code }, 400);
       return jsonResponse(req, { matches: data || [] });
@@ -1959,7 +1957,7 @@ Deno.serve(async (req) => {
 
       if ((legacyError as any).code !== "42883") return jsonResponse(req, { error: legacyError.message, code: (legacyError as any).code }, 400);
 
-      const { data: allMatches, error: allError } = await supabase.rpc("list_matches");
+      const { data: allMatches, error: allError } = await supabase.rpc("list_matches", { p_event_id: null });
       if (allError) return jsonResponse(req, { error: allError.message, code: (allError as any).code }, 400);
       return jsonResponse(req, { matches: (allMatches || []).filter((match: any) => Array.isArray(match?.event_ids) && match.event_ids.includes(eventId)) });
     }

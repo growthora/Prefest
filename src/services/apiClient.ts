@@ -65,6 +65,56 @@ export async function invokeEdgeFunction<T = any>(
   }
 
   const { requiresAuth = true } = options;
+  if (!requiresAuth) {
+    try {
+      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${functionName}`;
+      const method = options.method || 'POST';
+      const headers: Record<string, string> = {
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        ...(options.headers || {}),
+      };
+
+      const fetchOptions: RequestInit = {
+        method,
+        headers,
+      };
+
+      if (options.body && method !== 'GET') {
+        const hasContentType = Object.keys(headers).some((key) => key.toLowerCase() === 'content-type');
+        const isStringBody = typeof options.body === 'string';
+        const isFormLikeBody = typeof FormData !== 'undefined' && options.body instanceof FormData;
+
+        if (isFormLikeBody || isStringBody) {
+          fetchOptions.body = options.body;
+        } else {
+          if (!hasContentType) {
+            headers['Content-Type'] = 'application/json';
+          }
+          fetchOptions.body = JSON.stringify(options.body);
+        }
+      }
+
+      const res = await fetch(functionUrl, fetchOptions);
+      const contentType = res.headers.get('content-type') || '';
+      const payload = contentType.includes('application/json')
+        ? await res.json().catch(() => null)
+        : await res.text().catch(() => null);
+
+      if (!res.ok) {
+        const message =
+          (payload && typeof payload === 'object' && (payload.error || payload.message)) ||
+          (typeof payload === 'string' && payload.trim().length > 0 ? payload.trim() : null) ||
+          `Erro ${res.status}`;
+        const error = Object.assign(new Error(String(message)), { status: res.status });
+        return { data: null, error };
+      }
+
+      return { data: payload as T, error: null };
+    } catch (err: any) {
+      return { data: null, error: err };
+    }
+  }
+
   let token: string | undefined;
 
   try {
@@ -96,7 +146,19 @@ export async function invokeEdgeFunction<T = any>(
     
     // Only add body if it's not a GET request (GET with body is invalid in fetch)
     if (options.body && invokeOptions.method !== 'GET') {
-      invokeOptions.body = options.body;
+      const hasContentType = Object.keys(headers).some((key) => key.toLowerCase() === 'content-type');
+      const isStringBody = typeof options.body === 'string';
+      const isFormLikeBody =
+        typeof FormData !== 'undefined' && options.body instanceof FormData;
+
+      if (isFormLikeBody || isStringBody) {
+        invokeOptions.body = options.body;
+      } else {
+        if (!hasContentType) {
+          headers['Content-Type'] = 'application/json';
+        }
+        invokeOptions.body = JSON.stringify(options.body);
+      }
     }
 
     const { data, error } = await supabase.functions.invoke(functionName, invokeOptions);
@@ -188,6 +250,4 @@ export async function apiFetch(url: string, options: RequestInit = {}) {
     },
   });
 }
-
-
 

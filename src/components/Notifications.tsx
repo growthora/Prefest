@@ -147,7 +147,7 @@ export function Notifications() {
              // For now, let's try to get slug or use ID if slug is not available in notification data.
              // Notification data has eventId.
              try {
-                const event = await eventService.getEventById(notification.data.eventId);
+                const event = await eventService.getPublicEventById(notification.data.eventId);
                 const targetSlug = event?.slug || notification.data.eventId;
                 navigate(ROUTE_PATHS.EVENT_DETAILS.replace(':slug', targetSlug) + '?tab=match');
              } catch (e) {
@@ -157,7 +157,7 @@ export function Notifications() {
     } else if (notification.type === 'event') {
         try {
             // Fetch event to get slug
-            const event = await eventService.getEventById(notification.data.eventId);
+            const event = await eventService.getPublicEventById(notification.data.eventId);
             if (event?.slug) {
                 navigate(ROUTE_PATHS.EVENT_DETAILS.replace(':slug', event.slug));
             } else {

@@ -314,10 +314,16 @@ export default function EventDetails() {
   };
 
   const loadParticipationState = async (eventId: string, userId: string) => {
-    const nextParticipation = await eventService.getUserParticipation(eventId, userId);
-    setParticipation(nextParticipation);
-    setIsParticipating(Boolean(nextParticipation));
-    return nextParticipation;
+    try {
+      const nextParticipation = await eventService.getUserParticipation(eventId, userId);
+      setParticipation(nextParticipation);
+      setIsParticipating(Boolean(nextParticipation));
+      return nextParticipation;
+    } catch {
+      setParticipation(null);
+      setIsParticipating(false);
+      return null;
+    }
   };
 
   const handleToggleMeetAttendees = async () => {
@@ -400,9 +406,7 @@ const loadEvent = async () => {
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug);
 
       if (isUUID) {
-        supabaseEvent = user
-          ? await eventService.getEventById(slug)
-          : await eventService.getPublicEventById(slug);
+        supabaseEvent = await eventService.getPublicEventById(slug);
         if (supabaseEvent && (supabaseEvent as any).is_active === false) {
           throw new Error('EVENT_OFFLINE');
         }
@@ -414,9 +418,7 @@ const loadEvent = async () => {
            return;
         }
       } else {
-        supabaseEvent = user
-          ? await eventService.getEventBySlug(slug)
-          : await eventService.getPublicEventBySlug(slug);
+        supabaseEvent = await eventService.getPublicEventBySlug(slug);
       }
       
       if (supabaseEvent) {
@@ -445,10 +447,7 @@ const loadEvent = async () => {
           hour12: false
         });
         
-        const galleryRows = await (user
-          ? eventService.getEventImages(supabaseEvent.id)
-          : eventService.getPublicEventImages(supabaseEvent.id)
-        ).catch((): any[] => []);
+        const galleryRows = await eventService.getPublicEventImages(supabaseEvent.id).catch((): any[] => []);
         const orderedGallery = galleryRows
           .slice()
           .sort((a, b) => Number(a.display_order) - Number(b.display_order));
@@ -1629,4 +1628,3 @@ const shouldShowSocialOnboarding = () => {
     </Layout>
   );
 }
-
