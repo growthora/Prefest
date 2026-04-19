@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Bell, Globe, Mail, Save, CreditCard, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase';
 import { invokeEdgeFunction } from '@/services/apiClient';
 import { toUserFriendlyErrorMessage } from '@/lib/appErrors';
 
@@ -101,31 +100,28 @@ export default function AdminSettings() {
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
-      // Fetch System Settings
-      const { data: sysData } = await supabase.from('system_settings').select('*').single();
-      if (sysData) setSystem(sysData);
+      const { data, error } = await invokeEdgeFunction<{
+        system: SystemSettings | null;
+        notifications: NotificationSettings | null;
+        smtp: SmtpSettings | null;
+        integrations: Integration[] | null;
+      }>('events-api', {
+        body: { op: 'adminSettings.get' },
+      });
 
-      // Fetch Notification Settings
-      const { data: notifData } = await supabase.from('notification_settings').select('*').single();
-      if (notifData) setNotifications(notifData);
+      if (error) throw error;
 
-      // Fetch SMTP Settings
-      const { data: smtpData } = await supabase.from('smtp_settings').select('*').single();
-      if (smtpData) setSmtp(smtpData);
+      if (data?.system) setSystem(data.system);
+      if (data?.notifications) setNotifications(data.notifications);
+      if (data?.smtp) setSmtp(data.smtp);
 
-      // Fetch Integrations
-      const { data: intData } = await supabase.from('integrations').select('*');
-      if (intData) {
-          // Check if asaas exists, if not add it (frontend only state until saved)
-          const asaas = intData.find(i => i.provider === 'asaas');
-          if (!asaas) {
-              setIntegrations([...intData, { provider: 'asaas', is_enabled: false, environment: 'sandbox' }]);
-          } else {
-              setIntegrations(intData);
-          }
+      const intData = data?.integrations || [];
+      const asaas = intData.find(i => i.provider === 'asaas');
+      if (!asaas) {
+        setIntegrations([...intData, { provider: 'asaas', is_enabled: false, environment: 'sandbox' }]);
       } else {
-                setIntegrations([{ provider: 'asaas', is_enabled: false, environment: 'sandbox' }]);
-            }
+        setIntegrations(intData);
+      }
 
           } catch (error) {
             // console.error('Error fetching settings:', error);
@@ -147,16 +143,12 @@ export default function AdminSettings() {
         integrations: integrations.filter(int => int.provider !== 'asaas')
       };
 
-      // Using RPC directly to avoid Edge Function auth issues
-      const { error } = await supabase.rpc('save_admin_settings', {
-        p_system: payload.system,
-        p_notifications: payload.notifications,
-        p_smtp: payload.smtp,
-        p_integrations: payload.integrations
+      const { data, error } = await invokeEdgeFunction('save-system-settings', {
+        body: payload,
       });
 
       if (error) throw error;
-      // if (data?.error) throw new Error(data.error);
+      if ((data as any)?.ok === false) throw new Error((data as any)?.error || 'Falha ao salvar configurações');
 
       toast.success('Configuracoes salvas com sucesso!');
       fetchSettings(); 

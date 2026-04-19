@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { invokeEdgeFunction } from '@/services/apiClient';
 
 export interface EventRequest {
   id: string;
@@ -26,12 +26,11 @@ export interface CreateEventRequestData {
 class EventRequestService {
   async createRequest(data: CreateEventRequestData): Promise<EventRequest> {
     // console.log('📤 Enviando solicitação:', data);
-    
-    const { data: request, error } = await supabase
-      .from('event_requests')
-      .insert([data])
-      .select()
-      .single();
+
+    const { data: result, error } = await invokeEdgeFunction<{ request: EventRequest }>('events-api', {
+      body: { op: 'eventRequests.create', params: { data } },
+      requiresAuth: false,
+    });
 
     if (error) {
       // console.error('❌ Erro ao criar solicitação:', error);
@@ -45,21 +44,21 @@ class EventRequestService {
     }
 
     // console.log('✅ Solicitação criada:', request);
-    return request;
+    if (!result?.request) throw new Error('Falha ao enviar solicitação');
+    return result.request;
   }
 
   async getAllRequests(): Promise<EventRequest[]> {
-    const { data, error } = await supabase
-      .from('event_requests')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { data, error } = await invokeEdgeFunction<{ requests: EventRequest[] }>('events-api', {
+      body: { op: 'eventRequests.listAll' },
+    });
 
     if (error) {
       // console.error('Erro ao buscar solicitações:', error);
       throw new Error('Falha ao buscar solicitações');
     }
 
-    return data || [];
+    return data?.requests || [];
   }
 
   async updateRequestStatus(
@@ -67,15 +66,9 @@ class EventRequestService {
     status: EventRequest['status'],
     notes?: string
   ): Promise<void> {
-    const updateData: any = { status };
-    if (notes !== undefined) {
-      updateData.notes = notes;
-    }
-
-    const { error } = await supabase
-      .from('event_requests')
-      .update(updateData)
-      .eq('id', id);
+    const { error } = await invokeEdgeFunction('events-api', {
+      body: { op: 'eventRequests.updateStatus', params: { id, status, notes } },
+    });
 
     if (error) {
       // console.error('Erro ao atualizar status:', error);
@@ -84,10 +77,9 @@ class EventRequestService {
   }
 
   async deleteRequest(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('event_requests')
-      .delete()
-      .eq('id', id);
+    const { error } = await invokeEdgeFunction('events-api', {
+      body: { op: 'eventRequests.delete', params: { id } },
+    });
 
     if (error) {
       // console.error('Erro ao deletar solicitação:', error);

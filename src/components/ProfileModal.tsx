@@ -125,7 +125,7 @@ export function ProfileModal({ isOpen, onClose, user, onLike, onSkip }: ProfileM
                       {getSexualityLabel(user.sexuality)}
                     </Badge>
                   )}
-                  {user.genderPreference && (
+                  {user.genderPreference && getMatchGenderPreferenceLabel(user.genderPreference) && (
                     <Badge variant="secondary" className="bg-zinc-800/50">
                       <Users size={12} className="mr-1" />
                       Busca: {getMatchGenderPreferenceLabel(user.genderPreference)}

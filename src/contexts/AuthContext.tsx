@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { authService, type Profile } from '@/services/auth.service';
 import type { User } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
 
 export type AuthStatus = 'checking' | 'authenticated' | 'unauthenticated';
 
@@ -166,33 +165,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!user) return;
 
-    const channel = supabase
-      .channel(`profile-sync:${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'profiles',
-          filter: `id=eq.${user.id}`,
-        },
-        async () => {
-          try {
-            const refreshedProfile = await loadProfileSafely(user.id);
-            if (refreshedProfile) {
-              setProfile(refreshedProfile);
-            }
-          } catch (err: any) {
-            if (err?.message === 'ACCOUNT_UNAVAILABLE') {
-              clearAuthState();
-            }
-          }
+    const pollIntervalMs = 15000;
+    let stopped = false;
+
+    const poll = async () => {
+      if (stopped) return;
+      try {
+        const refreshedProfile = await loadProfileSafely(user.id);
+        if (refreshedProfile) {
+          setProfile(refreshedProfile);
         }
-      )
-      .subscribe();
+      } catch (err: any) {
+        if (err?.message === 'ACCOUNT_UNAVAILABLE') {
+          clearAuthState();
+        }
+      }
+    };
+
+    void poll();
+    const interval = setInterval(poll, pollIntervalMs);
 
     return () => {
-      void supabase.removeChannel(channel);
+      stopped = true;
+      clearInterval(interval);
     };
   }, [user]);
 

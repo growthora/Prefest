@@ -61,7 +61,7 @@ export function DeleteEventDialog({ event, isOpen, onClose, onSuccess }: DeleteE
           <AlertDialogTitle>Você tem certeza absoluta?</AlertDialogTitle>
           <AlertDialogDescription>
             Essa ação não pode ser desfeita. Isso excluirá permanentemente o evento
-            <span className="font-semibold text-foreground"> "{event?.title}" </span>
+            <span className="font-semibold text-foreground break-words"> "{event?.title}" </span>
             e removerá seus dados dos nossos servidores.
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -83,4 +83,3 @@ export function DeleteEventDialog({ event, isOpen, onClose, onSuccess }: DeleteE
     </AlertDialog>
   );
 }
-

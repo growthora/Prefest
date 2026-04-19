@@ -50,7 +50,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/lib/supabase';
 import { getMatchEventSummary } from '@/utils/matchEvents';
 
 const ICEBREAKERS = [
@@ -113,16 +112,12 @@ export default function Chat() {
     };
 
     loadMatches();
-
-    // Subscribe to changes
-    const subscription = supabase
-      .channel('public:matches_list_page')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => loadMatches())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => loadMatches())
-      .subscribe();
+    const interval = setInterval(() => {
+      void loadMatches();
+    }, 5000);
 
     return () => {
-      subscription.unsubscribe();
+      clearInterval(interval);
     };
   }, [user, matchId]);
 
@@ -238,25 +233,21 @@ export default function Chat() {
         presenceChannelRef.current = presenceChannel;
     }
 
-    // 4. Subscribe to Match Status (Unmatch)
-    const matchSub = supabase
-      .channel(`match_status:${matchId}`)
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'matches', 
-        filter: `id=eq.${matchId}` 
-      }, (payload) => {
-        if (payload.new.status === 'inactive') {
+    const statusInterval = setInterval(async () => {
+      if (!matchId) return;
+      try {
+        const latest = await matchService.getMatchDetails(matchId);
+        if (latest && latest.status === 'inactive') {
           toast.info('O match foi desfeito.');
           navigate(ROUTE_PATHS.MY_EVENTS);
         }
-      })
-      .subscribe();
+      } catch {
+      }
+    }, 5000);
 
     return () => {
       channel.unsubscribe();
-      matchSub.unsubscribe();
+      clearInterval(statusInterval);
       if (presenceChannelRef.current) presenceChannelRef.current.unsubscribe();
       channelRef.current = null;
       presenceChannelRef.current = null;

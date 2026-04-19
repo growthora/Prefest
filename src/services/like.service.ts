@@ -1,6 +1,6 @@
-import { supabase } from '@/lib/supabase';
 import { logMatchDebug } from '@/utils/matchDebug';
 import { hasValidMatchPhoto } from '@/utils/matchPhoto';
+import { invokeEdgeFunction } from '@/services/apiClient';
 
 export interface LikeResult {
   status: 'liked' | 'match' | 'already_liked' | 'error';
@@ -19,27 +19,20 @@ class LikeService {
       toUserId,
     });
 
-    const { data, error } = await supabase.rpc('like_user', {
-      p_event_id: eventId,
-      p_to_user_id: toUserId,
+    const { data, error } = await invokeEdgeFunction<LikeResult>('events-api', {
+      body: { op: 'match.likeUser', params: { eventId, toUserId } },
     });
 
     if (error) {
       logMatchDebug('LIKE ERRO', {
         eventId,
         toUserId,
-        code: error.code,
         message: error.message,
       });
-
-      if (error.code === '23505') {
-        return { status: 'already_liked' };
-      }
-
       throw error;
     }
 
-    const result = data as LikeResult;
+    const result = (data || { status: 'error' }) as LikeResult;
 
     logMatchDebug('LIKE RESULTADO', {
       eventId,
@@ -58,15 +51,21 @@ class LikeService {
   }
 
   async getLikesSummary(): Promise<{ total_likes: number; recent_likes: any[] }> {
-    const { data, error } = await supabase.rpc('list_likes_summary');
+    const { data, error } = await invokeEdgeFunction<{ total_likes: number; recent_likes: any[] }>('events-api', {
+      body: { op: 'match.likesSummary' },
+    });
+
     if (error) throw error;
-    return data;
+    return data || { total_likes: 0, recent_likes: [] };
   }
 
   async getReceivedLikes(eventId: string): Promise<any[]> {
-    const { data, error } = await supabase.rpc('get_received_likes', { p_event_id: eventId });
+    const { data, error } = await invokeEdgeFunction<{ likes: any[] }>('events-api', {
+      body: { op: 'match.receivedLikes', params: { eventId } },
+    });
+
     if (error) throw error;
-    return data || [];
+    return data?.likes || [];
   }
 
   private getReadLikeIds(): string[] {
@@ -94,34 +93,23 @@ class LikeService {
     this.saveReadLikeIds([...current, likeId]);
   }
 
-  async ignoreLike(likeId: string): Promise<void> {
-    const { error } = await supabase.rpc('ignore_like', { p_like_id: likeId });
+  async ignoreLike(likeId: string, eventId?: string): Promise<void> {
+    const { error } = await invokeEdgeFunction('events-api', {
+      body: { op: 'match.ignoreLike', params: { likeId, eventId } },
+    });
+
     if (error) throw error;
   }
 
-  async getUnreadLikes(userId: string): Promise<any[]> {
+  async getUnreadLikes(_userId: string, eventId?: string): Promise<any[]> {
     try {
-      const { data, error } = await supabase
-        .from('likes')
-        .select(`
-          id,
-          created_at,
-          event_id,
-          from_user_id,
-          status,
-          from_user:profiles!likes_from_user_id_fkey (
-            id,
-            full_name,
-            avatar_url
-          )
-        `)
-        .eq('to_user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(20);
+      const { data, error } = await invokeEdgeFunction<{ likes: any[] }>('events-api', {
+        body: { op: 'match.unreadLikes', params: { eventId } },
+      });
 
       if (error) throw error;
 
-      const mapped = (data || []).map((like) => ({
+      const mapped = (data?.likes || []).map((like) => ({
         ...like,
         is_match: like.status === 'matched',
       }));
@@ -134,59 +122,25 @@ class LikeService {
   }
 
   async getPotentialMatches(eventId: string, currentUserId: string): Promise<any[]> {
-    const { data: evaluatedData, error: evaluatedError } = await supabase
-      .from('likes')
-      .select('to_user_id')
-      .eq('from_user_id', currentUserId)
-      .eq('event_id', eventId);
-
-    if (evaluatedError) throw evaluatedError;
-
-    const evaluatedIds = (evaluatedData || []).map((like) => like.to_user_id);
-    evaluatedIds.push(currentUserId);
-
-    const { data, error } = await supabase
-      .from('event_participants')
-      .select(`
-        match_enabled,
-        user:profiles!event_participants_user_id_fkey (
-          id,
-          full_name,
-          avatar_url,
-          bio,
-          birth_date,
-          allow_profile_view,
-          gender_identity,
-          match_intention,
-          match_gender_preference,
-          sexuality,
-          height,
-          relationship_status
-        )
-      `)
-      .eq('event_id', eventId)
-      .eq('match_enabled', true)
-      .neq('status', 'canceled');
+    const { data, error } = await invokeEdgeFunction<{ candidates: any[] }>('events-api', {
+      body: { op: 'match.potentialMatches', params: { eventId, currentUserId } },
+    });
 
     if (error) throw error;
 
-    return (data || [])
-      .map((item: any) => ({ ...item.user, event_match_enabled: item.match_enabled }))
-      .filter((user: any) => {
-        if (!user) return false;
+    return (data?.candidates || []).filter((user: any) => {
+      if (!user) return false;
 
-        const isEvaluated = evaluatedIds.includes(user.id);
-        const isMatchEnabled = user.event_match_enabled;
-        const isProfileViewAllowed = user.allow_profile_view;
-        const hasProfilePhoto = hasValidMatchPhoto(user.avatar_url);
+      const isMatchEnabled = user.event_match_enabled;
+      const isProfileViewAllowed = user.allow_profile_view;
+      const hasProfilePhoto = hasValidMatchPhoto(user.avatar_url);
 
-        if (isEvaluated) return false;
-        if (!isMatchEnabled) return false;
-        if (!isProfileViewAllowed) return false;
-        if (!hasProfilePhoto) return false;
+      if (!isMatchEnabled) return false;
+      if (!isProfileViewAllowed) return false;
+      if (!hasProfilePhoto) return false;
 
-        return true;
-      });
+      return true;
+    });
   }
 }
 

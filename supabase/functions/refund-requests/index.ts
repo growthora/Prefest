@@ -16,6 +16,24 @@ function jsonResponse(req: Request, body: unknown, status = 200) {
   });
 }
 
+async function responseFromThrownError(req: Request, error: unknown) {
+  if (!(error instanceof Response)) {
+    return null;
+  }
+
+  const contentType = error.headers.get("Content-Type") || "application/json; charset=utf-8";
+  const rawBody = await error.text();
+  const body = rawBody || JSON.stringify({ error: error.statusText || "Erro na requisição" });
+
+  return new Response(body, {
+    status: error.status || 500,
+    headers: {
+      ...getCorsHeaders(req),
+      "Content-Type": contentType,
+    },
+  });
+}
+
 async function buildUserPayload(adminClient: any, userId: string) {
   const { data: requests, error: requestsError } = await adminClient
     .from("refund_requests")
@@ -387,6 +405,11 @@ Deno.serve(async (req: Request) => {
 
     return jsonResponse(req, { error: "Método não suportado" }, 405);
   } catch (error: any) {
+    const forwardedResponse = await responseFromThrownError(req, error);
+    if (forwardedResponse) {
+      return forwardedResponse;
+    }
+
     return jsonResponse(req, { error: error?.message || "Erro interno" }, 500);
   }
 });

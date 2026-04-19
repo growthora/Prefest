@@ -10,6 +10,7 @@ import { Calendar, MapPin, Ticket, Heart, Clock, History, ArrowLeft } from 'luci
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { GlobalLoader } from '@/components/GlobalLoader';
+import { ROUTE_PATHS } from '@/lib/index';
 
 type TicketWithEvent = EventParticipant & { event: Event };
 
@@ -79,7 +80,14 @@ const EventCard = ({ ticket, isPast = false, navigate }: { ticket: TicketWithEve
               )}
               <Button
                 className={`w-full bg-primary hover:bg-primary/90 ${isPast ? 'col-span-2 md:col-span-1' : 'md:hidden col-span-1'}`}
-                onClick={() => navigate(`/eventos/${event.id}?tab=match`)}
+                onClick={() => {
+                  if (isPast) {
+                    navigate(ROUTE_PATHS.EVENT_MATCHES.replace(':eventId', event.id));
+                    return;
+                  }
+
+                  navigate(`/eventos/${event.id}?tab=match`);
+                }}
               >
                   <Heart className="mr-2 h-4 w-4 fill-current" />
                   Ver Matchs
@@ -114,8 +122,8 @@ export default function MyEvents() {
         return dateB - dateA; // Decrescente
       });
       setTickets(sorted);
-    } catch (error) {
-      console.error('Failed to load my events', error);
+    } catch {
+      // Mantem fallback silencioso para evitar expor dados no console.
     } finally {
       setLoading(false);
     }
@@ -206,6 +214,3 @@ export default function MyEvents() {
     </div>
   );
 }
-
-
-

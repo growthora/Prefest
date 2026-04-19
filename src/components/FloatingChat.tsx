@@ -29,7 +29,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { getMatchEventSummary } from '@/utils/matchEvents';
 
@@ -70,19 +69,13 @@ export function FloatingChat() {
   useEffect(() => {
     if (!user) return;
 
-    // Subscribe to new matches or messages to update the list order/badges
-    const subscription = supabase
-      .channel('public:matches_list')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => {
-        loadMatches();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
-        loadMatches();
-      })
-      .subscribe();
+    void loadMatches();
+    const interval = setInterval(() => {
+      void loadMatches();
+    }, 5000);
 
     return () => {
-      subscription.unsubscribe();
+      clearInterval(interval);
     };
   }, [user]);
 
@@ -96,7 +89,7 @@ export function FloatingChat() {
       
       // Mark as opened
       if (!activeChat.chat_opened) {
-        matchService.markChatOpened(activeChat.match_id);
+        matchService.markChatOpened(activeChat.match_id, activeChat.event_id);
       }
 
       // Mark messages as read immediately on open (for existing messages)

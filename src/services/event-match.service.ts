@@ -3,11 +3,13 @@ import { supabase } from '@/lib/supabase';
 import { eventService } from '@/services/event.service';
 import { likeService, type LikeResult } from '@/services/like.service';
 import { matchService, type Match } from '@/services/match.service';
+import { invokeEdgeFunction } from '@/services/apiClient';
 import {
   filterItemsWithRenderableMatchPhoto,
   hasValidMatchPhoto,
   normalizeMatchPhoto,
 } from '@/utils/matchPhoto';
+import { matchesGenderPreference, type MatchGenderPreference } from '@/utils/matchPreference';
 
 export interface EventReceivedLike {
   like_id: string;
@@ -56,6 +58,19 @@ interface EventMatchOptInResult {
 const DEFAULT_AGE = 25;
 
 class EventMatchService {
+  private async getViewerGenderPreference(_userId: string): Promise<MatchGenderPreference> {
+    const { data, error } = await invokeEdgeFunction<{ match_gender_preference: MatchGenderPreference }>('events-api', {
+      body: { op: 'profiles.getMatchGenderPreference' },
+    });
+
+    if (error) throw error;
+    return (data?.match_gender_preference ?? null) as MatchGenderPreference;
+  }
+
+  private filterCandidatesByPreference(candidates: User[], preference: MatchGenderPreference): User[] {
+    return candidates.filter((candidate) => matchesGenderPreference(preference, candidate.genderIdentity));
+  }
+
   private resolveAvatarUrl(avatarUrl: string | null | undefined): string {
     const normalizedPhoto = normalizeMatchPhoto(avatarUrl);
 
@@ -106,13 +121,17 @@ class EventMatchService {
   }
 
   async getCandidates(eventId: string, currentUserId: string): Promise<User[]> {
-    const { data, error } = await supabase.rpc('get_event_match_candidates_v2', {
-      p_event_id: eventId,
+    const viewerPreference = await this.getViewerGenderPreference(currentUserId);
+    const { data, error } = await invokeEdgeFunction<{ candidates: EventMatchCandidateRow[] }>('events-api', {
+      body: { op: 'eventMatch.getCandidatesV2', params: { eventId } },
     });
 
     if (!error) {
-      const candidates = (data || []).map((row: EventMatchCandidateRow) => this.mapCandidate(row));
-      return filterItemsWithRenderableMatchPhoto(candidates, (candidate) => candidate.photo);
+      const candidates = (data?.candidates || []).map((row: EventMatchCandidateRow) => this.mapCandidate(row));
+      return filterItemsWithRenderableMatchPhoto(
+        this.filterCandidatesByPreference(candidates, viewerPreference),
+        (candidate) => candidate.photo,
+      );
     }
 
     try {
@@ -133,21 +152,27 @@ class EventMatchService {
           }),
         );
 
-      return filterItemsWithRenderableMatchPhoto(mappedLegacyCandidates, (candidate) => candidate.photo);
+      return filterItemsWithRenderableMatchPhoto(
+        this.filterCandidatesByPreference(mappedLegacyCandidates, viewerPreference),
+        (candidate) => candidate.photo,
+      );
     } catch {
       const fallbackCandidates = await likeService.getPotentialMatches(eventId, currentUserId);
       const mappedFallbackCandidates = fallbackCandidates.map((candidate: Record<string, any>) => this.mapCandidate(candidate));
-      return filterItemsWithRenderableMatchPhoto(mappedFallbackCandidates, (candidate) => candidate.photo);
+      return filterItemsWithRenderableMatchPhoto(
+        this.filterCandidatesByPreference(mappedFallbackCandidates, viewerPreference),
+        (candidate) => candidate.photo,
+      );
     }
   }
 
   async getReceivedLikes(eventId: string): Promise<EventReceivedLike[]> {
-    const { data, error } = await supabase.rpc('get_event_received_likes_v2', {
-      p_event_id: eventId,
+    const { data, error } = await invokeEdgeFunction<{ likes: EventReceivedLike[] }>('events-api', {
+      body: { op: 'eventMatch.getReceivedLikesV2', params: { eventId } },
     });
 
     if (!error) {
-      const likes = (data || []).map((row: EventReceivedLike) => this.mapReceivedLike(row));
+      const likes = (data?.likes || []).map((row: EventReceivedLike) => this.mapReceivedLike(row));
       return filterItemsWithRenderableMatchPhoto(likes, (like) => like.from_user_photo);
     }
 
@@ -165,16 +190,13 @@ class EventMatchService {
   }
 
   async setMatchOptIn(eventId: string, enabled: boolean): Promise<EventMatchOptInResult> {
-    const { data, error } = await supabase.rpc('set_event_match_opt_in', {
-      p_event_id: eventId,
-      p_enabled: enabled,
+    const { data, error } = await invokeEdgeFunction<{ result: EventMatchOptInResult }>('events-api', {
+      body: { op: 'eventMatch.setOptIn', params: { eventId, enabled } },
     });
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
-    const result = (data || {}) as EventMatchOptInResult;
+    const result = (data?.result || {}) as EventMatchOptInResult;
 
     if (result.status === 'error') {
       throw new Error(result.message || 'Nao foi possivel atualizar o Match deste evento');
@@ -184,106 +206,57 @@ class EventMatchService {
   }
 
   async resetQueue(eventId: string): Promise<number | null> {
-    const { data, error } = await supabase.rpc('reset_match_queue', {
-      p_event_id: eventId,
+    const { data, error } = await invokeEdgeFunction<{ value: number | null }>('events-api', {
+      body: { op: 'eventMatch.resetQueue', params: { eventId } },
     });
 
-    if (!error) {
-      return Number(data || 0);
-    }
-
-    if (error.code === '42883') {
-      return null;
-    }
-
-    throw error;
+    if (error) throw error;
+    return data?.value ?? null;
   }
 
   async skipUser(eventId: string, targetUserId: string): Promise<boolean> {
-    const { error } = await supabase.rpc('skip_match_candidate', {
-      p_event_id: eventId,
-      p_to_user_id: targetUserId,
+    const { data, error } = await invokeEdgeFunction<{ ok: boolean }>('events-api', {
+      body: { op: 'eventMatch.skipUser', params: { eventId, toUserId: targetUserId } },
     });
 
-    if (!error) {
-      return true;
-    }
+    if (error) throw error;
+    return Boolean(data?.ok);
+  }
 
-    if (error.code === '42883') {
-      return false;
-    }
+  async ignoreLike(eventId: string, likeId: string, targetUserId: string): Promise<void> {
+    await likeService.ignoreLike(likeId, eventId);
 
-    throw error;
+    try {
+      await this.skipUser(eventId, targetUserId);
+    } catch {
+      // Ignore queue persistence failures after the like has already been hidden for this event.
+    }
   }
 
   subscribeToEvent(eventId: string, userId: string, handlers: EventMatchRealtimeHandlers) {
-    return supabase
-      .channel(`event-match:${eventId}:${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'likes',
-          filter: `event_id=eq.${eventId}`,
-        },
-        (payload) => {
-          const row = (payload.new || payload.old) as Record<string, any> | null;
-          if (!row) return;
+    const pollIntervalMs = 5000;
+    let stopped = false;
+    let timer: ReturnType<typeof setInterval> | null = null;
 
-          if (row.from_user_id === userId || row.to_user_id === userId) {
-            handlers.onLikesChanged?.();
-            handlers.onQueueChanged?.();
-          }
-        },
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'match_events',
-          filter: `event_id=eq.${eventId}`,
-        },
-        () => {
-          handlers.onMatchesChanged?.();
-          handlers.onLikesChanged?.();
-          handlers.onQueueChanged?.();
-        },
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'matches',
-        },
-        (payload) => {
-          const row = (payload.new || payload.old) as Record<string, any> | null;
-          if (!row) return;
+    const poll = async () => {
+      if (stopped) return;
+      void eventId;
+      void userId;
+      handlers.onQueueChanged?.();
+      handlers.onLikesChanged?.();
+      handlers.onMatchesChanged?.();
+    };
 
-          if (row.user1_id === userId || row.user2_id === userId) {
-            handlers.onMatchesChanged?.();
-            handlers.onLikesChanged?.();
-            handlers.onQueueChanged?.();
-          }
-        },
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'event_participants',
-          filter: `event_id=eq.${eventId}`,
-        },
-        () => {
-          handlers.onQueueChanged?.();
-          handlers.onLikesChanged?.();
-          handlers.onMatchesChanged?.();
-        },
-      )
-      .subscribe();
+    void poll();
+    timer = setInterval(poll, pollIntervalMs);
+
+    return {
+      unsubscribe() {
+        stopped = true;
+        if (timer) clearInterval(timer);
+        timer = null;
+      },
+    };
   }
 }
 

@@ -39,6 +39,7 @@ export function useMatch(eventId?: string, options?: UseMatchOptions) {
   const [isReloadingQueue, setIsReloadingQueue] = useState(false);
   const [hasOwnValidPhoto, setHasOwnValidPhoto] = useState(false);
   const [isCheckingOwnPhoto, setIsCheckingOwnPhoto] = useState(false);
+  const [hasEvaluatedOwnPhoto, setHasEvaluatedOwnPhoto] = useState(false);
 
   const refreshTimeoutRef = useRef<number | null>(null);
   const scheduledScopesRef = useRef<Set<MatchSyncScope>>(new Set());
@@ -50,9 +51,20 @@ export function useMatch(eventId?: string, options?: UseMatchOptions) {
   useEffect(() => {
     let isMounted = true;
 
-    if (!user || !profile?.avatar_url || !hasValidMatchPhoto(profile.avatar_url)) {
+    setHasEvaluatedOwnPhoto(false);
+
+    if (!user || !profile) {
       setHasOwnValidPhoto(false);
       setIsCheckingOwnPhoto(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    if (!profile.avatar_url || !hasValidMatchPhoto(profile.avatar_url)) {
+      setHasOwnValidPhoto(false);
+      setIsCheckingOwnPhoto(false);
+      setHasEvaluatedOwnPhoto(true);
       return () => {
         isMounted = false;
       };
@@ -72,6 +84,7 @@ export function useMatch(eventId?: string, options?: UseMatchOptions) {
       .finally(() => {
         if (!isMounted) return;
         setIsCheckingOwnPhoto(false);
+        setHasEvaluatedOwnPhoto(true);
       });
 
     return () => {
@@ -392,14 +405,13 @@ export function useMatch(eventId?: string, options?: UseMatchOptions) {
       toast.info('Ative o Match deste evento para responder curtidas.');
       return;
     }
+    if (!eventId) return;
 
     const previousLikes = receivedLikes;
     setReceivedLikes((prev) => prev.filter((like) => like.like_id !== likeId));
 
     try {
-      if (eventId) {
-        await eventMatchService.skipUser(eventId, targetUserId);
-      }
+      await eventMatchService.ignoreLike(eventId, likeId, targetUserId);
     } catch (error) {
       setReceivedLikes(previousLikes);
       throw error;
@@ -422,6 +434,7 @@ export function useMatch(eventId?: string, options?: UseMatchOptions) {
     isSingleMode,
     hasOwnValidPhoto,
     isCheckingOwnPhoto,
+    hasEvaluatedOwnPhoto,
     currentQueue,
     receivedLikes,
     matches,

@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { supabase } from "@/lib/supabase";
 import { storageService } from "@/services/storage.service";
+import { invokeEdgeFunction } from "@/services/apiClient";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -33,6 +35,7 @@ import {
   GENDER_IDENTITY_OPTIONS,
   MATCH_GENDER_PREFERENCE_OPTIONS,
   MATCH_INTENTION_OPTIONS,
+  type ProfileOption,
   RELATIONSHIP_STATUS_OPTIONS,
   SEXUALITY_OPTIONS,
   getGenderIdentityLabel,
@@ -41,7 +44,16 @@ import {
   getRelationshipStatusLabel,
   getSexualityLabel,
 } from '@/constants/profile-options';
-import { hasValidMatchPhoto, MATCH_PHOTO_REQUIRED_MESSAGE } from '@/utils/matchPhoto';
+import {
+  normalizeMatchGenderPreference,
+  toggleMatchGenderPreference,
+} from '@/utils/matchPreference';
+import {
+  hasRenderableMatchPhoto,
+  isFallbackMatchPhoto,
+  MATCH_PHOTO_REQUIRED_MESSAGE,
+  normalizeMatchPhoto,
+} from '@/utils/matchPhoto';
 
 import { MatchGuidelinesModal } from "@/components/MatchGuidelinesModal";
 
@@ -71,8 +83,11 @@ export default function Profile() {
     height: '',
     relationship_status: '',
     match_intention: '',
-    match_gender_preference: '',
+    match_gender_preference: [] as string[],
   });
+  const [genderPreferenceOptions, setGenderPreferenceOptions] = useState<ProfileOption[]>(
+    [...MATCH_GENDER_PREFERENCE_OPTIONS, ...GENDER_IDENTITY_OPTIONS],
+  );
 
   // Privacy States
   const [showInitialsOnly, setShowInitialsOnly] = useState(false);
@@ -109,6 +124,30 @@ export default function Profile() {
       loadFavorites();
     }
   }, [activeTab, user]);
+
+  useEffect(() => {
+    const loadGenderPreferenceOptions = async () => {
+      const { data, error } = await invokeEdgeFunction<{ genders: Array<{ code: string; label: string }> }>(
+        "events-api",
+        { body: { op: "genders.list" } }
+      );
+
+      if (error || !data?.genders) {
+        setGenderPreferenceOptions([...MATCH_GENDER_PREFERENCE_OPTIONS, ...GENDER_IDENTITY_OPTIONS]);
+        return;
+      }
+
+      setGenderPreferenceOptions([
+        ...MATCH_GENDER_PREFERENCE_OPTIONS,
+        ...data.genders.map((item) => ({
+          value: item.code,
+          label: item.label,
+        })),
+      ]);
+    };
+
+    void loadGenderPreferenceOptions();
+  }, []);
 
   const loadFavorites = async () => {
     if (!user) return;
@@ -166,7 +205,7 @@ export default function Profile() {
         height: profile.height ? profile.height.toString() : '',
         relationship_status: profile.relationship_status || '',
         match_intention: profile.match_intention || '',
-        match_gender_preference: profile.match_gender_preference || '',
+        match_gender_preference: normalizeMatchGenderPreference(profile.match_gender_preference),
       });
       
       setShowInitialsOnly(profile.show_initials_only || false);
@@ -192,7 +231,8 @@ export default function Profile() {
         relationship_status: formData.relationship_status === '' ? null : formData.relationship_status,
         sexuality: formData.sexuality === '' ? null : formData.sexuality,
         match_intention: formData.match_intention === '' ? null : formData.match_intention,
-        match_gender_preference: formData.match_gender_preference === '' ? null : formData.match_gender_preference,
+        match_gender_preference:
+          formData.match_gender_preference.length > 0 ? formData.match_gender_preference : null,
         show_initials_only: showInitialsOnly,
         height: formData.height ? parseFloat(formData.height) : null,
       };
@@ -216,6 +256,13 @@ export default function Profile() {
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const handleMatchGenderPreferenceToggle = (value: string) => {
+    setFormData((current) => ({
+      ...current,
+      match_gender_preference: toggleMatchGenderPreference(current.match_gender_preference, value),
+    }));
   };
 
   const handleUpdatePassword = async () => {
@@ -281,11 +328,25 @@ export default function Profile() {
     return age.toString();
   };
 
+  const hasProfilePhotoForMatch = async () => {
+    const currentAvatar = normalizeMatchPhoto(formData.avatar_url || profile?.avatar_url);
+
+    if (!currentAvatar || isFallbackMatchPhoto(currentAvatar)) {
+      return false;
+    }
+
+    try {
+      return await hasRenderableMatchPhoto(currentAvatar);
+    } catch {
+      return true;
+    }
+  };
+
   // Toggles
   const handleToggleMatchEnabled = async (checked: boolean) => {
     if (checked) {
-      if (!hasValidMatchPhoto(formData.avatar_url || profile?.avatar_url)) {
-        toast.info(MATCH_PHOTO_REQUIRED_MESSAGE);
+      if (!(await hasProfilePhotoForMatch())) {
+        toast.info(MATCH_PHOTO_REQUIRED_MESSAGE, { id: 'match-photo-required' });
         setIsEditing(true);
         return;
       }
@@ -306,8 +367,8 @@ export default function Profile() {
 
   const confirmMatchEnabled = async () => {
     try {
-      if (!hasValidMatchPhoto(formData.avatar_url || profile?.avatar_url)) {
-        toast.info(MATCH_PHOTO_REQUIRED_MESSAGE);
+      if (!(await hasProfilePhotoForMatch())) {
+        toast.info(MATCH_PHOTO_REQUIRED_MESSAGE, { id: 'match-photo-required' });
         setIsEditing(true);
         return;
       }
@@ -594,21 +655,31 @@ export default function Profile() {
                     
                     <div className="space-y-2">
                       <Label htmlFor="match_gender_preference">Interesse em</Label>
-                      <Select 
-                        value={formData.match_gender_preference} 
-                        onValueChange={(value) => setFormData({ ...formData, match_gender_preference: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {MATCH_GENDER_PREFERENCE_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="rounded-lg border border-border bg-background/50 p-3 space-y-3">
+                        <p className="text-sm text-muted-foreground">
+                          Selecione um ou mais gêneros. Ao marcar Todos, as demais opções são desmarcadas.
+                        </p>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {genderPreferenceOptions.map((option) => {
+                            const checked = formData.match_gender_preference.includes(option.value);
+
+                            return (
+                              <label
+                                key={option.value}
+                                htmlFor={`match_gender_preference_${option.value}`}
+                                className="flex items-center gap-3 rounded-md border border-border px-3 py-2 cursor-pointer hover:bg-muted/40"
+                              >
+                                <Checkbox
+                                  id={`match_gender_preference_${option.value}`}
+                                  checked={checked}
+                                  onCheckedChange={() => handleMatchGenderPreferenceToggle(option.value)}
+                                />
+                                <span className="text-sm">{option.label}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -652,7 +723,7 @@ export default function Profile() {
                         <p>{getMatchIntentionLabel(formData.match_intention)}</p>
                       </div>
                     )}
-                     {formData.match_gender_preference && (
+                     {formData.match_gender_preference.length > 0 && (
                       <div className="space-y-1">
                         <h3 className="font-semibold text-xs text-muted-foreground uppercase">Interesse em</h3>
                         <p>{getMatchGenderPreferenceLabel(formData.match_gender_preference)}</p>

@@ -46,8 +46,6 @@ export const MATCH_INTENTION_OPTIONS: readonly ProfileOption[] = [
 
 export const MATCH_GENDER_PREFERENCE_OPTIONS: readonly ProfileOption[] = [
   { value: 'todos', label: 'Todos' },
-  { value: 'homens', label: 'Homens' },
-  { value: 'mulheres', label: 'Mulheres' },
 ] as const;
 
 const createOptionLabelMap = (options: readonly ProfileOption[]) =>
@@ -60,7 +58,10 @@ const GENDER_IDENTITY_LABELS = createOptionLabelMap(GENDER_IDENTITY_OPTIONS);
 const SEXUALITY_LABELS = createOptionLabelMap(SEXUALITY_OPTIONS);
 const RELATIONSHIP_STATUS_LABELS = createOptionLabelMap(RELATIONSHIP_STATUS_OPTIONS);
 const MATCH_INTENTION_LABELS = createOptionLabelMap(MATCH_INTENTION_OPTIONS);
-const MATCH_GENDER_PREFERENCE_LABELS = createOptionLabelMap(MATCH_GENDER_PREFERENCE_OPTIONS);
+const MATCH_GENDER_PREFERENCE_LABELS = createOptionLabelMap([
+  ...MATCH_GENDER_PREFERENCE_OPTIONS,
+  ...GENDER_IDENTITY_OPTIONS,
+]);
 
 const humanizeProfileValue = (value: string) =>
   value
@@ -86,5 +87,22 @@ export const getRelationshipStatusLabel = (value: string | null | undefined) =>
 export const getMatchIntentionLabel = (value: string | null | undefined) =>
   getOptionLabel(value, MATCH_INTENTION_LABELS);
 
-export const getMatchGenderPreferenceLabel = (value: string | null | undefined) =>
-  getOptionLabel(value, MATCH_GENDER_PREFERENCE_LABELS);
+export const getMatchGenderPreferenceLabel = (
+  value: string | string[] | null | undefined,
+) => {
+  if (Array.isArray(value)) {
+    if (value.length === 0) return null;
+
+    const normalizedValues = value.filter(Boolean);
+
+    if (normalizedValues.includes('todos')) {
+      return MATCH_GENDER_PREFERENCE_LABELS.todos;
+    }
+
+    return normalizedValues
+      .map((item) => getOptionLabel(item, MATCH_GENDER_PREFERENCE_LABELS) ?? humanizeProfileValue(item))
+      .join(', ');
+  }
+
+  return getOptionLabel(value, MATCH_GENDER_PREFERENCE_LABELS);
+};

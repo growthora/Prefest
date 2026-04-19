@@ -74,6 +74,8 @@ export type VibeType =
   | 'amizade' 
   | 'diversao';
 
+export type MatchGenderPreferenceValue = 'todos' | string;
+
 export interface User {
   id: string;
   name: string;
@@ -84,7 +86,7 @@ export interface User {
   isSingleMode: boolean;
   showInitialsOnly: boolean;
   matchIntention?: 'paquera' | 'amizade' | 'networking' | 'casual' | 'serio' | null;
-  genderPreference?: 'homens' | 'mulheres' | 'todos' | null;
+  genderPreference?: MatchGenderPreferenceValue[] | null;
   genderIdentity?: string | null;
   sexuality?: string;
   lookingFor?: string[];
@@ -176,7 +178,6 @@ export enum EMAIL_CONTEXT {
 
 // Regra: SMTP do banco permitido SOMENTE em CUSTOM
 export const ALLOWED_SMTP_CONTEXTS = [EMAIL_CONTEXT.CUSTOM];
-
 
 
 

@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { matchService, Match } from '@/services/match.service';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/lib/supabase';
 import { getMatchEventSummary } from '@/utils/matchEvents';
 
 export function MatchPersistentToast() {
@@ -44,20 +43,12 @@ export function MatchPersistentToast() {
 
     void loadUnseenMatches();
 
-    const subscription = supabase
-      .channel(`public:matches_toast:${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, (payload) => {
-        const row = (payload.new || payload.old) as Record<string, any> | null;
-        if (!row) return;
-
-        if (row.user1_id === user.id || row.user2_id === user.id) {
-          void loadUnseenMatches();
-        }
-      })
-      .subscribe();
+    const interval = setInterval(() => {
+      void loadUnseenMatches();
+    }, 5000);
 
     return () => {
-      subscription.unsubscribe();
+      clearInterval(interval);
     };
   }, [applyUnseenMatches, loadUnseenMatches, user]);
 
@@ -79,7 +70,7 @@ export function MatchPersistentToast() {
     if (!currentMatch) return;
 
     try {
-      await matchService.markMatchSeen(currentMatch.match_id);
+      await matchService.markMatchSeen(currentMatch.match_id, currentMatch.event_id || undefined);
       moveToNextMatch(currentMatch.match_id);
     } catch {
       void loadUnseenMatches();
@@ -90,7 +81,7 @@ export function MatchPersistentToast() {
     if (!currentMatch) return;
 
     try {
-      await matchService.markMatchSeen(currentMatch.match_id);
+      await matchService.markMatchSeen(currentMatch.match_id, currentMatch.event_id || undefined);
     } finally {
       navigate(`/chat/${currentMatch.match_id}`);
       moveToNextMatch(currentMatch.match_id);

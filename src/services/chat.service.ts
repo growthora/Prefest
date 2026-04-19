@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { invokeEdgeFunction } from '@/services/apiClient';
 
 export interface ChatMessage {
   id: string;
@@ -19,8 +19,8 @@ class ChatService {
   // Atualiza a presença do usuário atual (qual chat está aberto)
   async updatePresence(chatId: string | null) {
     // console.log('🔔 [ChatService] Atualizando presença:', chatId);
-    const { error } = await supabase.rpc('update_presence', {
-        p_chat_id: chatId
+    const { error } = await invokeEdgeFunction('events-api', {
+      body: { op: 'chat.updatePresence', params: { chatId } },
     });
     
     if (error) {
@@ -32,18 +32,9 @@ class ChatService {
   async getMessages(chatId: string): Promise<ChatMessage[]> {
     // console.log('💬 [ChatService] Buscando mensagens do chat:', chatId);
 
-    const { data, error } = await supabase
-      .from('messages')
-      .select(`
-        *,
-        sender:sender_id (
-          id,
-          full_name,
-          avatar_url
-        )
-      `)
-      .eq('chat_id', chatId)
-      .order('created_at', { ascending: true });
+    const { data, error } = await invokeEdgeFunction<{ messages: ChatMessage[] }>('events-api', {
+      body: { op: 'chat.getMessages', params: { chatId } },
+    });
 
     if (error) {
       // console.error('❌ [ChatService] Erro ao buscar mensagens:', error);
@@ -53,18 +44,21 @@ class ChatService {
     // Note: We don't mark as delivered here anymore because the backend trigger handles 'seen' 
     // if the user is active. 'Delivered' logic could be added if needed but 'seen' is priority.
 
-    return data || [];
+    return data?.messages || [];
   }
 
   async getOrCreateChat(matchId: string): Promise<string> {
-    const { data, error } = await supabase.rpc('get_or_create_chat', { p_match_id: matchId });
+    const { data, error } = await invokeEdgeFunction<{ chatId: string }>('events-api', {
+      body: { op: 'chat.getOrCreate', params: { matchId } },
+    });
     if (error) throw error;
-    return data;
+    if (!data?.chatId) throw new Error('Falha ao obter chat');
+    return data.chatId;
   }
 
   async unmatchUser(matchId: string) {
-    const { error } = await supabase.rpc('unmatch_user', {
-      p_match_id: matchId
+    const { error } = await invokeEdgeFunction('events-api', {
+      body: { op: 'chat.unmatchUser', params: { matchId } },
     });
 
     if (error) {
@@ -77,33 +71,17 @@ class ChatService {
   async sendMessage(chatId: string, content: string): Promise<ChatMessage> {
     // console.log('📤 [ChatService] Enviando mensagem:', chatId);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
-
-    const { data, error } = await supabase
-      .from('messages')
-      .insert({
-        chat_id: chatId,
-        sender_id: user.id,
-        content: content,
-        status: 'sent' // Initial status, trigger might update to 'seen' immediately
-      })
-      .select(`
-        *,
-        sender:sender_id (
-          id,
-          full_name,
-          avatar_url
-        )
-      `)
-      .single();
+    const { data, error } = await invokeEdgeFunction<{ message: ChatMessage }>('events-api', {
+      body: { op: 'chat.sendMessage', params: { chatId, content } },
+    });
 
     if (error) {
       // console.error('❌ [ChatService] Erro ao enviar mensagem:', error);
       throw error;
     }
 
-    return data;
+    if (!data?.message) throw new Error('Falha ao enviar mensagem');
+    return data.message;
   }
 
   // Subscribe para novas mensagens e typing em tempo real
@@ -112,43 +90,70 @@ class ChatService {
       onMessage: (message: any, eventType: 'INSERT' | 'UPDATE') => void,
       onTyping?: (payload: { isTyping: boolean, userId: string }) => void
   ) {
-    // console.log('🔄 [ChatService] Inscrevendo-se no chat:', chatId);
+    const pollIntervalMs = 2000;
+    let stopped = false;
+    let lastById = new Map<string, ChatMessage>();
+    let timer: ReturnType<typeof setInterval> | null = null;
 
-    const channel = supabase.channel(`chat:${chatId}`);
+    const hasMeaningfulChange = (prev: ChatMessage, next: ChatMessage) => {
+      return (
+        prev.content !== next.content ||
+        prev.status !== next.status ||
+        prev.read_at !== next.read_at ||
+        prev.created_at !== next.created_at
+      );
+    };
 
-    channel
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Listen to INSERT and UPDATE
-          schema: 'public',
-          table: 'messages',
-          filter: `chat_id=eq.${chatId}`
-        },
-        (payload) => {
-           // console.log('📨 [ChatService] Evento realtime recebido:', payload.eventType, payload.new);
-           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-               onMessage(payload.new, payload.eventType);
-           }
+    const poll = async () => {
+      if (stopped) return;
+
+      try {
+        const messages = await this.getMessages(chatId);
+        const nextById = new Map<string, ChatMessage>();
+        for (const message of messages) {
+          nextById.set(message.id, message);
         }
-      )
-      .on('broadcast', { event: 'typing' }, (payload) => {
-          if (onTyping) onTyping(payload.payload);
-      })
-      .subscribe((status) => {
-          // console.log(`📡 [ChatService] Status da conexão realtime para chat ${chatId}:`, status);
-      });
 
-    return channel;
+        for (const [id, next] of nextById.entries()) {
+          const prev = lastById.get(id);
+          if (!prev) {
+            onMessage(next, 'INSERT');
+            continue;
+          }
+          if (hasMeaningfulChange(prev, next)) {
+            onMessage(next, 'UPDATE');
+          }
+        }
+
+        lastById = nextById;
+      } catch {
+      }
+    };
+
+    void poll();
+    timer = setInterval(poll, pollIntervalMs);
+
+    if (onTyping) {
+      void onTyping({ isTyping: false, userId: '' });
+    }
+
+    return {
+      unsubscribe() {
+        stopped = true;
+        if (timer) clearInterval(timer);
+        timer = null;
+      },
+      async send() {
+        return;
+      },
+    };
   }
   
   // Obter presença atual de um usuário
   async getPresence(userId: string): Promise<string | null> {
-    const { data, error } = await supabase
-        .from('user_presence')
-        .select('active_chat_id')
-        .eq('user_id', userId)
-        .single();
+    const { data, error } = await invokeEdgeFunction<{ active_chat_id: string | null }>('events-api', {
+      body: { op: 'chat.getPresence', params: { userId } },
+    });
     
     if (error) {
         // console.warn('⚠️ [ChatService] Could not fetch presence (maybe empty):', error.message);
@@ -159,56 +164,45 @@ class ChatService {
 
   // Subscribe to partner presence
   subscribeToPartnerPresence(partnerId: string, onPresenceChange: (activeChatId: string | null) => void) {
-        // console.log(`🔌 [ChatService] Subscribing to presence for partner: ${partnerId}`);
-        const channel = supabase.channel(`presence:${partnerId}`);
-        
-        channel
-            .on(
-                'postgres_changes',
-                {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'user_presence',
-                    filter: `user_id=eq.${partnerId}`
-                },
-                (payload) => {
-                    // console.log('🟢 [ChatService] Presence UPDATE received:', payload.new);
-                    onPresenceChange(payload.new.active_chat_id);
-                }
-            )
-            .subscribe((status) => {
-                // console.log(`🔌 [ChatService] Presence channel status for ${partnerId}:`, status);
-            });
-            
-        return channel;
+    const pollIntervalMs = 3000;
+    let stopped = false;
+    let lastValue: string | null | undefined = undefined;
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const poll = async () => {
+      if (stopped) return;
+      try {
+        const activeChatId = await this.getPresence(partnerId);
+        if (lastValue === undefined || activeChatId !== lastValue) {
+          lastValue = activeChatId;
+          onPresenceChange(activeChatId);
+        }
+      } catch {
+      }
+    };
+
+    void poll();
+    timer = setInterval(poll, pollIntervalMs);
+
+    return {
+      unsubscribe() {
+        stopped = true;
+        if (timer) clearInterval(timer);
+        timer = null;
+      },
+    };
     }
 
   async sendTyping(channel: any, isTyping: boolean) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      
-      await channel.send({
-          type: 'broadcast',
-          event: 'typing',
-          payload: { isTyping, userId: user.id }
-      });
+      void channel;
+      void isTyping;
+      return;
   }
 
   async markMessagesAsRead(chatId: string): Promise<void> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    // We only update if status is NOT seen yet.
-    // The trigger handles new messages, but for existing unread messages when opening chat:
-    const { error } = await supabase
-      .from('messages')
-      .update({ 
-          read_at: new Date().toISOString(),
-          status: 'seen'
-      })
-      .eq('chat_id', chatId)
-      .neq('sender_id', user.id)
-      .neq('status', 'seen'); // Optimization
+    const { error } = await invokeEdgeFunction('events-api', {
+      body: { op: 'chat.markRead', params: { chatId } },
+    });
 
     if (error) {
       // console.error('Error marking messages as read:', error);

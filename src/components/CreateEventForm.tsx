@@ -13,6 +13,7 @@ import { ROUTE_PATHS } from '@/lib/index';
 import { Plus, Trash2, Calendar, MapPin, Image as ImageIcon, Ticket, Info, CheckCircle2, ChevronLeft } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/components/ui/use-toast';
+import { toDateTimeLocalValue, validateEventSchedule } from '@/utils/eventDateValidation';
 
 import { CategorySelect } from './create-event/CategorySelect';
 import { LocationSelect } from './create-event/LocationSelect';
@@ -31,6 +32,7 @@ export type TicketType = {
 
 export const CreateEventForm = () => {
   const MIN_PAID_TICKET_PRICE = 10;
+  const minDateTime = toDateTimeLocalValue();
   const { user } = useAuth();
   const { asaasStatus } = useOrganizerStatus();
   const navigate = useNavigate();
@@ -71,6 +73,9 @@ export const CreateEventForm = () => {
     if (!formData.event_date) return 'A data de início é obrigatória.';
     if (!formData.location) return 'O local específico é obrigatório.';
     if (!formData.state || !formData.city) return 'Estado e cidade são obrigatórios.';
+
+    const scheduleError = validateEventSchedule(formData.event_date, formData.end_at);
+    if (scheduleError) return scheduleError;
 
     if (isPublishing) {
       if (!formData.description) return 'Adicione uma descrição para publicar.';
@@ -384,12 +389,14 @@ export const CreateEventForm = () => {
                   label="Início"
                   value={formData.event_date}
                   onChange={(val) => handleChange('event_date', val)}
+                  min={minDateTime}
                   required
                 />
                 <DateTimePicker
                   label="Término"
                   value={formData.end_at || ''}
                   onChange={(val) => handleChange('end_at', val)}
+                  min={formData.event_date || minDateTime}
                 />
               </CardContent>
             </Card>
@@ -428,7 +435,6 @@ export const CreateEventForm = () => {
     </div>
   );
 };
-
 
 
 

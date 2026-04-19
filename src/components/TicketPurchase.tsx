@@ -21,13 +21,11 @@ import { TicketSelector } from './TicketSelector';
 import { MatchGuidelinesModal } from './MatchGuidelinesModal';
 import { CreditCardForm, CreditCardData } from './payment/CreditCardForm';
 import type { TicketTypeDB } from '@/services/event.service';
-import { supabase } from '@/lib/supabase';
 import { Honeypot } from './security/Honeypot';
 import { useSensitiveDataProtection } from '@/hooks/useSensitiveDataProtection';
 
 import { Skeleton } from '@/components/ui/skeleton';
 import { useNavigate } from 'react-router-dom';
-import { RealtimeChannel } from '@supabase/supabase-js';
 
 interface SingleModeToggleProps {
   enabled: boolean;
@@ -260,17 +258,13 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     }
 
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('full_name, cpf, email, phone, birth_date')
-        .eq('id', user.id)
-        .maybeSingle();
+      const { data, error } = await invokeEdgeFunction<{ profile: any | null }>('events-api', {
+        body: { op: 'profiles.checkoutData' },
+      });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
-      const normalized = mergeCheckoutProfiles(data, checkoutProfileRef.current, user.email ?? null);
+      const normalized = mergeCheckoutProfiles(data?.profile, checkoutProfileRef.current, user.email ?? null);
       setCheckoutProfile(normalized);
       return normalized;
     } catch {
@@ -482,7 +476,6 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         setStep(nextStep);
 
       } catch (error: any) {
-        console.error('Checkout init error:', error);
         let errorMessage = error.message || 'Erro ao iniciar checkout';
 
         if (
@@ -733,19 +726,18 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     if (!ticketId) return false;
     
     try {
-      const { data } = await supabase
-        .from('payments')
-        .select('status')
-        .eq('ticket_id', ticketId)
-        .maybeSingle();
-        
-      if (data && data.status === 'paid') {
+      const { data, error } = await invokeEdgeFunction<{ status: string | null }>('events-api', {
+        body: { op: 'payments.getStatusByTicketId', params: { ticketId } },
+      });
+
+      if (error) return false;
+
+      if (data?.status === 'paid') {
         handlePaymentSuccess();
         return true;
       }
       return false;
     } catch (e) {
-      console.error("Error checking payment status", e);
       return false;
     }
   }, [ticketId, handlePaymentSuccess]);
@@ -757,38 +749,17 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
       }
   };
 
-  // Realtime & Polling for Pix Payment
+  // Polling for Pix Payment
   React.useEffect(() => {
-    let channel: RealtimeChannel;
     let interval: NodeJS.Timeout;
 
     if (pixModalOpen && ticketId) {
-        // 1. Realtime Subscription
-        channel = supabase
-            .channel(`payment_status_${ticketId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'UPDATE',
-                    schema: 'public',
-                    table: 'payments',
-                    filter: `ticket_id=eq.${ticketId}`
-                },
-                (payload) => {
-                    if (payload.new.status === 'paid') {
-                        handlePaymentSuccess();
-                    }
-                }
-            )
-            .subscribe();
-
-        // 2. Polling Fallback (every 5s)
-        interval = setInterval(checkPaymentStatus, 5000);
+      checkPaymentStatus();
+      interval = setInterval(checkPaymentStatus, 5000);
     }
 
     return () => {
-        if (channel) supabase.removeChannel(channel);
-        if (interval) clearInterval(interval);
+      if (interval) clearInterval(interval);
     };
   }, [pixModalOpen, ticketId, handlePaymentSuccess, checkPaymentStatus]);
 
@@ -1311,5 +1282,3 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     </div>
   );
 }
-
-

@@ -34,7 +34,7 @@ export interface Profile {
   single_mode: boolean;
   show_initials_only: boolean;
   match_intention: 'paquera' | 'amizade' | 'networking' | 'casual' | 'serio' | null;
-  match_gender_preference: 'homens' | 'mulheres' | 'todos' | null;
+  match_gender_preference: string[] | null;
   gender_identity?: string | null;
   sexuality?: string;
   meet_attendees?: boolean;
@@ -56,24 +56,11 @@ export interface Profile {
 }
 
 class AuthService {
-  async syncSignupRoles(userId: string, isOrganizer: boolean): Promise<boolean> {
-    const updates: any = {
-      roles: ['BUYER'],
-      organizer_status: 'NONE'
-    };
-
-    if (isOrganizer) {
-      updates.roles.push('ORGANIZER');
-      updates.organizer_status = 'PENDING';
-    }
-
+  async syncSignupRoles(_userId: string, isOrganizer: boolean): Promise<boolean> {
     for (let attempt = 0; attempt < 5; attempt++) {
-      const { error } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', userId)
-        .select('id')
-        .maybeSingle();
+      const { error } = await invokeEdgeFunction('events-api', {
+        body: { op: 'profiles.syncSignupRoles', params: { isOrganizer } },
+      });
 
       if (!error) {
         return true;
@@ -86,13 +73,13 @@ class AuthService {
   }
 
   async checkRegistrationData(email: string, cpf: string) {
-    const { data, error } = await supabase.rpc('check_registration_data', {
-      check_email: email,
-      check_cpf: cpf
+    const { data, error } = await invokeEdgeFunction<{ email_exists: boolean; cpf_exists: boolean }>('events-api', {
+      body: { op: 'auth.checkRegistrationData', params: { email, cpf } },
+      requiresAuth: false,
     });
 
     if (error) throw error;
-    return data as { email_exists: boolean; cpf_exists: boolean };
+    return (data || { email_exists: false, cpf_exists: false }) as { email_exists: boolean; cpf_exists: boolean };
   }
 
   async signUp({ email, password, fullName, cpf, birthDate, isOrganizer = false }: SignUpData) {
@@ -148,27 +135,23 @@ class AuthService {
     return session;
   }
 
-  async getProfile(userId: string): Promise<Profile | null> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
+  async getProfile(_userId: string): Promise<Profile | null> {
+    const { data, error } = await invokeEdgeFunction<{ profile: Profile | null }>('events-api', {
+      body: { op: 'profiles.getSelf' },
+    });
 
     if (error) throw error;
-    return data;
+    return data?.profile ?? null;
   }
 
-  async updateProfile(userId: string, updates: Partial<Profile>) {
-    const { data, error } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('id', userId)
-      .select()
-      .single();
+  async updateProfile(_userId: string, updates: Partial<Profile>) {
+    const { data, error } = await invokeEdgeFunction<{ profile: Profile }>('events-api', {
+      body: { op: 'profiles.updateSelf', params: { updates } },
+    });
 
     if (error) throw error;
-    return data;
+    if (!data?.profile) throw new Error('Falha ao atualizar perfil');
+    return data.profile;
   }
 
   async completeProfile(data: { cpf: string; phone: string; birth_date: string }) {

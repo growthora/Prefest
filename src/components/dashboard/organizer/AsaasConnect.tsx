@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/lib/supabase';
+import { invokeEdgeFunction } from '@/services/apiClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -49,18 +49,12 @@ export function AsaasConnect() {
   const loadAccount = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('organizer_asaas_accounts')
-        .select('*')
-        .eq('organizer_user_id', user?.id)
-        .maybeSingle();
+      const { data, error } = await invokeEdgeFunction<{ account: AsaasAccount | null }>('events-api', {
+        body: { op: 'organizerAsaas.getAccount' },
+      });
 
-      if (error) {
-      }
-
-      if (data) {
-        setAccount(data);
-      }
+      if (error) throw error;
+      setAccount(data?.account || null);
     } catch (error) {
     } finally {
       setLoading(false);
@@ -87,27 +81,13 @@ export function AsaasConnect() {
 
     setSubmitting(true);
     try {
-      const { data, error } = await supabase
-        .from('organizer_asaas_accounts')
-        .upsert(
-          {
-            organizer_user_id: user.id,
-            asaas_account_id: walletId,
-            asaas_wallet_id: walletId,
-            is_active: true,
-            kyc_status: 'approved',
-            payment_method_type: 'EXTERNAL_WALLET',
-            external_wallet_id: walletId,
-            external_wallet_email: externalEmail,
-          } as any,
-          { onConflict: 'organizer_user_id' }
-        )
-        .select('*')
-        .single();
+      const { data, error } = await invokeEdgeFunction<{ account: AsaasAccount }>('events-api', {
+        body: { op: 'organizerAsaas.connectExternalWallet', params: { walletId, externalEmail } },
+      });
 
       if (error) throw error;
 
-      setAccount(data);
+      setAccount(data?.account || null);
       toast.success('Wallet externa conectada com sucesso!');
     } catch (error: any) {
       toast.error(toUserFriendlyErrorMessage(error));
@@ -120,9 +100,7 @@ export function AsaasConnect() {
     if (!account) return;
     setSubmitting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('asaas-refresh-organizer-kyc-status', {
-        method: 'POST',
-      });
+      const { data, error } = await invokeEdgeFunction<any>('asaas-refresh-organizer-kyc-status', { method: 'POST' });
 
       if (error) throw error;
       if (data.error) {

@@ -39,17 +39,17 @@ export default function EventMatches() {
       setHasTicket(hasAccess);
       setIsMatchEnabled(participation?.match_enabled ?? false);
 
-      if (!hasAccess || !participation?.match_enabled) {
+      if (!hasAccess) {
         setLoading(false);
         return;
       }
 
       const data = await matchService.getEventMatches(eventId);
-            setMatches(data);
-          } catch (error) {
-            // console.error('Error loading matches:', error);
-          } finally {
-            setLoading(false);
+      setMatches(data);
+    } catch {
+      setMatches([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -67,23 +67,6 @@ export default function EventMatches() {
         </p>
         <Button onClick={() => navigate('/meus-eventos')}>
           Ver meus eventos
-        </Button>
-      </div>
-    );
-  }
-
-  if (isMatchEnabled === false) {
-    return (
-      <div className="min-h-screen bg-background p-4 flex flex-col items-center justify-center text-center">
-        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
-          <Lock className="h-8 w-8 text-muted-foreground" />
-        </div>
-        <h2 className="text-xl font-semibold mb-2">Ative o Match deste evento</h2>
-        <p className="text-muted-foreground mb-6 max-w-xs">
-          VocÃª precisa entrar no Match para ver curtidas, filas e conversas deste evento.
-        </p>
-        <Button onClick={() => navigate(`/evento/${eventId}?tab=match`)}>
-          Entrar no Match
         </Button>
       </div>
     );
@@ -107,9 +90,8 @@ export default function EventMatches() {
           <p className="text-muted-foreground max-w-xs mx-auto mb-6">
             Você ainda não tem matches confirmados neste evento.
           </p>
-          {/* Se o evento já passou, talvez não dê para dar match, mas deixamos o botão por enquanto */}
-          <Button onClick={() => navigate(`/evento/${eventId}?tab=match`)}>
-            Conhecer Galera
+          <Button onClick={() => navigate('/meus-eventos')}>
+            Ver meus eventos
           </Button>
         </div>
       ) : (
@@ -123,7 +105,11 @@ export default function EventMatches() {
                 </Avatar>
                 <div>
                   <h3 className="font-semibold">{match.partner_name}</h3>
-                  <p className="text-xs text-muted-foreground">Match global ativo</p>
+                  {isMatchEnabled === false ? (
+                    <p className="text-xs text-muted-foreground">Match deste evento desativado (histórico)</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Match deste evento</p>
+                  )}
                   <p className="text-[11px] text-muted-foreground mt-1">
                     Vocês se encontraram em:
                   </p>

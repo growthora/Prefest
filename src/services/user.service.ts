@@ -1,4 +1,3 @@
-import { supabase } from '../lib/supabase';
 import type { Profile } from './auth.service';
 import { invokeEdgeFunction } from './apiClient';
 
@@ -36,7 +35,7 @@ export interface UpdateUserData {
   match_enabled?: boolean;
   show_initials_only?: boolean;
   match_intention?: 'paquera' | 'amizade' | 'networking' | 'casual' | 'serio' | null;
-  match_gender_preference?: 'homens' | 'mulheres' | 'todos' | null;
+  match_gender_preference?: string[] | null;
   gender_identity?: string | null;
   sexuality?: string;
   meet_attendees?: boolean;
@@ -53,212 +52,95 @@ export interface UpdateUserData {
 }
 
 class UserService {
-  private isMissingColumnError(error: any, column: string): boolean {
-    const code = String(error?.code || '');
-    const message = String(error?.message || '').toLowerCase();
-    return code === '42703' && message.includes(column.toLowerCase());
-  }
-
-  private removeUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
-    return Object.fromEntries(
-      Object.entries(obj).filter(([, value]) => value !== undefined)
-    ) as Partial<T>;
-  }
-
   // Listar todos os usuarios
   async getAllUsers(): Promise<Profile[]> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { data, error } = await invokeEdgeFunction<{ users: Profile[] }>('events-api', {
+      body: { op: 'adminUsers.list' },
+    });
 
     if (error) throw error;
-    return data || [];
+    return data?.users || [];
   }
 
   // Listar usuarios com estatisticas
   async getUsersWithStats(): Promise<UserWithStats[]> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select(`
-        *,
-        event_participants!event_participants_user_id_fkey (
-          total_paid
-        )
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      throw error;
-    }
-
-    // Calcular estatisticas
-    return (data || []).map((user: any) => {
-      const participants = user.event_participants || [];
-      return {
-        ...user,
-        total_events: participants.length,
-        total_spent: participants.reduce((sum: number, p: any) => sum + (p.total_paid || 0), 0),
-      };
+    const { data, error } = await invokeEdgeFunction<{ users: UserWithStats[] }>('events-api', {
+      body: { op: 'adminUsers.listWithStats' },
     });
+
+    if (error) throw error;
+    return data?.users || [];
   }
 
   // Buscar usuario por ID
   async getUserById(userId: string): Promise<Profile> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    const { data, error } = await invokeEdgeFunction<{ user: Profile | null }>('events-api', {
+      body: { op: 'adminUsers.getById', params: { userId } },
+    });
 
     if (error) throw error;
-    return data;
+    if (!data?.user) throw new Error('Usuário não encontrado');
+    return data.user;
   }
 
   // Buscar usuario por username (slug)
   async getUserByUsername(username: string): Promise<Profile | null> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('username', username)
-      .single();
+    const { data, error } = await invokeEdgeFunction<{ user: Profile | null }>('events-api', {
+      body: { op: 'adminUsers.getByUsername', params: { username } },
+    });
 
-    if (error) {
-      if (error.code === 'PGRST116') return null; // Not found
-      throw error;
-    }
-    return data;
+    if (error) throw error;
+    return data?.user ?? null;
   }
 
   // Listar organizadores pendentes
   async getPendingOrganizers(): Promise<Profile[]> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('organizer_status', 'PENDING')
-      .order('created_at', { ascending: false });
+    const { data, error } = await invokeEdgeFunction<{ users: Profile[] }>('events-api', {
+      body: { op: 'adminUsers.pendingOrganizers' },
+    });
 
     if (error) throw error;
-    return data || [];
+    return data?.users || [];
   }
 
   // Atualizar status do organizador
   async updateOrganizerStatus(userId: string, status: 'APPROVED' | 'REJECTED'): Promise<void> {
-    const { error } = await supabase
-      .from('profiles')
-      .update({ organizer_status: status })
-      .eq('id', userId);
+    const { error } = await invokeEdgeFunction('events-api', {
+      body: { op: 'adminUsers.updateOrganizerStatus', params: { userId, status } },
+    });
 
     if (error) throw error;
   }
 
   // Solicitar acesso de organizador
   async requestOrganizerAccess(userId: string): Promise<void> {
-    const user = await this.getUserById(userId);
-    const currentRoles = user.roles || ['BUYER'];
-    
-    // Adicionar ORGANIZER se nao existir
-    const newRoles = currentRoles.includes('ORGANIZER') 
-      ? currentRoles 
-      : [...currentRoles, 'ORGANIZER'];
-
-    const { error } = await supabase
-      .from('profiles')
-      .update({ 
-        roles: newRoles,
-        organizer_status: 'PENDING'
-      })
-      .eq('id', userId);
+    const { error } = await invokeEdgeFunction('events-api', {
+      body: { op: 'adminUsers.requestOrganizerAccess', params: { userId } },
+    });
 
     if (error) throw error;
   }
 
   // Criar novo usuario (requer permissao admin)
   async createUser(userData: CreateUserData): Promise<{ user: any; profile: Profile }> {
-    // Criar usuario no auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: userData.email,
-      password: userData.password,
-      options: {
-        data: {
-          full_name: userData.full_name,
-        },
-      },
+    const { data, error } = await invokeEdgeFunction<{ user: any; profile: Profile }>('events-api', {
+      body: { op: 'adminUsers.create', params: { userData } },
     });
 
-    if (authError) throw authError;
-
-    // Aguardar criacao do perfil via trigger
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Atualizar roles se necessario
-    if (authData.user) {
-      const updatePayload: Record<string, unknown> = {};
-      if (userData.roles && userData.roles.length > 0) {
-        updatePayload.roles = userData.roles;
-      }
-      if (userData.role) {
-        updatePayload.role = userData.role;
-      }
-      if (userData.account_type) {
-        updatePayload.account_type = userData.account_type;
-      }
-
-      if (Object.keys(updatePayload).length > 0) {
-        let normalizedPayload = this.removeUndefined(updatePayload);
-        let { data: profile, error: updateError } = await supabase
-          .from('profiles')
-          .update(normalizedPayload)
-          .eq('id', authData.user.id)
-          .select()
-          .single();
-
-        if (updateError && this.isMissingColumnError(updateError, 'account_type')) {
-          const { account_type, ...fallbackPayload } = normalizedPayload as any;
-          normalizedPayload = fallbackPayload;
-          const retry = await supabase
-            .from('profiles')
-            .update(normalizedPayload)
-            .eq('id', authData.user.id)
-            .select()
-            .single();
-          profile = retry.data as any;
-          updateError = retry.error;
-        }
-
-        if (updateError) throw updateError;
-        return { user: authData.user, profile };
-      }
-    }
-
-    const profile = await this.getUserById(authData.user!.id);
-    return { user: authData.user, profile };
+    if (error) throw error;
+    if (!data?.user || !data?.profile) throw new Error('Falha ao criar usuário');
+    return data;
   }
 
   // Atualizar usuario
   async updateUser(userId: string, updates: UpdateUserData): Promise<Profile> {
-    const normalizedUpdates = this.removeUndefined(updates as any);
-    let { data, error } = await supabase
-      .from('profiles')
-      .update(normalizedUpdates as any)
-      .eq('id', userId)
-      .select()
-      .single();
-
-    if (error && (this.isMissingColumnError(error, 'account_type') || this.isMissingColumnError(error, 'organizer_status'))) {
-      const { account_type, organizer_status, ...fallbackUpdates } = normalizedUpdates as any;
-      const retry = await supabase
-        .from('profiles')
-        .update(fallbackUpdates)
-        .eq('id', userId)
-        .select()
-        .single();
-      data = retry.data as any;
-      error = retry.error;
-    }
+    const { data, error } = await invokeEdgeFunction<{ user: Profile }>('events-api', {
+      body: { op: 'adminUsers.update', params: { userId, updates } },
+    });
 
     if (error) throw error;
-    return data as Profile;
+    if (!data?.user) throw new Error('Falha ao atualizar usuário');
+    return data.user;
   }
 
   async updateUserPasswordAsAdmin(userId: string, newPassword: string): Promise<void> {
@@ -277,60 +159,35 @@ class UserService {
     }
   }
   async getOrganizerOptions(): Promise<OrganizerOption[]> {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, full_name, email, roles, organizer_status, account_type')
-      .order('full_name', { ascending: true });
+    const { data, error } = await invokeEdgeFunction<{ organizers: OrganizerOption[] }>('events-api', {
+      body: { op: 'adminUsers.organizerOptions' },
+    });
 
     if (error) throw error;
-
-    return (data || [])
-      .filter((profile: any) => {
-        const roles = (profile.roles || []).map((role: string) => role.toUpperCase());
-        const accountType = String(profile.account_type || '').toLowerCase();
-        const isOrganizerRole = roles.includes('ORGANIZER');
-        const isOrganizerAccountType =
-          accountType === 'organizador' || accountType === 'comprador_organizador';
-        const isApproved = (profile.organizer_status || 'NONE') === 'APPROVED';
-        return (isOrganizerRole || isOrganizerAccountType) && isApproved;
-      })
-      .map((profile: any) => ({
-        id: profile.id,
-        full_name: profile.full_name || profile.email || 'Organizador sem nome',
-        email: profile.email || '',
-      }));
+    return data?.organizers || [];
   }
 
   async getTeamOrganizerForUser(userId: string): Promise<string | null> {
-    const { data, error } = await supabase
-      .from('team_members')
-      .select('organizer_id')
-      .eq('user_id', userId)
-      .maybeSingle();
+    const { data, error } = await invokeEdgeFunction<{ organizerId: string | null }>('events-api', {
+      body: { op: 'adminUsers.team.getOrganizerForUser', params: { userId } },
+    });
 
     if (error) throw error;
-    return data?.organizer_id || null;
+    return data?.organizerId || null;
   }
 
   async upsertTeamMemberLink(userId: string, organizerId: string): Promise<void> {
-    const { error } = await supabase
-      .from('team_members')
-      .upsert(
-        {
-          user_id: userId,
-          organizer_id: organizerId,
-        },
-        { onConflict: 'user_id' }
-      );
+    const { error } = await invokeEdgeFunction('events-api', {
+      body: { op: 'adminUsers.team.upsertLink', params: { userId, organizerId } },
+    });
 
     if (error) throw error;
   }
 
   async removeTeamMemberLink(userId: string): Promise<void> {
-    const { error } = await supabase
-      .from('team_members')
-      .delete()
-      .eq('user_id', userId);
+    const { error } = await invokeEdgeFunction('events-api', {
+      body: { op: 'adminUsers.team.removeLink', params: { userId } },
+    });
 
     if (error) throw error;
   }
@@ -350,184 +207,12 @@ class UserService {
 
   // Obter estatisticas gerais
   async getStatistics() {
-    const { count: totalUsers, error: usersError } = await supabase
-      .from('profiles')
-      .select('*', { count: 'exact', head: true });
+    const { data, error } = await invokeEdgeFunction('events-api', {
+      body: { op: 'adminUsers.statistics' },
+    });
 
-    if (usersError) {
-      // Silently ignore error
-    }
-
-    const { count: totalEvents, error: eventsError } = await supabase
-      .from('events')
-      .select('*', { count: 'exact', head: true });
-
-    if (eventsError) {
-      // Silently ignore error
-    }
-
-    const { data: confirmedPayments, error: revenueError } = await supabase
-      .from('payments')
-      .select(`
-        value,
-        created_at,
-        ticket:ticket_id(
-          event_id,
-          unit_price,
-          quantity,
-          discount_amount,
-          events(title)
-        )
-      `)
-      .in('status', [
-        'paid',
-        'received',
-        'confirmed',
-        'PAID',
-        'RECEIVED',
-        'CONFIRMED',
-        'RECEIVED_IN_CASH',
-      ]);
-
-    if (revenueError) {
-      // Silently ignore error
-    }
-
-    const paymentRows = confirmedPayments || [];
-
-    const toOrganizerRevenue = (row: any) => {
-      const unitPrice = Number(row?.ticket?.unit_price) || 0;
-      const quantity = Number(row?.ticket?.quantity) || 1;
-      const discount = Number(row?.ticket?.discount_amount) || 0;
-      return Math.max(0, Number((unitPrice * quantity - discount).toFixed(2)));
-    };
-
-    const totalRevenue = paymentRows.reduce((sum: number, row: any) => {
-      const organizerRevenue = toOrganizerRevenue(row);
-      const platformFee = Number((organizerRevenue * 0.1).toFixed(2));
-      const customerTotal = Number((organizerRevenue + platformFee).toFixed(2));
-      return sum + customerTotal;
-    }, 0);
-
-    const now = new Date();
-    const startCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const startPreviousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-
-    const currentMonthRevenue = paymentRows.reduce((sum: number, row: any) => {
-      const createdAt = row.created_at ? new Date(row.created_at) : null;
-      if (createdAt && createdAt >= startCurrentMonth && createdAt < startNextMonth) {
-        const organizerRevenue = toOrganizerRevenue(row);
-        const platformFee = Number((organizerRevenue * 0.1).toFixed(2));
-        return sum + organizerRevenue + platformFee;
-      }
-      return sum;
-    }, 0);
-
-    const previousMonthRevenue = paymentRows.reduce((sum: number, row: any) => {
-      const createdAt = row.created_at ? new Date(row.created_at) : null;
-      if (createdAt && createdAt >= startPreviousMonth && createdAt < startCurrentMonth) {
-        const organizerRevenue = toOrganizerRevenue(row);
-        const platformFee = Number((organizerRevenue * 0.1).toFixed(2));
-        return sum + organizerRevenue + platformFee;
-      }
-      return sum;
-    }, 0);
-
-    const revenueByEvent = paymentRows.reduce((acc: any, row: any) => {
-      const eventId = row?.ticket?.event_id;
-      if (!eventId) return acc;
-      const organizerRevenue = toOrganizerRevenue(row);
-      const platformFee = Number((organizerRevenue * 0.1).toFixed(2));
-      const customerTotal = Number((organizerRevenue + platformFee).toFixed(2));
-      const quantity = Number(row?.ticket?.quantity) || 1;
-
-      if (!acc[eventId]) {
-        acc[eventId] = {
-          event_id: eventId,
-          event_title: row?.ticket?.events?.title || 'Sem titulo',
-          event_price: Number(row?.ticket?.unit_price) || 0,
-          revenue: 0,
-          organizer_revenue: 0,
-          platform_revenue: 0,
-          tickets_sold: 0,
-        };
-      }
-      acc[eventId].revenue += customerTotal;
-      acc[eventId].organizer_revenue += organizerRevenue;
-      acc[eventId].platform_revenue += platformFee;
-      acc[eventId].tickets_sold += quantity;
-      return acc;
-    }, {});
-
-    const eventStats = Object.values(revenueByEvent);
-
-    const { data: profilesCreated, error: profilesCreatedError } = await supabase
-      .from('profiles')
-      .select('created_at');
-
-    if (profilesCreatedError) {
-      // Silently ignore error
-    }
-
-    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekStartsOnMonday = (date: Date) => {
-      const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-      const day = d.getDay();
-      const diff = day === 0 ? -6 : 1 - day;
-      d.setDate(d.getDate() + diff);
-      return d;
-    };
-
-    const startCurrentWeek = weekStartsOnMonday(dayStart);
-    const startNextWeek = new Date(startCurrentWeek);
-    startNextWeek.setDate(startCurrentWeek.getDate() + 7);
-    const startPreviousWeek = new Date(startCurrentWeek);
-    startPreviousWeek.setDate(startCurrentWeek.getDate() - 7);
-
-    const currentWeekNewUsers = (profilesCreated || []).reduce((sum: number, profile: any) => {
-      const createdAt = profile.created_at ? new Date(profile.created_at) : null;
-      if (createdAt && createdAt >= startCurrentWeek && createdAt < startNextWeek) {
-        return sum + 1;
-      }
-      return sum;
-    }, 0);
-
-    const previousWeekNewUsers = (profilesCreated || []).reduce((sum: number, profile: any) => {
-      const createdAt = profile.created_at ? new Date(profile.created_at) : null;
-      if (createdAt && createdAt >= startPreviousWeek && createdAt < startCurrentWeek) {
-        return sum + 1;
-      }
-      return sum;
-    }, 0);
-
-    const organizerRevenueTotal = paymentRows.reduce((sum: number, row: any) => {
-      return sum + toOrganizerRevenue(row);
-    }, 0);
-
-    const prefestRevenue = Number((totalRevenue - organizerRevenueTotal).toFixed(2));
-    const profit = prefestRevenue;
-    const profitMargin = totalRevenue > 0 ? (prefestRevenue / totalRevenue) * 100 : 0;
-
-    const stats = {
-      totalUsers: totalUsers || 0,
-      totalEvents: totalEvents || 0,
-      totalRevenue,
-      estimatedCosts: organizerRevenueTotal,
-      organizerRevenue: organizerRevenueTotal,
-      prefestRevenue,
-      profit,
-      profitMargin,
-      eventStats,
-      comparison: {
-        currentMonthRevenue,
-        previousMonthRevenue,
-        currentWeekNewUsers,
-        previousWeekNewUsers,
-      },
-    };
-
-    return stats;
+    if (error) throw error;
+    return data as any;
   }
 }
 

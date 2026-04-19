@@ -192,7 +192,14 @@ export function Sales() {
                     {paginatedTransactions.map((transaction) => (
                       <tr key={transaction.id} className="border-t">
                         <td className="px-4 py-3">{formatDate(transaction.date)}</td>
-                        <td className="px-4 py-3">{transaction.eventName}</td>
+                        <td className="px-4 py-3">
+                          <div
+                            className="max-w-[220px] truncate sm:max-w-[320px] lg:max-w-[420px]"
+                            title={transaction.eventName}
+                          >
+                            {transaction.eventName}
+                          </div>
+                        </td>
                         <td className="px-4 py-3">
                           <div className="font-medium">{transaction.buyerName}</div>
                           <div className="text-xs text-muted-foreground">{transaction.buyerEmail}</div>

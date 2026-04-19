@@ -19,9 +19,10 @@ import { toast } from 'sonner';
 import { GlobalLoader } from '@/components/GlobalLoader';
 import { likeService } from '@/services/like.service';
 import { ROUTE_PATHS } from '@/lib';
-import { supabase } from '@/lib/supabase';
+import { invokeEdgeFunction } from '@/services/apiClient';
 import {
   getGenderIdentityLabel,
+  getMatchGenderPreferenceLabel,
   getMatchIntentionLabel,
   getRelationshipStatusLabel,
   getSexualityLabel,
@@ -40,7 +41,7 @@ interface PublicUser {
   relationship_status: string | null;
   match_intention: string | null;
   sexuality: string | null;
-  gender_preference: string | null;
+  gender_preference: string[] | null;
   vibes: string[] | null;
   looking_for: string[] | null;
   is_online: boolean;
@@ -93,18 +94,15 @@ export default function PublicProfile() {
     targetUserId: string
   ): Promise<EventMatchParticipation | null> => {
     try {
-      const { data, error } = await supabase
-        .from('event_participants')
-        .select('status, match_enabled')
-        .eq('event_id', eventId)
-        .eq('user_id', targetUserId)
-        .in('status', ['confirmed', 'paid', 'valid', 'used']) // Only valid tickets (including used)
-        .maybeSingle();
+      const { data, error } = await invokeEdgeFunction<{ participation: EventMatchParticipation | null }>(
+        'events-api',
+        {
+          body: { op: 'eventParticipants.getMatchParticipation', params: { eventId, targetUserId } },
+        }
+      );
 
-      if (error || !data) {
-        return null;
-      }
-      return data as EventMatchParticipation;
+      if (error) return null;
+      return data?.participation || null;
     } catch (err) {
       return null;
     }
@@ -374,6 +372,12 @@ export default function PublicProfile() {
                     <Badge variant="outline" className="bg-muted/50">
                       <Sparkles className="w-3 h-3 mr-1" />
                       {getMatchIntentionLabel(profile.match_intention)}
+                    </Badge>
+                  )}
+                  {profile.gender_preference && profile.gender_preference.length > 0 && (
+                    <Badge variant="outline" className="bg-muted/50">
+                      <Users className="w-3 h-3 mr-1" />
+                      {getMatchGenderPreferenceLabel(profile.gender_preference)}
                     </Badge>
                   )}
                   {profile.sexuality && (

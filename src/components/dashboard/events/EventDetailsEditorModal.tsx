@@ -23,6 +23,7 @@ import { eventService, type Event, type TicketTypeDB } from '@/services/event.se
 import { EventGalleryManager, type EventGalleryImage } from '@/components/event/EventGalleryManager';
 import { Loader2, AlertTriangle, CheckCircle2, Eye, Pencil, Trash2, Plus } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { toDateTimeLocalValue, validateTicketSaleWindow } from '@/utils/eventDateValidation';
 
 type DashboardEvent = Event & {
   revenue?: number;
@@ -36,8 +37,14 @@ type SaveState = 'idle' | 'loading' | 'success' | 'error';
 
 const formSchema = z
   .object({
-    title: z.string().min(3, 'O título deve ter pelo menos 3 caracteres.'),
-    description: z.string().min(10, 'A descrição deve ter pelo menos 10 caracteres.'),
+    title: z
+      .string()
+      .min(3, 'O título deve ter pelo menos 3 caracteres.')
+      .max(120, 'O título deve ter no máximo 120 caracteres.'),
+    description: z
+      .string()
+      .min(10, 'A descrição deve ter pelo menos 10 caracteres.')
+      .max(2000, 'A descrição deve ter no máximo 2000 caracteres.'),
     event_date: z.string().min(1, 'A data de início é obrigatória.'),
     end_at: z.string().optional(),
     location: z.string().min(3, 'O local é obrigatório.'),
@@ -114,6 +121,21 @@ function buildTicketFormState(ticket: TicketTypeDB): TicketFormState {
     sale_end_date: toInputDate(ticket.sale_end_date),
     is_active: !!ticket.is_active,
   };
+}
+
+function getTicketSaleWindowError(
+  event: DashboardEvent,
+  saleStartDate?: string | null,
+  saleEndDate?: string | null,
+  requireFutureStart = false,
+) {
+  return validateTicketSaleWindow(
+    saleStartDate,
+    saleEndDate,
+    event.event_date,
+    event.end_at || event.event_date,
+    { requireFutureStart },
+  );
 }
 
 interface EventDetailsEditorModalProps {
@@ -308,6 +330,12 @@ export function EventDetailsEditorModal({
       return;
     }
 
+    const saleWindowError = getTicketSaleWindowError(event, editor.sale_start_date, editor.sale_end_date);
+    if (saleWindowError) {
+      toast({ title: 'Janela de vendas invalida', description: saleWindowError, variant: 'destructive' });
+      return;
+    }
+
     try {
       setSavingTicketId(ticket.id);
       const updated = await eventService.updateTicketType(ticket.id, {
@@ -386,6 +414,12 @@ export function EventDetailsEditorModal({
     }
     if (Number.isNaN(quantity) || quantity < 0) {
       toast({ title: 'Quantidade invalida', description: 'Informe uma quantidade valida.', variant: 'destructive' });
+      return;
+    }
+
+    const saleWindowError = getTicketSaleWindowError(event, newTicket.sale_start_date, newTicket.sale_end_date, true);
+    if (saleWindowError) {
+      toast({ title: 'Janela de vendas invalida', description: saleWindowError, variant: 'destructive' });
       return;
     }
 
@@ -534,7 +568,9 @@ export function EventDetailsEditorModal({
         <DialogHeader className="px-3 py-3 sm:px-4 md:px-6 border-b">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <DialogTitle className="truncate">{event.title}</DialogTitle>
+              <DialogTitle className="line-clamp-2 break-words" title={event.title}>
+                {event.title}
+              </DialogTitle>
               <DialogDescription id="event-editor-description">
                 {currentMode === 'view' ? 'Visualização do evento' : 'Edição do evento'} • ID: {event.id}
               </DialogDescription>
@@ -586,6 +622,7 @@ export function EventDetailsEditorModal({
                       id="event-title"
                       aria-invalid={!!fieldErrors.title}
                       value={form.title}
+                      maxLength={120}
                       onChange={(e) => onFieldChange('title', e.target.value)}
                       readOnly={readOnly}
                       autoFocus={currentMode === 'edit'}
@@ -600,6 +637,7 @@ export function EventDetailsEditorModal({
                       aria-invalid={!!fieldErrors.description}
                       className="min-h-[120px]"
                       value={form.description}
+                      maxLength={2000}
                       onChange={(e) => onFieldChange('description', e.target.value)}
                       readOnly={readOnly}
                     />
@@ -804,6 +842,7 @@ export function EventDetailsEditorModal({
                                       type="datetime-local"
                                       value={editor.sale_start_date}
                                       onChange={(e) => updateTicketEditorField(ticket.id, 'sale_start_date', e.target.value)}
+                                      max={form.end_at || form.event_date}
                                       disabled={savingTicketId === ticket.id}
                                     />
                                   </div>
@@ -813,6 +852,8 @@ export function EventDetailsEditorModal({
                                       type="datetime-local"
                                       value={editor.sale_end_date}
                                       onChange={(e) => updateTicketEditorField(ticket.id, 'sale_end_date', e.target.value)}
+                                      min={editor.sale_start_date || ''}
+                                      max={form.end_at || form.event_date}
                                       disabled={savingTicketId === ticket.id}
                                     />
                                   </div>
@@ -951,6 +992,8 @@ export function EventDetailsEditorModal({
                           type="datetime-local"
                           value={newTicket.sale_start_date}
                           onChange={(e) => setNewTicket((prev) => ({ ...prev, sale_start_date: e.target.value }))}
+                          min={toDateTimeLocalValue()}
+                          max={form.end_at || form.event_date}
                         />
                       </div>
                       <div>
@@ -959,6 +1002,8 @@ export function EventDetailsEditorModal({
                           type="datetime-local"
                           value={newTicket.sale_end_date}
                           onChange={(e) => setNewTicket((prev) => ({ ...prev, sale_end_date: e.target.value }))}
+                          min={newTicket.sale_start_date || toDateTimeLocalValue()}
+                          max={form.end_at || form.event_date}
                         />
                       </div>
                     </div>
@@ -1079,8 +1124,6 @@ export function EventDetailsEditorModal({
     </Dialog>
   );
 }
-
-
 
 
 

@@ -101,6 +101,7 @@ export default function EventDetails() {
     reloadQueue,
     hasOwnValidPhoto,
     isCheckingOwnPhoto,
+    hasEvaluatedOwnPhoto,
   } = useMatch(event?.id, { matchEnabled: participation?.match_enabled });
   const [showSocialOnboarding, setShowSocialOnboarding] = useState(false);
   const [showMatchGuidelines, setShowMatchGuidelines] = useState(false);
@@ -110,7 +111,8 @@ export default function EventDetails() {
     return differenceInYears(new Date(), parseISO(profile.birth_date)) < 18;
   }, [profile]);
 
-  const isMatchPhotoMissing = Boolean(user && profile && !isCheckingOwnPhoto && !hasOwnValidPhoto);
+  const isOwnPhotoValidationPending = Boolean(user && profile && (!hasEvaluatedOwnPhoto || isCheckingOwnPhoto));
+  const isMatchPhotoMissing = Boolean(user && profile && hasEvaluatedOwnPhoto && !isCheckingOwnPhoto && !hasOwnValidPhoto);
   const isEventMatchEnabled = participation?.match_enabled ?? false;
 
   const openMatchProfileSetup = () => {
@@ -127,7 +129,7 @@ export default function EventDetails() {
     const isMatchAreaTab = nextTab === 'match' || nextTab === 'likes';
 
     if (isMatchAreaTab && user && profile) {
-      if (isCheckingOwnPhoto) {
+      if (isOwnPhotoValidationPending) {
         toast.info('Validando sua foto de perfil...');
         return;
       }
@@ -179,7 +181,7 @@ export default function EventDetails() {
 
 
   const handleLikeBack = async (likeId: string, userId: string) => {
-    if (isCheckingOwnPhoto) {
+    if (isOwnPhotoValidationPending) {
       toast.info('Validando sua foto de perfil...');
       return;
     }
@@ -200,6 +202,11 @@ export default function EventDetails() {
 
       const result = action.result;
       
+      if (result.status === 'error') {
+        toast.error(result.message || 'Não foi possível curtir de volta agora.');
+        return;
+      }
+
       if (result.status === 'match') {
         toast.success("It's a Match! ??");
         
@@ -327,7 +334,7 @@ export default function EventDetails() {
     return;
   }
 
-  if (!isEventMatchEnabled && isCheckingOwnPhoto) {
+  if (!isEventMatchEnabled && isOwnPhotoValidationPending) {
     toast.info('Validando sua foto de perfil...');
     return;
   }
@@ -349,7 +356,7 @@ const toggleMatchStatus = async (enable: boolean) => {
   if (!profile || !user || !event?.id) return;
 
   try {
-    if (enable && isCheckingOwnPhoto) {
+    if (enable && isOwnPhotoValidationPending) {
       toast.info('Validando sua foto de perfil...');
       return;
     }
@@ -393,17 +400,23 @@ const loadEvent = async () => {
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug);
 
       if (isUUID) {
-        supabaseEvent = await eventService.getEventById(slug);
+        supabaseEvent = user
+          ? await eventService.getEventById(slug)
+          : await eventService.getPublicEventById(slug);
         if (supabaseEvent && (supabaseEvent as any).is_active === false) {
           throw new Error('EVENT_OFFLINE');
         }
         // If we found the event and it has a slug, redirect to the slug URL
         if (supabaseEvent && supabaseEvent.slug) {
-           navigate(ROUTE_PATHS.EVENT_DETAILS.replace(':slug', supabaseEvent.slug), { replace: true });
+           const currentSearch = searchParams.toString();
+           const targetUrl = `${ROUTE_PATHS.EVENT_DETAILS.replace(':slug', supabaseEvent.slug)}${currentSearch ? `?${currentSearch}` : ''}`;
+           navigate(targetUrl, { replace: true });
            return;
         }
       } else {
-        supabaseEvent = await eventService.getEventBySlug(slug);
+        supabaseEvent = user
+          ? await eventService.getEventBySlug(slug)
+          : await eventService.getPublicEventBySlug(slug);
       }
       
       if (supabaseEvent) {
@@ -432,7 +445,10 @@ const loadEvent = async () => {
           hour12: false
         });
         
-        const galleryRows = await eventService.getEventImages(supabaseEvent.id).catch((): any[] => []);
+        const galleryRows = await (user
+          ? eventService.getEventImages(supabaseEvent.id)
+          : eventService.getPublicEventImages(supabaseEvent.id)
+        ).catch((): any[] => []);
         const orderedGallery = galleryRows
           .slice()
           .sort((a, b) => Number(a.display_order) - Number(b.display_order));
@@ -496,7 +512,7 @@ const loadEvent = async () => {
   };
 
   const handleLikeMatch = async (userId: string) => {
-  if (isCheckingOwnPhoto) {
+  if (isOwnPhotoValidationPending) {
     toast.info('Validando sua foto de perfil...');
     return;
   }
@@ -517,6 +533,11 @@ const loadEvent = async () => {
 
     const likeResult = action.result;
     const likedUser = action.targetUser;
+
+    if (likeResult.status === 'error') {
+      toast.error(likeResult.message || 'Não foi possível processar sua curtida agora.');
+      return;
+    }
 
     if (likeResult.status === 'already_liked') {
       toast.info('Você já curtiu esta pessoa');
@@ -559,8 +580,8 @@ const loadEvent = async () => {
       const audio = new Audio('/sounds/match.mp3');
       audio.play().catch(() => {});
 
-      if (likeResult.match_id) {
-        matchService.markMatchSeen(likeResult.match_id).catch(() => {});
+      if (likeResult.match_id && event?.id) {
+        matchService.markMatchSeen(likeResult.match_id, event.id).catch(() => {});
       }
     } else {
       toast.success('Like enviado! ??');
@@ -584,7 +605,9 @@ const shouldShowSocialOnboarding = () => {
     const isAvatarEmpty = !hasValidMatchPhoto(profile.avatar_url);
     const isObjectiveEmpty = !profile.match_intention;
     const hasLookingFor = Array.isArray(profile.looking_for) && profile.looking_for.length > 0;
-    const isPreferenceEmpty = !profile.match_gender_preference && !hasLookingFor;
+    const hasGenderPreference =
+      Array.isArray(profile.match_gender_preference) && profile.match_gender_preference.length > 0;
+    const isPreferenceEmpty = !hasGenderPreference && !hasLookingFor;
     return isBioEmpty && isAvatarEmpty && isObjectiveEmpty && isPreferenceEmpty;
   };
 
@@ -1044,7 +1067,7 @@ const shouldShowSocialOnboarding = () => {
                     A funcionalidade de Match é exclusiva para maiores de 18 anos.
                   </p>
                 </div>
-              ) : isCheckingOwnPhoto ? (
+              ) : isOwnPhotoValidationPending ? (
                 renderMatchPhotoValidationState()
               ) : isMatchPhotoMissing ? (
                 renderMatchPhotoRequiredState('As curtidas e o swipe só ficam disponíveis quando sua foto principal está válida e pronta para aparecer para outras pessoas.')
@@ -1187,7 +1210,7 @@ const shouldShowSocialOnboarding = () => {
                   <div className="flex items-center gap-4">
                     <div className="text-right hidden md:block">
                       <p className="text-sm font-medium">
-                        {isCheckingOwnPhoto
+                        {isOwnPhotoValidationPending
                           ? 'Validando sua foto'
                           : isMatchPhotoMissing
                             ? 'Foto obrigatória para o Match'
@@ -1196,7 +1219,7 @@ const shouldShowSocialOnboarding = () => {
                               : 'Você está invisível'}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {isCheckingOwnPhoto
+                        {isOwnPhotoValidationPending
                           ? 'Estamos conferindo se sua foto está pronta para aparecer no swipe.'
                           : isMatchPhotoMissing
                             ? 'Adicione uma foto válida para aparecer, curtir e receber curtidas.'
@@ -1208,10 +1231,10 @@ const shouldShowSocialOnboarding = () => {
                     <Button 
                       variant={isMatchPhotoMissing ? "default" : isEventMatchEnabled ? "outline" : "default"}
                       onClick={isMatchPhotoMissing ? openMatchProfileSetup : handleToggleMeetAttendees}
-                      disabled={isCheckingOwnPhoto}
+                      disabled={isOwnPhotoValidationPending}
                       className="gap-2"
                     >
-                      {isCheckingOwnPhoto ? (
+                      {isOwnPhotoValidationPending ? (
                         <>
                           <Camera size={16} />
                           Validando foto...
@@ -1325,7 +1348,7 @@ const shouldShowSocialOnboarding = () => {
                     A funcionalidade de Match é exclusiva para maiores de 18 anos, conforme nossos termos de uso e legislação vigente.
                   </p>
                 </div>
-              ) : isCheckingOwnPhoto ? (
+              ) : isOwnPhotoValidationPending ? (
                 renderMatchPhotoValidationState()
               ) : isMatchPhotoMissing ? (
                 renderMatchPhotoRequiredState('Seu perfil só entra no swipe, recebe curtidas e gera match quando a foto principal estiver válida e visível para outras pessoas.')
@@ -1606,9 +1629,4 @@ const shouldShowSocialOnboarding = () => {
     </Layout>
   );
 }
-
-
-
-
-
 

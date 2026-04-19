@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (configError || !config) {
-         console.error('Configuration error or missing:', configError);
+         console.error('Configuration error or missing');
          return unauthorized();
     }
     
@@ -49,8 +49,8 @@ Deno.serve(async (req) => {
     let eventData;
     try {
         eventData = await req.json();
-    } catch (e) {
-        console.error('Failed to parse JSON body', e);
+    } catch {
+        console.error('Failed to parse JSON body');
         return ok('invalid_json_handled');
     }
 
@@ -71,19 +71,16 @@ Deno.serve(async (req) => {
     ];
 
     if (!event || IGNORED_EVENTS.includes(event)) {
-        console.log(`[INFO] Ignoring event: ${event}`);
         return ok('ignored');
     }
 
     // 5. Validate Payment Data for Payment Events
     if (event.startsWith('PAYMENT_') || event.startsWith('SUBSCRIPTION_')) {
         if (!payment || !payment.id) {
-            console.error(`[WARN] Event ${event} received without payment data/id. Ignoring.`);
+            console.error('Payment event received without payment data');
             return ok('missing_payment_data');
         }
     }
-
-    console.log(`Processing event: ${event} | ID: ${eventId} | Payment: ${payment?.id || 'N/A'}`);
 
     // Helper: Redact Sensitive Data
     const redactPayload = (payload: any): any => {
@@ -120,10 +117,9 @@ Deno.serve(async (req) => {
 
     if (insertError) {
         if (insertError.code === '23505') { // Unique violation
-            console.log(`[INFO] Event ${eventId} already processed. Skipping.`);
             return ok('already_processed');
         }
-        console.error('Failed to log integration event:', insertError);
+        console.error('Failed to log integration event');
     }
 
     // 7. Process Business Logic
@@ -160,7 +156,7 @@ Deno.serve(async (req) => {
                 .single();
 
             if (paymentError || !paymentRecord) {
-                console.warn(`Payment not found for external ID: ${payment.id}`);
+                console.warn('Payment not found for external reference');
                 processResultStatus = 'failed';
                 processErrorMessage = `Payment not found: ${payment.id}`;
             } else {
@@ -178,8 +174,6 @@ Deno.serve(async (req) => {
                      throw new Error(`Error updating payment: ${updateError.message}`);
                 }
                 
-                console.log(`Payment ${paymentRecord.id} updated to ${newStatus}`);
-
                 // Update Ticket Status
                 if (paymentRecord.ticket_id) {
                     const { error: ticketError } = await supabaseClient
@@ -188,11 +182,9 @@ Deno.serve(async (req) => {
                         .eq('id', paymentRecord.ticket_id);
                     
                     if (ticketError) {
-                        console.error('Ticket update error:', ticketError);
+                        console.error('Ticket update error');
                         // Don't throw, proceed to splits
                     } else {
-                        console.log(`Ticket ${paymentRecord.ticket_id} updated to ${newStatus}`);
-                        
                         // Create Participant if PAID
                         if (newStatus === 'paid') {
                              const { data: existingParticipant } = await supabaseClient
@@ -226,9 +218,8 @@ Deno.serve(async (req) => {
                                         .single();
                                      
                                      if (participantError) {
-                                         console.error('Error creating participant:', participantError);
+                                         console.error('Error creating participant');
                                      } else if (newParticipant) {
-                                         console.log(`Participant created: ${newParticipant.id}`);
 
                                          // Generate and save QR Code
                                          try {
@@ -260,12 +251,10 @@ Deno.serve(async (req) => {
                                                 .eq('id', newParticipant.id);
 
                                              if (updateQrError) {
-                                                 console.error('Error updating QR code:', updateQrError);
-                                             } else {
-                                                 console.log('QR Code generated and saved.');
+                                                 console.error('Error updating QR code');
                                              }
-                                         } catch (qrError) {
-                                             console.error('Error generating QR code:', qrError);
+                                         } catch {
+                                             console.error('Error generating QR code');
                                          }
                                      }
                                  }
@@ -291,7 +280,7 @@ Deno.serve(async (req) => {
     } catch (processError: any) {
         processResultStatus = 'failed';
         processErrorMessage = processError.message;
-        console.error('Processing Logic Error:', processError);
+        console.error('Processing logic error');
     }
 
     // 8. Update Event Log
@@ -311,7 +300,7 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Webhook Global Error:', error);
+    console.error('Webhook global error');
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { 'Content-Type': 'application/json; charset=utf-8' } }

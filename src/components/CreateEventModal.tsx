@@ -21,9 +21,10 @@ import { userService } from '@/services/user.service';
 
 interface CreateEventModalProps {
   trigger?: React.ReactNode;
+  approvedOrganizerRedirectTo?: string;
 }
 
-export function CreateEventModal({ trigger }: CreateEventModalProps) {
+export function CreateEventModal({ trigger, approvedOrganizerRedirectTo }: CreateEventModalProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showOrganizerRequestModal, setShowOrganizerRequestModal] = useState(false);
   const [isRequestingOrganizer, setIsRequestingOrganizer] = useState(false);
@@ -41,7 +42,7 @@ export function CreateEventModal({ trigger }: CreateEventModalProps) {
   const handleCreateNow = () => {
     if (!checkAccess('criar um evento')) return;
     setIsOpen(false);
-    navigate(ROUTE_PATHS.CREATE_EVENT);
+    navigate(approvedOrganizerRedirectTo || ROUTE_PATHS.CREATE_EVENT);
   };
 
   const handleLogin = () => {

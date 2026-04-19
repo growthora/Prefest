@@ -29,8 +29,8 @@ export default function TicketDetails() {
       if (found) {
         setTicket(found);
       }
-    } catch (error) {
-      console.error('Failed to load ticket details', error);
+    } catch {
+      // Mantem fallback silencioso para evitar expor dados no console.
     } finally {
       setLoading(false);
     }
@@ -81,7 +81,6 @@ export default function TicketDetails() {
     </div>
   );
 }
-
 
 
 

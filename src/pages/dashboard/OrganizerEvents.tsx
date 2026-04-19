@@ -92,9 +92,9 @@ export function OrganizerEvents() {
                 description: "Para habilitar vendas, você precisa conectar e aprovar sua conta Asaas.",
                 variant: "destructive",
                 action: (
-                    <Button 
-                        variant="outline" 
-                        size="sm" 
+                    <Button
+                        variant="outline"
+                        size="sm"
                         className="bg-white text-destructive hover:bg-gray-100 border-none"
                         onClick={() => navigate(ROUTE_PATHS.ORGANIZER_PAYMENTS)}
                     >
@@ -109,10 +109,10 @@ export function OrganizerEvents() {
     try {
         setTogglingEventId(event.id);
         await eventService.updateEvent(event.id, { sales_enabled: checked });
-        
+
         // Optimistic update
         setEvents(events.map(e => e.id === event.id ? { ...e, sales_enabled: checked } : e));
-        
+
         toast({
             title: checked ? "Vendas habilitadas" : "Vendas desabilitadas",
             description: `As vendas para o evento "${event.title}" foram ${checked ? 'habilitadas' : 'desabilitadas'}.`,
@@ -124,7 +124,7 @@ export function OrganizerEvents() {
         description: "Não foi possível atualizar o status de vendas.",
         variant: "destructive"
       });
-      
+
       // Revert optimistic update if needed, but here we just rely on next load or user retry
         loadEvents();
     } finally {
@@ -141,9 +141,9 @@ export function OrganizerEvents() {
           description: "Para editar ou gerenciar vendas de um evento pago, você precisa conectar e aprovar sua conta Asaas.",
           variant: "destructive",
           action: (
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               className="bg-white text-destructive hover:bg-gray-100 border-none"
               onClick={() => navigate(ROUTE_PATHS.ORGANIZER_PAYMENTS)}
             >
@@ -158,7 +158,7 @@ export function OrganizerEvents() {
       setIsDetailsOpen(true);
       return;
     }
-    
+
     setSelectedEvent(event);
     if (action === 'view') {
       setDetailsMode('view');
@@ -201,7 +201,7 @@ export function OrganizerEvents() {
     setEvents(prev => prev.map(item => (item.id === updated.id ? { ...item, ...updated } : item)));
   };
 
-  const filteredEvents = events.filter(event => 
+  const filteredEvents = events.filter(event =>
     event.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -211,9 +211,9 @@ export function OrganizerEvents() {
     return (
       <div className="flex-1 flex flex-col items-center justify-center h-full">
         <DashboardEmptyState />
-        
+
         {/* Modals for initial empty state if needed, though usually not accessible */}
-        <CreateEventModal 
+        <CreateEventModal
           trigger={
             <Button className="mt-4 gap-2">
               <Plus className="w-4 h-4" />
@@ -232,7 +232,7 @@ export function OrganizerEvents() {
           <h1 className="text-3xl font-bold tracking-tight">Meus Eventos</h1>
           <p className="text-muted-foreground">Gerencie seus eventos criados</p>
         </div>
-        <CreateEventModal 
+        <CreateEventModal
           trigger={
             <Button className="gap-2">
               <Plus className="w-4 h-4" />
@@ -248,8 +248,8 @@ export function OrganizerEvents() {
           <AlertTitle className="text-orange-800 font-semibold">Conta Asaas Necessária</AlertTitle>
           <AlertDescription className="text-orange-700 mt-1 flex flex-col sm:flex-row sm:items-center gap-1">
             <span>Para criar eventos pagos e receber pagamentos, é necessário conectar sua conta Asaas.</span>
-            <Link 
-              to={ROUTE_PATHS.ORGANIZER_PAYMENTS} 
+            <Link
+              to={ROUTE_PATHS.ORGANIZER_PAYMENTS}
               className="font-semibold underline hover:text-orange-950 inline-flex items-center gap-1"
             >
               Configurar agora <ChevronRight className="h-3 w-3" />
@@ -271,30 +271,32 @@ export function OrganizerEvents() {
       </div>
 
       {/* Desktop View */}
-      <div className="hidden md:block rounded-md border bg-card">
-        <Table>
+      <div className="hidden md:block rounded-md border bg-card overflow-hidden">
+        <Table className="table-fixed">
           <TableHeader>
             <TableRow>
-              <TableHead>Evento</TableHead>
-              <TableHead>Data</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Vendas</TableHead>
-              <TableHead>Participantes</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead className="w-[38%]">Evento</TableHead>
+              <TableHead className="w-[12%]">Data</TableHead>
+              <TableHead className="w-[12%]">Status</TableHead>
+              <TableHead className="w-[14%]">Vendas</TableHead>
+              <TableHead className="w-[14%]">Participantes</TableHead>
+              <TableHead className="w-[10%] text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredEvents.map((event) => (
               <TableRow key={event.id}>
-                <TableCell className="font-medium">
-                  <div className="flex flex-col">
-                    <span>{event.title}</span>
-                    <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                <TableCell className="font-medium max-w-0">
+                  <div className="flex min-w-0 flex-col">
+                    <span className="block truncate" title={event.title}>
+                      {event.title}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground" title={event.location || ''}>
                       {event.location}
                     </span>
                   </div>
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   {new Date(event.event_date).toLocaleDateString()}
                 </TableCell>
                 <TableCell>
@@ -302,7 +304,7 @@ export function OrganizerEvents() {
                     {event.is_active === false ? "Inativo" : new Date(event.event_date) > new Date() ? "Ativo" : "Realizado"}
                   </Badge>
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   <div className="flex items-center gap-2">
                     {togglingEventId === event.id ? (
                       <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -316,7 +318,7 @@ export function OrganizerEvents() {
                     <span className="text-sm text-muted-foreground">{event.sales_enabled ? 'On' : 'Off'}</span>
                   </div>
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   {event.current_participants} / {event.totalTicketsConfigured ?? event.max_participants ?? '∞'}
                 </TableCell>
                 <TableCell className="text-right">
@@ -342,7 +344,7 @@ export function OrganizerEvents() {
                         <Power className="mr-2 h-4 w-4" /> Desativar
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem 
+                      <DropdownMenuItem
                         className="text-red-600 focus:text-red-600 focus:bg-red-50"
                         onClick={() => handleAction(event, 'delete')}
                       >
@@ -358,7 +360,7 @@ export function OrganizerEvents() {
       </div>
 
       {/* Mobile View */}
-      <motion.div 
+      <motion.div
         className="grid gap-4 md:hidden"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -374,17 +376,17 @@ export function OrganizerEvents() {
             <Card className="overflow-hidden border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow h-full">
               <div className="relative h-40 w-full bg-muted overflow-hidden">
                  {(event.image_url && event.image_url.trim() !== '' && event.image_url !== 'undefined' && event.image_url !== 'null') ? (
-                    <img 
-                      src={event.image_url} 
-                      alt={event.title} 
-                      className="h-full w-full object-cover transition-transform hover:scale-105 duration-500" 
+                    <img
+                      src={event.image_url}
+                      alt={event.title}
+                      className="h-full w-full object-cover transition-transform hover:scale-105 duration-500"
                     />
                  ) : (
                     <div className="flex h-full items-center justify-center bg-muted/50 text-muted-foreground">
                        <Calendar className="h-12 w-12 opacity-20" />
                     </div>
                  )}
-                 <Badge 
+                 <Badge
                     variant={event.is_active === false ? "secondary" : new Date(event.event_date) > new Date() ? "default" : "secondary"}
                     className="absolute right-2 top-2 shadow-sm backdrop-blur-sm bg-opacity-90"
                  >
@@ -392,10 +394,10 @@ export function OrganizerEvents() {
                  </Badge>
               </div>
               <CardHeader className="p-4 pb-2">
-                <CardTitle className="line-clamp-1 text-lg font-bold">{event.title}</CardTitle>
-                <CardDescription className="line-clamp-1 flex items-center gap-1.5 text-xs mt-1">
-                   <MapPin className="h-3.5 w-3.5 text-primary" /> 
-                   {event.location}
+                <CardTitle className="line-clamp-2 break-words text-lg font-bold" title={event.title}>{event.title}</CardTitle>
+                <CardDescription className="flex min-w-0 items-center gap-1.5 text-xs mt-1">
+                   <MapPin className="h-3.5 w-3.5 text-primary" />
+                   <span className="truncate" title={event.location || ''}>{event.location}</span>
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-4 pt-2 space-y-3">
@@ -479,5 +481,4 @@ export function OrganizerEvents() {
 }
 
 export default OrganizerEvents;
-
 

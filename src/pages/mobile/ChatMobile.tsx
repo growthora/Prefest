@@ -5,7 +5,6 @@ import { ArrowLeft, Check, CheckCheck, Clock, Search, Send, Sparkles, Ticket } f
 import { useAuth } from '@/contexts/AuthContext';
 import { matchService, Match } from '@/services/match.service';
 import { chatService, ChatMessage } from '@/services/chat.service';
-import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -77,14 +76,12 @@ function ChatListMobile() {
 
     loadMatches();
 
-    const subscription = supabase
-      .channel('public:matches_list_mobile')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => loadMatches())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => loadMatches())
-      .subscribe();
+    const interval = setInterval(() => {
+      void loadMatches();
+    }, 5000);
 
     return () => {
-      subscription.unsubscribe();
+      clearInterval(interval);
     };
   }, [user]);
 
@@ -306,24 +303,21 @@ function ChatConversationMobile({ matchId }: ChatConversationMobileProps) {
       presenceChannelRef.current = presenceChannel;
     }
 
-    const matchSub = supabase
-      .channel(`match_status_mobile:${matchId}`)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'matches',
-        filter: `id=eq.${matchId}`,
-      }, (payload) => {
-        if (payload.new.status === 'inactive') {
+    const statusInterval = setInterval(async () => {
+      if (!matchId) return;
+      try {
+        const latest = await matchService.getMatchDetails(matchId);
+        if (latest && latest.status === 'inactive') {
           toast.info('O match foi desfeito.');
           navigate('/m/chat', { replace: true });
         }
-      })
-      .subscribe();
+      } catch {
+      }
+    }, 5000);
 
     return () => {
       channel.unsubscribe();
-      matchSub.unsubscribe();
+      clearInterval(statusInterval);
       if (presenceChannelRef.current) presenceChannelRef.current.unsubscribe();
       channelRef.current = null;
       presenceChannelRef.current = null;

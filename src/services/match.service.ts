@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { invokeEdgeFunction } from '@/services/apiClient';
 
 export interface MatchEventLink {
   event_id: string;
@@ -82,49 +82,47 @@ const normalizeMatch = (row: any): Match => {
 };
 
 class MatchService {
-  async getUserMatches(): Promise<Match[]> {
-    const { data, error } = await supabase.rpc('list_matches');
+  async getUserMatches(eventId?: string): Promise<Match[]> {
+    const { data, error } = await invokeEdgeFunction<{ matches: any[] }>('events-api', {
+      body: { op: 'matches.list', params: { eventId } },
+    });
 
     if (error) throw error;
-    return (data || []).map(normalizeMatch);
+    return (data?.matches || []).map(normalizeMatch);
   }
 
   async getMatchDetails(matchId: string): Promise<Match | null> {
-    const { data, error } = await supabase.rpc('get_match_details', { p_match_id: matchId });
+    const { data, error } = await invokeEdgeFunction<{ match: any | null }>('events-api', {
+      body: { op: 'matches.getDetails', params: { matchId } },
+    });
 
     if (error) throw error;
-
-    if (!data || data.length === 0) {
-      return null;
-    }
-
-    return normalizeMatch(data[0]);
+    if (!data?.match) return null;
+    return normalizeMatch(data.match);
   }
 
   async getEventMatches(eventId: string): Promise<Match[]> {
-    const { data, error } = await supabase.rpc('list_event_matches', {
-      p_event_id: eventId,
+    const { data, error } = await invokeEdgeFunction<{ matches: any[] }>('events-api', {
+      body: { op: 'matches.listForEvent', params: { eventId } },
     });
 
-    if (!error) {
-      return (data || []).map(normalizeMatch);
-    }
-
-    if (error.code !== '42883') {
-      throw error;
-    }
-
-    const matches = await this.getUserMatches();
-    return matches.filter((match) => match.event_ids.includes(eventId));
+    if (error) throw error;
+    return (data?.matches || []).map(normalizeMatch);
   }
 
-  async markMatchSeen(matchId: string): Promise<void> {
-    const { error } = await supabase.rpc('mark_match_seen', { p_match_id: matchId });
+  async markMatchSeen(matchId: string, eventId?: string): Promise<void> {
+    const { error } = await invokeEdgeFunction('events-api', {
+      body: { op: 'matches.markSeen', params: { matchId, eventId } },
+    });
+
     if (error) throw error;
   }
 
-  async markChatOpened(matchId: string): Promise<void> {
-    const { error } = await supabase.rpc('mark_chat_opened', { p_match_id: matchId });
+  async markChatOpened(matchId: string, eventId?: string): Promise<void> {
+    const { error } = await invokeEdgeFunction('events-api', {
+      body: { op: 'matches.markChatOpened', params: { matchId, eventId } },
+    });
+
     if (error) throw error;
   }
 }

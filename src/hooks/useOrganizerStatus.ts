@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
+import { invokeEdgeFunction } from '@/services/apiClient';
 
 export function useOrganizerStatus() {
   const { user } = useAuth();
@@ -21,29 +21,20 @@ export function useOrganizerStatus() {
   const checkStatus = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('organizer_asaas_accounts')
-        .select('kyc_status, is_active, asaas_account_id')
-        .eq('organizer_user_id', user?.id)
-        .maybeSingle();
+      const { data, error } = await invokeEdgeFunction<{ account: any | null }>('events-api', {
+        body: { op: 'organizerAsaas.getAccount' },
+      });
 
-      if (error) {
-        // console.error('Error checking organizer status:', error);
+      if (error || !data?.account) {
         setAsaasStatus('not_connected');
         setIsActive(false);
         setAccountId(null);
         return;
       }
 
-      if (data) {
-        setAsaasStatus(data.kyc_status as any);
-        setIsActive(data.is_active);
-        setAccountId(data.asaas_account_id);
-      } else {
-        setAsaasStatus('not_connected');
-        setIsActive(false);
-        setAccountId(null);
-      }
+      setAsaasStatus((data.account.kyc_status as any) ?? 'not_connected');
+      setIsActive(Boolean(data.account.is_active));
+      setAccountId(data.account.asaas_account_id ?? null);
     } catch (err) {
       // console.error(err);
     } finally {

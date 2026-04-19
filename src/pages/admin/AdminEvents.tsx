@@ -15,6 +15,7 @@ import { Pencil, Trash2, Calendar, Plus, Search, MapPin, DollarSign, Users, Powe
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toUserFriendlyErrorMessage } from '@/lib/appErrors';
+import { toDateTimeLocalValue, validateEventSchedule } from '@/utils/eventDateValidation';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -35,6 +36,7 @@ const itemVariants = {
 };
 
 export default function AdminEvents() {
+  const minDateTime = toDateTimeLocalValue();
   const { user } = useAuth();
   const { confirm } = useConfirm();
   const [events, setEvents] = useState<Event[]>([]);
@@ -120,6 +122,12 @@ export default function AdminEvents() {
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+
+    const scheduleError = validateEventSchedule(newEvent.event_date);
+    if (scheduleError) {
+      toast.error(scheduleError);
+      return;
+    }
 
     if (newEventImages.length === 0 || newEventImages.length > 5) {
       toast.error('Adicione entre 1 e 5 imagens para o evento.');
@@ -459,6 +467,7 @@ export default function AdminEvents() {
                   type="datetime-local"
                   value={newEvent.event_date}
                   onChange={(e) => setNewEvent({ ...newEvent, event_date: e.target.value })}
+                  min={minDateTime}
                   required
                 />
               </div>
@@ -701,7 +710,7 @@ export default function AdminEvents() {
                   <Input
                     id="edit-date"
                     type="datetime-local"
-                    value={editingEvent.event_date ? new Date(editingEvent.event_date).toISOString().slice(0, 16) : ''}
+                    value={editingEvent.event_date ? toDateTimeLocalValue(editingEvent.event_date) : ''}
                     onChange={(e) => setEditingEvent({ ...editingEvent, event_date: e.target.value })}
                     required
                   />

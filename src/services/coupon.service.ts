@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { invokeEdgeFunction } from './apiClient';
 
 export interface Coupon {
   id: string;
@@ -37,72 +37,45 @@ export interface CreateCouponData {
 class CouponService {
   // Criar cupom (apenas admin)
   async createCoupon(couponData: CreateCouponData, createdBy: string): Promise<Coupon> {
-    const { data, error } = await supabase
-      .from('coupons')
-      .insert({
-        ...couponData,
-        created_by: createdBy,
-      } as any)
-      .select()
-      .single();
+    const { data, error } = await invokeEdgeFunction<{ coupon: Coupon }>('events-api', {
+      body: { op: 'coupons.create', params: { couponData, createdBy } },
+    });
 
     if (error) throw error;
-    return data;
+    if (!data?.coupon) throw new Error('Falha ao criar cupom');
+    return data.coupon;
   }
 
   // Listar todos os cupons (admin)
   async getAllCoupons(): Promise<Coupon[]> {
     // console.log('🔍 [CouponService] Buscando cupons...');
-    const { data, error } = await supabase
-      .from('coupons')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { data, error } = await invokeEdgeFunction<{ coupons: Coupon[] }>('events-api', {
+      body: { op: 'coupons.listAll' },
+    });
 
-    if (error) {
-      // console.error('❌ [CouponService] Erro ao buscar cupons:', error);
-      throw error;
-    }
-    // console.log('✅ [CouponService] Cupons encontrados:', data?.length || 0);
-    return data || [];
+    if (error) throw error;
+    return data?.coupons || [];
   }
 
   // Listar cupons ativos
   async getActiveCoupons(): Promise<Coupon[]> {
-    const now = new Date().toISOString();
-    
-    const { data, error } = await supabase
-      .from('coupons')
-      .select('*')
-      .eq('active', true)
-      .lte('valid_from', now)
-      .or(`valid_until.is.null,valid_until.gte.${now}`)
-      .order('created_at', { ascending: false });
+    const { data, error } = await invokeEdgeFunction<{ coupons: Coupon[] }>('events-api', {
+      body: { op: 'coupons.listActive' },
+    });
 
     if (error) throw error;
-    return data || [];
+    return data?.coupons || [];
   }
 
   // Validar cupom
   async validateCoupon(code: string): Promise<Coupon> {
-    const now = new Date().toISOString();
-    
-    const { data, error } = await supabase
-      .from('coupons')
-      .select('*')
-      .eq('code', code.toUpperCase())
-      .eq('active', true)
-      .lte('valid_from', now)
-      .or(`valid_until.is.null,valid_until.gte.${now}`)
-      .single();
+    const { data, error } = await invokeEdgeFunction<{ coupon: Coupon }>('events-api', {
+      body: { op: 'coupons.validate', params: { code } },
+    });
 
-    if (error) throw new Error('Cupom inválido ou expirado');
-    
-    // Verificar se atingiu o limite de usos
-    if (data.max_uses && data.current_uses >= data.max_uses) {
-      throw new Error('Cupom esgotado');
-    }
-
-    return data;
+    if (error) throw error;
+    if (!data?.coupon) throw new Error('Cupom inválido ou expirado');
+    return data.coupon;
   }
 
   // Aplicar cupom
@@ -112,67 +85,35 @@ class CouponService {
     eventId: string, 
     originalPrice: number
   ): Promise<{ discount: number; finalPrice: number; couponUsage: CouponUsage }> {
-    // Buscar cupom
-    const { data: coupon, error: couponError } = await supabase
-      .from('coupons')
-      .select('*')
-      .eq('id', couponId)
-      .single();
+    const { data, error } = await invokeEdgeFunction<{
+      discount: number;
+      finalPrice: number;
+      couponUsage: CouponUsage;
+    }>('events-api', {
+      body: { op: 'coupons.apply', params: { couponId, userId, eventId, originalPrice } },
+    });
 
-    if (couponError) throw couponError;
-
-    // Calcular desconto
-    let discount = 0;
-    if (coupon.discount_type === 'percentage') {
-      discount = (originalPrice * coupon.discount_value) / 100;
-    } else {
-      discount = coupon.discount_value;
-    }
-
-    // Garantir que o desconto não seja maior que o preço
-    discount = Math.min(discount, originalPrice);
-    const finalPrice = originalPrice - discount;
-
-    // Registrar uso
-    const { data: usage, error: usageError } = await supabase
-      .from('coupon_usage')
-      .insert({
-        coupon_id: couponId,
-        user_id: userId,
-        event_id: eventId,
-        discount_applied: discount,
-      } as any)
-      .select()
-      .single();
-
-    if (usageError) throw usageError;
-
-    return {
-      discount,
-      finalPrice,
-      couponUsage: usage,
-    };
+    if (error) throw error;
+    if (!data) throw new Error('Falha ao aplicar cupom');
+    return data;
   }
 
   // Atualizar cupom
   async updateCoupon(couponId: string, updates: Partial<Coupon>): Promise<Coupon> {
-    const { data, error } = await supabase
-      .from('coupons')
-      .update(updates as any)
-      .eq('id', couponId)
-      .select()
-      .single();
+    const { data, error } = await invokeEdgeFunction<{ coupon: Coupon }>('events-api', {
+      body: { op: 'coupons.update', params: { couponId, updates } },
+    });
 
     if (error) throw error;
-    return data;
+    if (!data?.coupon) throw new Error('Falha ao atualizar cupom');
+    return data.coupon;
   }
 
   // Deletar cupom
   async deleteCoupon(couponId: string): Promise<void> {
-    const { error } = await supabase
-      .from('coupons')
-      .delete()
-      .eq('id', couponId);
+    const { error } = await invokeEdgeFunction('events-api', {
+      body: { op: 'coupons.delete', params: { couponId } },
+    });
 
     if (error) throw error;
   }
@@ -184,31 +125,22 @@ class CouponService {
 
   // Ver uso de cupons (admin)
   async getCouponUsage(couponId?: string): Promise<CouponUsage[]> {
-    let query = supabase
-      .from('coupon_usage')
-      .select('*')
-      .order('used_at', { ascending: false });
-
-    if (couponId) {
-      query = query.eq('coupon_id', couponId);
-    }
-
-    const { data, error } = await query;
+    const { data, error } = await invokeEdgeFunction<{ usage: CouponUsage[] }>('events-api', {
+      body: { op: 'coupons.usage.list', params: { couponId } },
+    });
 
     if (error) throw error;
-    return data || [];
+    return data?.usage || [];
   }
 
   // Ver cupons usados pelo usuário
   async getUserCouponUsage(userId: string): Promise<CouponUsage[]> {
-    const { data, error } = await supabase
-      .from('coupon_usage')
-      .select('*')
-      .eq('user_id', userId)
-      .order('used_at', { ascending: false });
+    const { data, error } = await invokeEdgeFunction<{ usage: CouponUsage[] }>('events-api', {
+      body: { op: 'coupons.usage.listByUser', params: { userId } },
+    });
 
     if (error) throw error;
-    return data || [];
+    return data?.usage || [];
   }
 }
 

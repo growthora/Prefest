@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { invokeEdgeFunction } from '@/services/apiClient';
 
 export interface Notification {
   id: string;
@@ -12,23 +12,21 @@ export interface Notification {
 
 export const notificationService = {
   async listNotifications(): Promise<Notification[]> {
-    const { data, error } = await supabase.rpc('list_notifications');
+    const { data, error } = await invokeEdgeFunction<{ notifications: Notification[] }>('events-api', {
+      body: { op: 'notifications.list' },
+    });
 
-    if (error) {
-      // console.error('❌ [NotificationService] Erro ao buscar notificações:', error);
-      throw error;
-    }
-    
-    return data || [];
+    if (error) throw error;
+    return data?.notifications || [];
   },
 
-  async getUnread(userId: string): Promise<Notification[]> {
+  async getUnread(_userId: string): Promise<Notification[]> {
     return this.listNotifications();
   },
 
   async dismissNotification(id: string) {
-    const { error } = await supabase.rpc('dismiss_notification', {
-      p_notification_id: id
+    const { error } = await invokeEdgeFunction('events-api', {
+      body: { op: 'notifications.dismiss', params: { id } },
     });
 
     if (error) throw error;
@@ -39,21 +37,39 @@ export const notificationService = {
   },
   
   subscribeToNotifications(userId: string, callback: (notification: Notification) => void) {
-    return supabase
-      .channel(`notifications:${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload) => {
-          callback(payload.new as Notification);
+    const pollIntervalMs = 4000;
+    let stopped = false;
+    let knownIds = new Set<string>();
+    let hydratedInitial = false;
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const poll = async () => {
+      if (stopped) return;
+      try {
+        const notifications = await this.listNotifications();
+        const ids = new Set<string>();
+        for (const notification of notifications) {
+          ids.add(notification.id);
+          if (hydratedInitial && !knownIds.has(notification.id)) {
+            callback(notification);
+          }
         }
-      )
-      .subscribe();
+        knownIds = ids;
+        hydratedInitial = true;
+      } catch {
+      }
+    };
+
+    void poll();
+    timer = setInterval(poll, pollIntervalMs);
+
+    return {
+      unsubscribe() {
+        stopped = true;
+        if (timer) clearInterval(timer);
+        timer = null;
+      },
+    };
   }
 };
 

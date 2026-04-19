@@ -50,6 +50,7 @@ interface LayoutProps {
 export function Layout({ children, showTopBanner = false, fullWidth = false }: LayoutProps) {
   const { user, profile } = useAuth();
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const currentQuery = searchParams.get("q") || "";
@@ -61,6 +62,9 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
   const isStaff = roles.includes('STAFF');
   const isEquipe = roles.includes('EQUIPE');
   const canUseScanner = isOrganizerApproved || isStaff || isEquipe;
+  const homeCreateEventRedirect = location.pathname === ROUTE_PATHS.HOME
+    ? ROUTE_PATHS.ORGANIZER_EVENTS
+    : undefined;
 
   // Sync internal state with URL params
   useEffect(() => {
@@ -101,6 +105,7 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
           <div className="flex items-center gap-4">
             <span className="font-bold">E Produtor?</span>
             <CreateEventModal 
+              approvedOrganizerRedirectTo={homeCreateEventRedirect}
               trigger={
                 <button className="border border-white rounded px-4 py-1 hover:bg-white/10 transition-colors font-medium text-xs uppercase tracking-wide">
                   Criar evento
@@ -249,6 +254,7 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
           <div className="flex items-center gap-6 flex-shrink-0">
             <div className="flex items-center gap-6 text-sm font-medium text-gray-600">
               <CreateEventModal 
+                approvedOrganizerRedirectTo={homeCreateEventRedirect}
                 trigger={
                   <button className="flex items-center gap-2 hover:text-primary transition-colors">
                     <PlusCircle size={18} />
