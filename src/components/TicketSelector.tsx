@@ -200,33 +200,30 @@ export function TicketSelector({
                 >
                   <RadioGroupItem value={ticket.id} id={ticket.id} className="mt-1" />
                   
-                  <div className="flex-1 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-1">
-                        <div className="font-semibold text-lg flex items-center gap-2">
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="flex flex-col gap-1">
+                      <div className="font-semibold text-base md:text-lg flex flex-wrap items-center gap-2 leading-snug">
+                        <span className="min-w-0 break-words">
                           {normalizeTicketText(ticket.name)}
-                          {isSelected && (
-                            <Check className="w-4 h-4 text-primary" />
-                          )}
-                        </div>
-                        {ticket.description && (
-                          <p className="text-sm text-muted-foreground">
-                            {normalizeTicketText(ticket.description)}
-                          </p>
+                        </span>
+                        {isSelected && (
+                          <Check className="w-4 h-4 text-primary" />
                         )}
                       </div>
-                      
-                      <div className="text-right shrink-0">
-                        <div className="text-2xl font-bold text-primary">
-                          R$ {ticket.price.toFixed(2)}
-                        </div>
+                      <div className="text-lg md:text-2xl font-bold text-primary leading-none">
+                        R$ {ticket.price.toFixed(2)}
                       </div>
+                      {ticket.description && (
+                        <p className="text-sm text-muted-foreground">
+                          {normalizeTicketText(ticket.description)}
+                        </p>
+                      )}
                     </div>
 
-                    <Separator />
+                    <Separator className="my-1.5" />
 
-                    <div className="flex items-center justify-between text-sm">
-                      <span className={cn("font-medium", availability.color)}>
+                    <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm">
+                      <span className={cn("font-medium leading-snug", availability.color)}>
                         {availability.urgent && "🔥 "}
                         {availability.text}
                       </span>
@@ -247,6 +244,3 @@ export function TicketSelector({
     </Card>
   );
 }
-
-
-

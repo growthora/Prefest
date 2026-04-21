@@ -201,7 +201,7 @@ export default function EventDetails() {
       if (!action) return;
 
       const result = action.result;
-      
+
       if (result.status === 'error') {
         toast.error(result.message || 'Não foi possível curtir de volta agora.');
         return;
@@ -209,7 +209,7 @@ export default function EventDetails() {
 
       if (result.status === 'match') {
         toast.success("It's a Match! ??");
-        
+
         // Play sound
         const audio = new Audio('/sounds/match.mp3');
         audio.play().catch(() => {});
@@ -267,7 +267,7 @@ export default function EventDetails() {
       toast.error("Faça login para curtir este evento! ??");
       return;
     }
-    
+
     if (!event?.id) return;
 
     if (event.id.length !== 36) {
@@ -294,7 +294,7 @@ export default function EventDetails() {
   const handleShare = async () => {
     if (!event) return;
     const shareUrl = `${window.location.origin}/evento/${event.slug || event.id}`;
-    
+
     try {
       await navigator.clipboard.writeText(shareUrl);
       toast.success("Link copiado! ??");
@@ -397,7 +397,7 @@ const toggleMatchStatus = async (enable: boolean) => {
 
 const loadEvent = async () => {
     if (!slug) return;
-    
+
     try {
       setLoading(true);
       let supabaseEvent: SupabaseEvent;
@@ -420,33 +420,33 @@ const loadEvent = async () => {
       } else {
         supabaseEvent = await eventService.getPublicEventBySlug(slug);
       }
-      
+
       if (supabaseEvent) {
         // SEO Updates
         document.title = `${supabaseEvent.title} | PreFest`;
-        
+
         // Montar endereço completo
         const locationParts = [];
         if (supabaseEvent.city) locationParts.push(supabaseEvent.city);
         if (supabaseEvent.state) locationParts.push(supabaseEvent.state);
         const fullLocation = locationParts.length > 0 ? locationParts.join(' - ') : supabaseEvent.location;
-        
+
         // Criar Date object tratando o fuso horário
         const eventDate = new Date(supabaseEvent.event_date);
-        
+
         // Formatar data e hora no fuso horário local do usuário
         const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
           day: '2-digit',
           month: '2-digit',
           year: 'numeric'
         });
-        
+
         const timeFormatter = new Intl.DateTimeFormat('pt-BR', {
           hour: '2-digit',
           minute: '2-digit',
           hour12: false
         });
-        
+
         const galleryRows = await eventService.getPublicEventImages(supabaseEvent.id).catch((): any[] => []);
         const orderedGallery = galleryRows
           .slice()
@@ -484,7 +484,7 @@ const loadEvent = async () => {
           sales_enabled: supabaseEvent.sales_enabled ?? true,
         };
         setEvent(convertedEvent);
-        
+
         // Participants are fetched reactively by useEventParticipants hook.
 
         // Verificar se usuário já está inscrito
@@ -653,13 +653,13 @@ const shouldShowSocialOnboarding = () => {
 
     try {
       await eventService.joinEvent(event.id, user.id, 1, ticketTypeId, totalPaid);
-      
+
         toast.success(
           singleMode
           ? 'Ingresso reservado! Ative "Conheça a Galera" para ver quem vai!'
           : 'Ingresso reservado com sucesso!'
         );
-      
+
       // Recarregar evento e participantes para atualizar contagem
       setIsParticipating(true);
       await loadEvent();
@@ -668,7 +668,7 @@ const shouldShowSocialOnboarding = () => {
       if (shouldShowSocialOnboarding() || !hasOwnValidPhoto) {
         setShowSocialOnboarding(true);
       }
-      
+
       if (singleMode) {
         // Só ativa o match automaticamente quando a foto já estiver pronta.
         if (hasOwnValidPhoto) {
@@ -697,7 +697,9 @@ const shouldShowSocialOnboarding = () => {
     }
   };
 
-  const [showMatchUnlockPopup, setShowMatchUnlockPopup] = useState(true);
+  const [showMatchUnlockPopup, setShowMatchUnlockPopup] = useState(() => {
+    return !localStorage.getItem('hasSeenMatchUnlockPopup');
+  });
 
   if (loading || !event) {
     return (
@@ -737,21 +739,21 @@ const shouldShowSocialOnboarding = () => {
         {/* Tabs Navigation */}
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full grid-cols-4 mb-6 lg:mb-8 bg-card/50 border border-border/40 h-auto p-1">
-            <TabsTrigger 
-              value="details" 
+            <TabsTrigger
+              value="details"
               className="data-[state=active]:bg-primary data-[state=active]:text-white py-2 lg:py-1.5 text-xs lg:text-sm"
             >
               Detalhes
             </TabsTrigger>
-            <TabsTrigger 
-              value="attendees" 
+            <TabsTrigger
+              value="attendees"
               className="data-[state=active]:bg-primary data-[state=active]:text-white flex items-center gap-2 py-2 lg:py-1.5 text-xs lg:text-sm"
             >
               <Users size={14} className="fill-current lg:w-4 lg:h-4" />
               Galera
             </TabsTrigger>
-            <TabsTrigger 
-              value="likes" 
+            <TabsTrigger
+              value="likes"
               className="data-[state=active]:bg-primary data-[state=active]:text-white flex items-center gap-2 py-2 lg:py-1.5 text-xs lg:text-sm"
             >
               <Heart size={14} className="lg:w-4 lg:h-4" />
@@ -762,8 +764,8 @@ const shouldShowSocialOnboarding = () => {
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger 
-              value="match" 
+            <TabsTrigger
+              value="match"
               className="data-[state=active]:bg-primary data-[state=active]:text-white flex items-center gap-2 py-2 lg:py-1.5 text-xs lg:text-sm"
             >
               <HeartHandshake size={14} className="lg:w-4 lg:h-4" />
@@ -785,7 +787,7 @@ const shouldShowSocialOnboarding = () => {
                 transition={{ delay: 0.1 }}
                 className="lg:col-span-8"
               >
-            
+
             {/* Sales Status Banner */}
             {(isEventCanceled || isSalesClosedByDate || event.sales_enabled === false) && (
               <div className="mb-6 p-4 rounded-xl bg-muted/50 border border-muted flex items-center gap-3">
@@ -953,7 +955,7 @@ const shouldShowSocialOnboarding = () => {
               <Separator className="bg-border/40" />
 
               {/* ── Confirmed counter + avatar strip (single source of truth) ───── */}
-              <div className="flex items-center gap-6">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
                 <div className="flex items-center gap-2">
                   <Users className="w-5 h-5 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">
@@ -967,7 +969,7 @@ const shouldShowSocialOnboarding = () => {
                   </span>
                 </div>
                 {confirmedParticipants.length > 0 ? (
-                  <div className="relative">
+                  <div className="flex flex-wrap items-center gap-3">
                     <div
                       className={cn(
                         'flex -space-x-3 overflow-hidden transition-all',
@@ -993,11 +995,9 @@ const shouldShowSocialOnboarding = () => {
                       )}
                     </div>
                     {!isParticipating && (
-                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                        <span className="px-3 py-1 rounded-full bg-background/80 border border-border text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                          Compre o ingresso para desbloquear quem vai
-                        </span>
-                      </div>
+                      <span className="px-4 py-1 rounded-full bg-background/80 border border-border text-[10px] font-semibold uppercase tracking-wider leading-snug text-muted-foreground">
+                        Compre o ingresso para desbloquear quem vai
+                      </span>
                     )}
                   </div>
                 ) : isLoadingParticipants ? null : (
@@ -1016,8 +1016,8 @@ const shouldShowSocialOnboarding = () => {
               className="lg:col-span-4"
             >
               <div id="ticket-purchase" className="sticky top-24">
-                <TicketPurchase 
-                  event={event} 
+                <TicketPurchase
+                  event={event}
                   onPurchase={handlePurchase}
                   isParticipating={isParticipating}
                 />
@@ -1097,9 +1097,9 @@ const shouldShowSocialOnboarding = () => {
                   <Heart className="w-12 h-12 mx-auto mb-4 opacity-20" />
                   <p className="mb-2">Nenhuma curtida nova por enquanto.</p>
                   <p className="text-sm mb-6">Participe do Match para ser visto e encontrar pessoas!</p>
-                  
+
                   {user && (
-                    <Button 
+                    <Button
                       onClick={() => {
                         handleTabChange('match');
                         // If not enabled, the match tab will show the big CTA
@@ -1122,22 +1122,22 @@ const shouldShowSocialOnboarding = () => {
                           <AvatarFallback>{like.from_user_name?.substring(0, 2).toUpperCase()}</AvatarFallback>
                         </Avatar>
                       </div>
-                      
+
                       <div className="flex-1 min-w-0 z-10">
                         <h4 className="font-semibold text-sm mb-1">{like.from_user_name}, {like.from_user_age}</h4>
                         <p className="text-xs text-muted-foreground line-clamp-1">{like.from_user_bio || 'Sem bio'}</p>
-                        
+
                         <div className="flex gap-2 mt-3">
-                          <Button 
-                            size="sm" 
+                          <Button
+                            size="sm"
                             className="h-8 flex-1 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white border-0"
                             onClick={() => handleLikeBack(like.like_id, like.from_user_id)}
                           >
                             <Heart className="w-3 h-3 mr-1.5 fill-current" />
                             Curtir
                           </Button>
-                          <Button 
-                            size="sm" 
+                          <Button
+                            size="sm"
                             variant="outline"
                             className="h-8 px-3"
                             onClick={() => handleIgnoreLike(like.like_id, like.from_user_id)}
@@ -1227,7 +1227,7 @@ const shouldShowSocialOnboarding = () => {
                               : 'Ative para participar do Match'}
                       </p>
                     </div>
-                    <Button 
+                    <Button
                       variant={isMatchPhotoMissing ? "default" : isEventMatchEnabled ? "outline" : "default"}
                       onClick={isMatchPhotoMissing ? openMatchProfileSetup : handleToggleMeetAttendees}
                       disabled={isOwnPhotoValidationPending}
@@ -1258,73 +1258,6 @@ const shouldShowSocialOnboarding = () => {
                   </div>
                 )}
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="rounded-xl border border-border/40 bg-card/20 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Fila do evento</p>
-                  <p className="text-3xl font-bold mt-2">{matchStats.activeQueueCount}</p>
-                  <p className="text-sm text-muted-foreground mt-1">Pessoas disponíveis para conhecer agora.</p>
-                </div>
-                <div className="rounded-xl border border-border/40 bg-card/20 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Curtiram você</p>
-                  <p className="text-3xl font-bold mt-2">{matchStats.receivedLikesCount}</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {matchStats.priorityQueueCount > 0
-                      ? `${matchStats.priorityQueueCount} pessoa(s) da fila já demonstraram interesse.`
-                      : 'Veja e responda as curtidas deste evento.'}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-border/40 bg-card/20 p-4">
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Seus matches</p>
-                  <p className="text-3xl font-bold mt-2">{matchStats.totalMatches}</p>
-                  <p className="text-sm text-muted-foreground mt-1">Conexões confirmadas dentro deste evento.</p>
-                </div>
-              </div>
-
-              {loadingMatches ? (
-                <div className="flex justify-center py-8">
-                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : eventMatches.length > 0 ? (
-                <div className="space-y-4 rounded-xl border border-border/40 bg-card/20 p-6">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <h4 className="text-lg font-semibold">Matches deste evento</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Entre na conversa sem sair do contexto do evento.
-                      </p>
-                    </div>
-                    <Button variant="outline" className="gap-2" onClick={() => navigate(ROUTE_PATHS.CHAT_LIST)}>
-                      <MessageCircle size={16} />
-                      Ver conversas
-                    </Button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                    {eventMatches.slice(0, 3).map((match) => (
-                      <button
-                        key={match.match_id}
-                        onClick={() => navigate(`/chat/${match.match_id}`)}
-                        className="flex items-center gap-3 rounded-xl border border-border/40 bg-background/40 p-4 text-left transition-colors hover:bg-background/70"
-                      >
-                        <Avatar className="h-12 w-12 border border-primary/20">
-                          <AvatarImage src={match.partner_avatar} />
-                          <AvatarFallback>{match.partner_name?.substring(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium truncate">{match.partner_name}</p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {match.last_message || 'Abrir conversa do match'}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground truncate mt-1">
-                            {getMatchEventSummary(match, 3)}
-                          </p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
 
               {!user ? (
                 <div className="bg-primary/5 border border-primary/20 rounded-xl p-8 text-center">
@@ -1379,8 +1312,8 @@ const shouldShowSocialOnboarding = () => {
                    <p className="text-muted-foreground max-w-md mb-8 text-lg">
                      Ative o modo Match para encontrar pessoas com interesses em comum que também vão ao evento.
                    </p>
-                   <Button 
-                     size="lg" 
+                   <Button
+                     size="lg"
                      className="gap-2 text-lg px-8 py-6 rounded-xl shadow-xl shadow-primary/20 hover:shadow-primary/40 transition-all hover:scale-105"
                      onClick={handleToggleMeetAttendees}
                    >
@@ -1398,7 +1331,7 @@ const shouldShowSocialOnboarding = () => {
                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
                      </div>
                    ) : (
-                      <MatchInterface 
+                      <MatchInterface
                        queue={currentQueue}
                        onLike={handleLikeMatch}
                        onSkip={handleSkipMatch}
@@ -1408,6 +1341,73 @@ const shouldShowSocialOnboarding = () => {
                    )}
                 </div>
               )}
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-40">
+                <div className="rounded-xl border border-border/40 bg-card/20 p-4">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Fila do evento</p>
+                  <p className="text-3xl font-bold mt-2">{matchStats.activeQueueCount}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Pessoas disponíveis para conhecer agora.</p>
+                </div>
+                <div className="rounded-xl border border-border/40 bg-card/20 p-4">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Curtiram você</p>
+                  <p className="text-3xl font-bold mt-2">{matchStats.receivedLikesCount}</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {matchStats.priorityQueueCount > 0
+                      ? `${matchStats.priorityQueueCount} pessoa(s) da fila já demonstraram interesse.`
+                      : 'Veja e responda as curtidas deste evento.'}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border/40 bg-card/20 p-4">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Seus matches</p>
+                  <p className="text-3xl font-bold mt-2">{matchStats.totalMatches}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Conexões confirmadas dentro deste evento.</p>
+                </div>
+              </div>
+
+              {loadingMatches ? (
+                <div className="flex justify-center py-8">
+                  <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : eventMatches.length > 0 ? (
+                <div className="space-y-4 rounded-xl border border-border/40 bg-card/20 p-6 mt-8">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <h4 className="text-lg font-semibold">Matches deste evento</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Entre na conversa sem sair do contexto do evento.
+                      </p>
+                    </div>
+                    <Button variant="outline" className="gap-2" onClick={() => navigate(ROUTE_PATHS.CHAT_LIST)}>
+                      <MessageCircle size={16} />
+                      Ver conversas
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                    {eventMatches.slice(0, 3).map((match) => (
+                      <button
+                        key={match.match_id}
+                        onClick={() => navigate(`/chat/${match.match_id}`)}
+                        className="flex items-center gap-3 rounded-xl border border-border/40 bg-background/40 p-4 text-left transition-colors hover:bg-background/70"
+                      >
+                        <Avatar className="h-12 w-12 border border-primary/20">
+                          <AvatarImage src={match.partner_avatar} />
+                          <AvatarFallback>{match.partner_name?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium truncate">{match.partner_name}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {match.last_message || 'Abrir conversa do match'}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground truncate mt-1">
+                            {getMatchEventSummary(match, 3)}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </motion.div>
           </TabsContent>
         </Tabs>
@@ -1415,7 +1415,7 @@ const shouldShowSocialOnboarding = () => {
         {/* Match Overlay */}
         <AnimatePresence>
           {showMatchOverlay && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.1 }}
@@ -1423,9 +1423,9 @@ const shouldShowSocialOnboarding = () => {
             >
               {/* Efeito de confete/brilho de fundo */}
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,105,180,0.1),transparent_50%)]" />
-              
+
               {/* Fotos dos usuários lado a lado */}
-              <motion.div 
+              <motion.div
                 initial={{ scale: 0.5, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
@@ -1433,13 +1433,13 @@ const shouldShowSocialOnboarding = () => {
               >
                 {/* Foto do usuário atual (você) */}
                 <div className="relative">
-                  <motion.div 
+                  <motion.div
                     animate={{ scale: [1, 1.05, 1] }}
                     transition={{ repeat: Infinity, duration: 2 }}
                     className="absolute -inset-3 bg-gradient-to-br from-primary/40 to-pink-500/40 blur-xl rounded-full"
                   />
                   <div className="relative w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-4 border-primary shadow-2xl">
-                    <img 
+                    <img
                       src={profile?.avatar_url ?? undefined}
                       alt="Você"
                       className="w-full h-full object-cover"
@@ -1461,13 +1461,13 @@ const shouldShowSocialOnboarding = () => {
 
                 {/* Foto do usuário que deu match */}
                 <div className="relative">
-                  <motion.div 
+                  <motion.div
                     animate={{ scale: [1, 1.05, 1] }}
                     transition={{ repeat: Infinity, duration: 2, delay: 0.5 }}
                     className="absolute -inset-3 bg-gradient-to-br from-pink-500/40 to-primary/40 blur-xl rounded-full"
                   />
                   <div className="relative w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-4 border-pink-500 shadow-2xl">
-                    <img 
+                    <img
                       src={lastMatchedUserPhoto || undefined}
                       alt={lastMatchedUserName}
                       className="w-full h-full object-cover"
@@ -1475,8 +1475,8 @@ const shouldShowSocialOnboarding = () => {
                   </div>
                 </div>
               </motion.div>
-              
-              <motion.h2 
+
+              <motion.h2
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.6 }}
@@ -1484,8 +1484,8 @@ const shouldShowSocialOnboarding = () => {
               >
                 IT'S A MATCH!
               </motion.h2>
-              
-              <motion.p 
+
+              <motion.p
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.7 }}
@@ -1494,13 +1494,13 @@ const shouldShowSocialOnboarding = () => {
                 Você e <span className="text-foreground font-bold">{lastMatchedUserName}</span> curtiram um ao outro! ??
               </motion.p>
 
-              <motion.div 
+              <motion.div
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.8 }}
                 className="flex flex-col w-full max-w-sm gap-3 relative z-10"
               >
-                <Button 
+                <Button
                   onClick={() => {
                     setShowMatchOverlay(false);
                     if (lastMatchedMatchId) {
@@ -1516,7 +1516,7 @@ const shouldShowSocialOnboarding = () => {
                   <MessageCircle className="w-5 h-5 mr-2" />
                   Conversar
                 </Button>
-                <Button 
+                <Button
                   variant="ghost"
                   onClick={() => setShowMatchOverlay(false)}
                   className="text-muted-foreground hover:text-foreground"
@@ -1590,13 +1590,16 @@ const shouldShowSocialOnboarding = () => {
         <div className="fixed inset-x-0 bottom-[90px] md:bottom-0 z-40">
           <div className="mx-auto max-w-6xl px-4 pb-4">
             <div className="relative bg-background/95 backdrop-blur-md border border-border/60 rounded-2xl shadow-lg shadow-primary/20 px-4 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
-              <button 
-                onClick={() => setShowMatchUnlockPopup(false)}
+              <button
+                onClick={() => {
+                  setShowMatchUnlockPopup(false);
+                  localStorage.setItem('hasSeenMatchUnlockPopup', 'true');
+                }}
                 className="absolute -top-2 -right-2 bg-background border border-border shadow-sm rounded-full p-1 text-muted-foreground hover:text-foreground transition-colors md:top-2 md:right-2 md:bg-transparent md:border-none md:shadow-none"
               >
                 <X className="w-4 h-4" />
               </button>
-              
+
               <div className="flex-1 text-center md:text-left space-y-1">
                 <p className="text-xs font-bold uppercase tracking-widest text-primary flex items-center justify-center md:justify-start gap-2">
                   <Flame className="w-4 h-4" />
@@ -1609,7 +1612,11 @@ const shouldShowSocialOnboarding = () => {
               <Button
                 size="sm"
                 className="w-full md:w-auto h-auto py-3 px-6 rounded-full text-xs font-bold shadow-md hover:shadow-lg transition-all whitespace-normal"
-                onClick={scrollToTicketSection}
+                onClick={() => {
+                  setShowMatchUnlockPopup(false);
+                  localStorage.setItem('hasSeenMatchUnlockPopup', 'true');
+                  scrollToTicketSection();
+                }}
               >
                 Comprar ingresso e desbloquear matches
               </Button>
@@ -1617,13 +1624,13 @@ const shouldShowSocialOnboarding = () => {
           </div>
         </div>
       )}
-      <MatchGuidelinesModal 
-        isOpen={showMatchGuidelines} 
-        onClose={() => setShowMatchGuidelines(false)} 
-        onAccept={() => { 
-          setShowMatchGuidelines(false); 
-          toggleMatchStatus(true); 
-        }} 
+      <MatchGuidelinesModal
+        isOpen={showMatchGuidelines}
+        onClose={() => setShowMatchGuidelines(false)}
+        onAccept={() => {
+          setShowMatchGuidelines(false);
+          toggleMatchStatus(true);
+        }}
       />
     </Layout>
   );

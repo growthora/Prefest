@@ -78,7 +78,7 @@ function ChatListMobile() {
 
     const interval = setInterval(() => {
       void loadMatches();
-    }, 5000);
+    }, 2000);
 
     return () => {
       clearInterval(interval);
@@ -151,7 +151,16 @@ function ChatListMobile() {
               .map((m) => (
                 <button
                   key={m.match_id}
-                  onClick={() => navigate(`/m/chat/${m.match_id}`)}
+                  onClick={() => {
+                    setMatches((prev) =>
+                      prev.map((entry) =>
+                        entry.match_id === m.match_id
+                          ? { ...entry, unread_count: 0, match_seen: true, chat_opened: true }
+                          : entry
+                      )
+                    );
+                    navigate(`/m/chat/${m.match_id}`);
+                  }}
                   className="flex items-center gap-3 px-4 py-3 border-b border-border/40 bg-background hover:bg-muted/60 active:bg-muted/80 transition-colors text-left"
                 >
                   <div className="relative">

@@ -103,7 +103,7 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
       {showTopBanner && (
         <div className="bg-[#1F222A] text-white py-2 px-4 flex md:hidden justify-between items-center text-sm z-50 relative">
           <div className="flex items-center gap-4">
-            <span className="font-bold">E Produtor?</span>
+            <span className="font-bold">É Produtor?</span>
             <CreateEventModal 
               approvedOrganizerRedirectTo={homeCreateEventRedirect}
               trigger={

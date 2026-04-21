@@ -194,6 +194,7 @@ export default function Profile() {
 
   useEffect(() => {
     if (profile) {
+      const normalizedPreference = normalizeMatchGenderPreference(profile.match_gender_preference);
       setFormData({
         full_name: profile.full_name || '',
         username: profile.username || '',
@@ -206,7 +207,7 @@ export default function Profile() {
         height: profile.height ? profile.height.toString() : '',
         relationship_status: profile.relationship_status || '',
         match_intention: profile.match_intention || '',
-        match_gender_preference: normalizeMatchGenderPreference(profile.match_gender_preference),
+        match_gender_preference: normalizedPreference.length > 0 ? normalizedPreference : ['todos'],
       });
       
       setShowInitialsOnly(profile.show_initials_only || false);
@@ -233,7 +234,7 @@ export default function Profile() {
         sexuality: formData.sexuality === '' ? null : formData.sexuality,
         match_intention: formData.match_intention === '' ? null : formData.match_intention,
         match_gender_preference:
-          formData.match_gender_preference.length > 0 ? formData.match_gender_preference : null,
+          formData.match_gender_preference.length > 0 ? formData.match_gender_preference : ['todos'],
         show_initials_only: showInitialsOnly,
         height: formData.height ? parseFloat(formData.height) : null,
       };
@@ -262,7 +263,10 @@ export default function Profile() {
   const handleMatchGenderPreferenceToggle = (value: string) => {
     setFormData((current) => ({
       ...current,
-      match_gender_preference: toggleMatchGenderPreference(current.match_gender_preference, value),
+      match_gender_preference: (() => {
+        const next = toggleMatchGenderPreference(current.match_gender_preference, value);
+        return next.length > 0 ? next : ['todos'];
+      })(),
     }));
   };
 

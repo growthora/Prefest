@@ -14,7 +14,8 @@ CREATE FUNCTION public.list_matches(
   chat_opened BOOLEAN,
   last_message TEXT,
   last_message_time TIMESTAMPTZ,
-  unread_count BIGINT
+  unread_count BIGINT,
+  event_title TEXT
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -71,19 +72,9 @@ BEGIN
       FROM public.messages msg
       WHERE msg.chat_id = c.id
         AND msg.sender_id <> v_user_id
-        AND msg.created_at > COALESCE(
-          (
-            SELECT n.read_at
-            FROM public.notifications n
-            WHERE n.user_id = v_user_id
-              AND n.type = 'message'
-              AND (n.payload->>'chat_id')::UUID = c.id
-            ORDER BY n.created_at DESC
-            LIMIT 1
-          ),
-          '1970-01-01'::TIMESTAMPTZ
-        )
-    ) AS unread_count
+        AND msg.status IS DISTINCT FROM 'seen'
+    ) AS unread_count,
+    e.title AS event_title
   FROM public.matches m
   JOIN public.profiles p
     ON (
@@ -95,6 +86,8 @@ BEGIN
   LEFT JOIN public.chats c
     ON c.match_id = m.id
    AND c.event_id = m.event_id
+  LEFT JOIN public.events e
+    ON e.id = m.event_id
   WHERE (m.user_a_id = v_user_id OR m.user_b_id = v_user_id)
     AND COALESCE(m.status, 'active') = 'active'
     AND (p_event_id IS NULL OR m.event_id = p_event_id)

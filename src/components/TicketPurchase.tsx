@@ -41,13 +41,13 @@ export function SingleModeToggle({ enabled, onToggle, isLocked = false, isBot = 
   }
 
   return (
-    <div 
+    <div
       className={cn(
         "relative overflow-hidden rounded-2xl border transition-all duration-300 p-6",
-        isLocked 
+        isLocked
           ? "border-muted-foreground/20 bg-muted/30 opacity-60 cursor-not-allowed"
-          : enabled 
-            ? "border-primary bg-primary/5 shadow-[0_0_20px_rgba(255,0,127,0.15)]" 
+          : enabled
+            ? "border-primary bg-primary/5 shadow-[0_0_20px_rgba(255,0,127,0.15)]"
             : "border-border bg-card/50 hover:border-muted-foreground/30"
       )}
     >
@@ -56,7 +56,7 @@ export function SingleModeToggle({ enabled, onToggle, isLocked = false, isBot = 
           ?? Bloqueado
         </div>
       )}
-      
+
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
@@ -66,20 +66,20 @@ export function SingleModeToggle({ enabled, onToggle, isLocked = false, isBot = 
           <p className="text-sm text-muted-foreground leading-relaxed">
             {isLocked ? (
               <>
-                Complete sua inscrição no evento para liberar a aba <span className="text-foreground font-medium">"Match do Evento"</span>. 
+                Complete sua inscrição no evento para liberar a aba <span className="text-foreground font-medium">"Match do Evento"</span>.
                 Conecte-se com outros solteiros confirmados após garantir seu ingresso! ???
               </>
             ) : (
               <>
-                Ative para liberar a aba <span className="text-foreground font-medium">"Match do Evento"</span>. 
+                Ative para liberar a aba <span className="text-foreground font-medium">"Match do Evento"</span>.
                 Conecte-se com outros solteiros confirmados e encontre sua companhia ideal antes mesmo do show começar.
               </>
             )}
           </p>
         </div>
-        <Switch 
-          checked={enabled} 
-          onCheckedChange={onToggle} 
+        <Switch
+          checked={enabled}
+          onCheckedChange={onToggle}
           className="data-[state=checked]:bg-primary"
           disabled={isLocked}
         />
@@ -97,8 +97,8 @@ export function SingleModeToggle({ enabled, onToggle, isLocked = false, isBot = 
             <div className="pt-4 mt-4 border-t border-primary/10">
               <div className="flex flex-wrap gap-2">
                 {['Anonimato Inteligente', 'IA de Compatibilidade', 'Chat Exclusivo'].map((feature) => (
-                  <div 
-                    key={feature} 
+                  <div
+                    key={feature}
                     className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-[10px] font-semibold uppercase tracking-wider text-primary border border-primary/20"
                   >
                     <Check className="w-3 h-3" />
@@ -209,7 +209,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   const [autoResume, setAutoResume] = useState(false);
   const [checkoutProfile, setCheckoutProfile] = useState<CheckoutProfileSnapshot>(emptyCheckoutProfile);
   const checkoutProfileRef = React.useRef<CheckoutProfileSnapshot>(emptyCheckoutProfile);
-  
+
   // Fee Configuration State
   const [feeConfig, setFeeConfig] = useState<{ platform_fee_type: 'percentage' | 'fixed', platform_fee_value: number }>({
     platform_fee_type: 'percentage',
@@ -283,20 +283,20 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
       // Small delay to ensure UI is stable
       const timer = setTimeout(() => {
         setAutoResume(false);
-        
+
         // Clean URL params
         const url = new URL(window.location.href);
         url.searchParams.delete('autoResume');
         url.searchParams.delete('ticketTypeId');
         window.history.replaceState({}, '', url.toString());
-        
+
         handleNextStep();
       }, 500);
-      
+
       return () => clearTimeout(timer);
     }
   }, [autoResume, selectedTicketTypeId, selectedTicketType, step, isAuthLoading]);
-  
+
   // Calculate age from profile birth_date
   const calculateAge = (birthDate?: string | null) => {
     if (!birthDate) return '';
@@ -357,7 +357,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'BOLETO'>('PIX');
   const [hasAvailableTicketTypes, setHasAvailableTicketTypes] = useState<boolean | null>(null);
   const [ticketTypes, setTicketTypes] = useState<TicketTypeDB[]>([]);
-  
+
   // Credit Card State
   const [cardData, setCardData] = useState<CreditCardData | null>(null);
   const [isCardValid, setIsCardValid] = useState(false);
@@ -407,7 +407,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         params.set('ticketTypeId', selectedTicketTypeId);
     }
     params.set('autoResume', 'true');
-    
+
     const currentPath = window.location.pathname + '?' + params.toString();
     sessionStorage.setItem('postRegisterRedirect', currentPath);
     navigate('/perfil/completar-cadastro');
@@ -428,30 +428,30 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         toast.error('Selecione um tipo de ingresso');
         return;
       }
-      
+
       // Check authentication before proceeding
       if (!user) {
         toast.error('Você precisa estar logado para continuar');
-        
+
         const params = new URLSearchParams(window.location.search);
         params.set('ticketTypeId', selectedTicketTypeId);
         params.set('autoResume', 'true');
-        
+
         const currentPath = window.location.pathname + '?' + params.toString();
         sessionStorage.setItem('postLoginRedirect', currentPath);
-        
+
         setTimeout(() => navigate('/login'), 1000);
         return;
       }
-      
+
       setIsProcessing(true);
       try {
         const { data, error } = await invokeEdgeRoute('ticket-api/checkout', {
             method: 'POST',
-            body: { 
+            body: {
                 event_id: event.id,
                 ticket_type_id: selectedTicketTypeId,
-                quantity: 1 
+                quantity: 1
             }
         });
 
@@ -493,17 +493,17 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         // If profile is incomplete, the backend might return specific error
         if (isIncompleteProfileErrorMessage(errorMessage)) {
             toast.error('Seu cadastro está incompleto. Redirecionando...');
-            
+
             // Save current location for post-registration redirect with context
             const params = new URLSearchParams(window.location.search);
             if (selectedTicketTypeId) {
                 params.set('ticketTypeId', selectedTicketTypeId);
             }
             params.set('autoResume', 'true');
-            
+
             const currentPath = window.location.pathname + '?' + params.toString();
             sessionStorage.setItem('postRegisterRedirect', currentPath);
-            
+
             setTimeout(() => navigate('/perfil/completar-cadastro'), 1500);
             return;
         }
@@ -520,7 +520,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         toast.error('Seu cadastro está incompleto. Por favor, complete seu perfil.');
         return;
       }
-      
+
       // If paid, go to payment. If free, go to confirmation
       if (!isFreeCheckout) {
           setStep('payment');
@@ -545,7 +545,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     try {
       setValidatingCoupon(true);
       const coupon = await couponService.validateCoupon(couponCode);
-      
+
       if (coupon) {
         setAppliedCoupon(coupon);
         toast.success(`Cupom "${coupon.code}" aplicado com sucesso! ??`);
@@ -572,7 +572,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
     }
 
     if (isParticipating) return;
-    
+
     try {
       setIsProcessing(true);
       const freshProfile = await refreshCheckoutProfile();
@@ -602,7 +602,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         // 2. Issue Ticket
         const { error: ticketError } = await invokeEdgeRoute('ticket-api/free', {
             method: 'POST',
-            body: { 
+            body: {
                 event_id: event.id,
                 ticket_type_id: selectedTicketTypeId,
                 quantity: 1,
@@ -647,7 +647,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         const { data, error } = await invokeEdgeRoute('ticket-api/payment', {
             method: 'POST',
             body: payload,
-            headers: { 
+            headers: {
                 'Idempotency-Key': idempotencyKey
             }
         });
@@ -688,7 +688,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   };
 
   const basePrice = Number(selectedTicketType?.price ?? (event as any).price ?? 0);
-  
+
   // Dynamic Service Fee Calculation
   let serviceFee = 0;
   if (feeConfig.platform_fee_type === 'percentage') {
@@ -696,12 +696,12 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
   } else {
     serviceFee = feeConfig.platform_fee_value;
   }
-  
+
   // Ensure fee is at least 0
   serviceFee = Math.max(0, serviceFee);
-  
+
   let discount = 0;
-  
+
   if (appliedCoupon) {
     if (appliedCoupon.discount_type === 'percentage') {
       discount = basePrice * (Number(appliedCoupon.discount_value) / 100);
@@ -709,7 +709,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
       discount = Number(appliedCoupon.discount_value);
     }
   }
-  
+
   const total = Math.max(0, basePrice + serviceFee - discount);
   const isFreeCheckout = total === 0;
 
@@ -728,7 +728,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
 
   const checkPaymentStatus = React.useCallback(async () => {
     if (!ticketId) return false;
-    
+
     try {
       const { data, error } = await invokeEdgeRoute<{ payment: { status: string | null } | null }>(`ticket-api/payment-status/${ticketId}`, {
         method: 'GET',
@@ -779,10 +779,10 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
           )}
         </div>
 
-        <div className="grid grid-cols-3 gap-2 text-xs font-semibold uppercase tracking-widest">
+        <div className="grid grid-cols-3 gap-2 text-[10px] sm:text-xs font-semibold uppercase tracking-wider sm:tracking-widest">
           <div
             className={cn(
-              'flex items-center justify-center gap-2 rounded-full px-3 py-2 border transition-all',
+              'flex min-w-0 flex-col items-center justify-center gap-1.5 rounded-full px-2.5 sm:px-3 py-2 border transition-all text-center leading-tight',
               step === 'select_ticket_type'
                 ? 'border-primary bg-primary/10 text-primary'
                 : 'border-border bg-muted/40 text-muted-foreground'
@@ -791,11 +791,13 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
             <span className="w-5 h-5 rounded-full flex items-center justify-center bg-primary text-background text-[10px]">
               1
             </span>
-            Tipo de ingresso
+            <span className="min-w-0 whitespace-normal">
+              Tipo de ingresso
+            </span>
           </div>
           <div
             className={cn(
-              'flex items-center justify-center gap-2 rounded-full px-3 py-2 border transition-all',
+              'flex min-w-0 flex-col items-center justify-center gap-1.5 rounded-full px-2.5 sm:px-3 py-2 border transition-all text-center leading-tight',
               step === 'personal_data'
                 ? 'border-primary bg-primary/10 text-primary'
                 : 'border-border bg-muted/40 text-muted-foreground'
@@ -804,11 +806,13 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
             <span className="w-5 h-5 rounded-full flex items-center justify-center bg-primary text-background text-[10px]">
               2
             </span>
-            Dados pessoais
+            <span className="min-w-0 whitespace-normal">
+              Dados pessoais
+            </span>
           </div>
           <div
             className={cn(
-              'flex items-center justify-center gap-2 rounded-full px-3 py-2 border transition-all',
+              'flex min-w-0 flex-col items-center justify-center gap-1.5 rounded-full px-2.5 sm:px-3 py-2 border transition-all text-center leading-tight',
               step === 'payment'
                 ? 'border-primary bg-primary/10 text-primary'
                 : 'border-border bg-muted/40 text-muted-foreground'
@@ -817,7 +821,9 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
             <span className="w-5 h-5 rounded-full flex items-center justify-center bg-primary text-background text-[10px]">
               3
             </span>
-            Pagamento
+            <span className="min-w-0 whitespace-normal">
+              Pagamento
+            </span>
           </div>
         </div>
 
@@ -825,9 +831,9 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
           <div className="flex gap-6">
             <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 border border-border/50">
               {(event.image && event.image.trim() !== '' && event.image !== 'undefined' && event.image !== 'null') ? (
-                <img 
-                  src={event.image} 
-                  alt={event.title} 
+                <img
+                  src={event.image}
+                  alt={event.title}
                   className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
                 />
               ) : (
@@ -915,9 +921,9 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
                         <p className="text-xs text-muted-foreground mt-1 mb-3">
                             Para continuar a compra, você precisa completar seus dados pessoais (CPF, Telefone, Data de Nascimento).
                         </p>
-                        <Button 
-                            variant="destructive" 
-                            size="sm" 
+                        <Button
+                            variant="destructive"
+                            size="sm"
                             onClick={handleRedirectToProfile}
                             className="w-full sm:w-auto"
                         >
@@ -989,7 +995,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
                     Você está prestes a garantir seu ingresso gratuito para <strong>{event.title}</strong>.
                 </p>
              </div>
-             
+
              <div className="bg-muted/30 p-4 rounded-xl space-y-3 text-sm border border-border">
                 <div className="flex justify-between border-b border-border/50 pb-2">
                     <span className="text-muted-foreground">Participante</span>
@@ -1004,12 +1010,12 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
                     <span className="font-medium">{selectedTicketType?.name}</span>
                 </div>
              </div>
-             
+
              <div className="pt-2">
-              <SingleModeToggle 
-                enabled={singleMode} 
+              <SingleModeToggle
+                enabled={singleMode}
                 onToggle={handleToggleSingleMode}
-                isLocked={!!(age && parseInt(age) < 18)} 
+                isLocked={!!(age && parseInt(age) < 18)}
                 isBot={isBot}
               />
             </div>
@@ -1019,10 +1025,10 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         {step === 'payment' && (
           <>
             <div className="mb-6">
-              <SingleModeToggle 
-                enabled={singleMode} 
+              <SingleModeToggle
+                enabled={singleMode}
                 onToggle={handleToggleSingleMode}
-                isLocked={!!(age && parseInt(age) < 18)} 
+                isLocked={!!(age && parseInt(age) < 18)}
                 isBot={isBot}
               />
             </div>
@@ -1032,9 +1038,9 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
                 <Tag className="w-4 h-4 text-primary" />
                 <span className="text-xs font-semibold uppercase tracking-widest">Tipo de Ingresso</span>
               </div>
-              <TicketSelector 
-                eventId={event.id} 
-                onSelect={handleTicketSelect} 
+              <TicketSelector
+                eventId={event.id}
+                onSelect={handleTicketSelect}
                 selectedTicketTypeId={selectedTicketTypeId}
                 isSalesDisabled={isSalesDisabled}
               />
@@ -1091,7 +1097,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
                 <Tag className="w-4 h-4 text-primary" />
                 <span className="text-xs font-semibold uppercase tracking-widest">Cupom de Desconto</span>
               </div>
-              
+
               {appliedCoupon ? (
                 <motion.div
                   initial={{ scale: 0.95, opacity: 0 }}
@@ -1162,7 +1168,7 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
                   <p className="text-3xl font-bold tracking-tighter">R$ {total.toFixed(2)}</p>
                 </div>
                 <div className="text-right text-[10px] text-muted-foreground uppercase tracking-widest font-medium">
-                  Pagamento Seguro via <br /> 
+                  Pagamento Seguro via <br />
                   <span className="text-foreground">Asaas</span>
                 </div>
               </div>
@@ -1172,8 +1178,8 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-6">
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           className="h-14 rounded-2xl border-border hover:bg-muted/50 transition-colors"
           disabled={isProcessing || isParticipating || step === 'select_ticket_type'}
           onClick={() => {
@@ -1188,12 +1194,12 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         >
           Voltar
         </Button>
-        <Button 
+        <Button
           onClick={(step === 'payment' || step === 'free_confirmation') ? handlePurchase : handleNextStep}
           className={cn(
             "h-14 rounded-2xl font-bold text-lg transition-all",
-            isParticipating 
-              ? "bg-green-600 hover:bg-green-600 cursor-not-allowed" 
+            isParticipating
+              ? "bg-green-600 hover:bg-green-600 cursor-not-allowed"
               : isCheckoutBlocked
                 ? "bg-muted text-muted-foreground cursor-not-allowed hover:bg-muted"
                 : "bg-primary hover:bg-primary/90 shadow-[0_10px_20px_-5px_rgba(255,0,127,0.4)] hover:scale-[1.02] active:scale-[0.98]"
@@ -1227,8 +1233,8 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
               Você já está inscrito!
             </>
           ) : isProcessing ? (
-            <motion.div 
-              animate={{ rotate: 360 }} 
+            <motion.div
+              animate={{ rotate: 360 }}
               transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
               className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full"
             />
@@ -1266,14 +1272,14 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         Ao confirmar, você concorda com nossos termos de uso e políticas de privacidade. © 2026 Spark Events.
       </p>
 
-      <MatchGuidelinesModal 
-        isOpen={showMatchGuidelines} 
-        onClose={() => setShowMatchGuidelines(false)} 
-        onAccept={confirmMatchEnabled} 
+      <MatchGuidelinesModal
+        isOpen={showMatchGuidelines}
+        onClose={() => setShowMatchGuidelines(false)}
+        onAccept={confirmMatchEnabled}
       />
 
       {pixData && (
-        <PixPaymentModal 
+        <PixPaymentModal
             isOpen={pixModalOpen}
             onClose={() => setPixModalOpen(false)}
             qrCodeImage={pixData.qrCode}

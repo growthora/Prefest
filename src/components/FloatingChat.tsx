@@ -72,7 +72,7 @@ export function FloatingChat() {
     void loadMatches();
     const interval = setInterval(() => {
       void loadMatches();
-    }, 5000);
+    }, 2000);
 
     return () => {
       clearInterval(interval);

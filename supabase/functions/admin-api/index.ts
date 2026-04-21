@@ -436,7 +436,7 @@ Deno.serve(async (req) => {
             const { error: eventParticipantsError } = await serviceClient.from("event_participants").delete().eq("user_id", userId);
             if (eventParticipantsError) throw new HttpError("EVENT_PARTICIPANTS_DELETE_FAILED", eventParticipantsError.message, 400);
 
-            const { data: matchRows, error: matchRowsError } = await serviceClient.from("matches").select("id").or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
+            const { data: matchRows, error: matchRowsError } = await serviceClient.from("matches").select("id").or(`user_a_id.eq.${userId},user_b_id.eq.${userId}`);
             if (matchRowsError) throw new HttpError("MATCHES_FETCH_FAILED", matchRowsError.message, 400);
 
             const matchIds = (matchRows || []).map((match: any) => match.id);

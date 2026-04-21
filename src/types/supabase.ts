@@ -122,24 +122,24 @@ export interface Database {
       matches: {
         Row: {
           id: string
-          user1_id: string
-          user2_id: string
+          user_a_id: string
+          user_b_id: string
           event_id: string | null
           status: 'pending' | 'accepted' | 'rejected'
           created_at: string
         }
         Insert: {
           id?: string
-          user1_id: string
-          user2_id: string
+          user_a_id: string
+          user_b_id: string
           event_id?: string | null
           status?: 'pending' | 'accepted' | 'rejected'
           created_at?: string
         }
         Update: {
           id?: string
-          user1_id?: string
-          user2_id?: string
+          user_a_id?: string
+          user_b_id?: string
           event_id?: string | null
           status?: 'pending' | 'accepted' | 'rejected'
           created_at?: string

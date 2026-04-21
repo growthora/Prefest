@@ -114,7 +114,7 @@ export default function Chat() {
     loadMatches();
     const interval = setInterval(() => {
       void loadMatches();
-    }, 5000);
+    }, 2000);
 
     return () => {
       clearInterval(interval);
@@ -387,7 +387,16 @@ export default function Chat() {
                     {filteredMatches.map((m) => (
                       <button
                         key={m.match_id}
-                        onClick={() => navigate(`/chat/${m.match_id}`)}
+                        onClick={() => {
+                          setMatches((prev) =>
+                            prev.map((entry) =>
+                              entry.match_id === m.match_id
+                                ? { ...entry, unread_count: 0, match_seen: true, chat_opened: true }
+                                : entry
+                            )
+                          );
+                          navigate(`/chat/${m.match_id}`);
+                        }}
                         className="flex items-center gap-3 p-4 hover:bg-white/5 transition-colors border-b border-border/40 text-left"
                       >
                         <div className="relative">

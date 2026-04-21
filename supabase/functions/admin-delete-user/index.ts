@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
     const { data: matchRows, error: matchRowsError } = await adminClient
       .from("matches")
       .select("id")
-      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
+      .or(`user_a_id.eq.${userId},user_b_id.eq.${userId}`);
     if (matchRowsError) throw matchRowsError;
 
     const matchIds = (matchRows || []).map((match: any) => match.id);

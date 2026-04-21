@@ -189,17 +189,17 @@ const Home = () => {
                               
                               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-20 opacity-90" />
                               
-                              <div className="absolute top-3 left-3">
+                              <div className="absolute top-3 left-3 z-30">
                                 <Badge className="bg-white/90 text-black hover:bg-white font-bold backdrop-blur-md shadow-sm">
                                   {event.category}
                                 </Badge>
                               </div>
 
-                              <div className="absolute bottom-3 left-3 right-3 text-white">
-                                <p className="text-xs font-bold uppercase tracking-wider text-white mb-1">
+                              <div className="absolute bottom-3 left-3 right-3 z-30 text-white">
+                                <p className="text-xs font-bold uppercase tracking-wider text-white mb-1 drop-shadow-md">
                                   {new Date(event.date.split('/').reverse().join('-')).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }).replace('.', '')} • {event.time}
                                 </p>
-                                <h3 className="font-bold text-lg leading-tight line-clamp-2 text-shadow-sm">
+                                <h3 className="font-bold text-lg leading-tight line-clamp-2 text-white drop-shadow-md">
                                   {event.title}
                                 </h3>
                               </div>
@@ -290,17 +290,17 @@ const Home = () => {
                               
                               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-20 opacity-90" />
                               
-                              <div className="absolute top-3 left-3">
+                              <div className="absolute top-3 left-3 z-30">
                                 <Badge className="bg-white/90 text-black hover:bg-white font-bold backdrop-blur-md shadow-sm">
                                   {event.category}
                                 </Badge>
                               </div>
 
-                              <div className="absolute bottom-3 left-3 right-3 text-white">
-                                <p className="text-xs font-bold uppercase tracking-wider text-white mb-1">
+                              <div className="absolute bottom-3 left-3 right-3 z-30 text-white">
+                                <p className="text-xs font-bold uppercase tracking-wider text-white mb-1 drop-shadow-md">
                                   {new Date(event.date.split('/').reverse().join('-')).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' }).replace('.', '')} • {event.time}
                                 </p>
-                                <h3 className="font-bold text-lg leading-tight line-clamp-2 text-shadow-sm">
+                                <h3 className="font-bold text-lg leading-tight line-clamp-2 text-white drop-shadow-md">
                                   {event.title}
                                 </h3>
                               </div>
