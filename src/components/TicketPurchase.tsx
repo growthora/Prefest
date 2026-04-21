@@ -876,20 +876,26 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
                   Escolha o tipo de ingresso que deseja adquirir para este evento.
                 </p>
               </div>
-              <TicketSelector
-                eventId={event.id}
-                onSelect={handleTicketSelect}
-                selectedTicketTypeId={selectedTicketTypeId}
-                onLoaded={handleTicketsLoaded}
-                isSalesClosedByDate={isSalesClosedByDate}
-                isEventCanceled={isEventCanceled}
-                isSalesDisabled={isSalesDisabled}
-              />
-              {hasAvailableTicketTypes === false && (
+              {!isSalesDisabled && (
+                <TicketSelector
+                  eventId={event.id}
+                  onSelect={handleTicketSelect}
+                  selectedTicketTypeId={selectedTicketTypeId}
+                  onLoaded={handleTicketsLoaded}
+                  isSalesClosedByDate={isSalesClosedByDate}
+                  isEventCanceled={isEventCanceled}
+                  isSalesDisabled={isSalesDisabled}
+                />
+              )}
+              {isSalesDisabled ? (
+                <p className="text-xs text-red-500 font-medium">
+                  Vendas desativadas. Este evento não está aceitando novas compras.
+                </p>
+              ) : hasAvailableTicketTypes === false ? (
                 <p className="text-xs text-red-500 font-medium">
                   Nenhum ingresso disponível no momento. Este evento não está aceitando novas compras.
                 </p>
-              )}
+              ) : null}
             </motion.div>
           )}
         </AnimatePresence>
@@ -1038,12 +1044,14 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
                 <Tag className="w-4 h-4 text-primary" />
                 <span className="text-xs font-semibold uppercase tracking-widest">Tipo de Ingresso</span>
               </div>
-              <TicketSelector
-                eventId={event.id}
-                onSelect={handleTicketSelect}
-                selectedTicketTypeId={selectedTicketTypeId}
-                isSalesDisabled={isSalesDisabled}
-              />
+              {!isSalesDisabled && (
+                <TicketSelector
+                  eventId={event.id}
+                  onSelect={handleTicketSelect}
+                  selectedTicketTypeId={selectedTicketTypeId}
+                  isSalesDisabled={isSalesDisabled}
+                />
+              )}
             </div>
 
             <div className="space-y-4">
@@ -1177,79 +1185,76 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-6">
-        <Button
-          variant="outline"
-          className="h-14 rounded-2xl border-border hover:bg-muted/50 transition-colors"
-          disabled={isProcessing || isParticipating || step === 'select_ticket_type'}
-          onClick={() => {
-            if (step === 'payment') {
-              setStep('personal_data');
-              return;
+      {!isSalesDisabled && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-6">
+          <Button
+            variant="outline"
+            className="h-14 rounded-2xl border-border hover:bg-muted/50 transition-colors"
+            disabled={isProcessing || isParticipating || step === 'select_ticket_type'}
+            onClick={() => {
+              if (step === 'payment') {
+                setStep('personal_data');
+                return;
+              }
+              if (step === 'personal_data') {
+                setStep('select_ticket_type');
+              }
+            }}
+          >
+            Voltar
+          </Button>
+          <Button
+            onClick={(step === 'payment' || step === 'free_confirmation') ? handlePurchase : handleNextStep}
+            className={cn(
+              "h-14 rounded-2xl font-bold text-lg transition-all",
+              isParticipating
+                ? "bg-green-600 hover:bg-green-600 cursor-not-allowed"
+                : isCheckoutBlocked
+                  ? "bg-muted text-muted-foreground cursor-not-allowed hover:bg-muted"
+                  : "bg-primary hover:bg-primary/90 shadow-[0_10px_20px_-5px_rgba(255,0,127,0.4)] hover:scale-[1.02] active:scale-[0.98]"
+            )}
+            disabled={
+              isProcessing ||
+              isParticipating ||
+              isCheckoutBlocked ||
+              (step === 'select_ticket_type' && !selectedTicketTypeId) ||
+              (step === 'payment' && !selectedTicketTypeId)
             }
-            if (step === 'personal_data') {
-              setStep('select_ticket_type');
-            }
-          }}
-        >
-          Voltar
-        </Button>
-        <Button
-          onClick={(step === 'payment' || step === 'free_confirmation') ? handlePurchase : handleNextStep}
-          className={cn(
-            "h-14 rounded-2xl font-bold text-lg transition-all",
-            isParticipating
-              ? "bg-green-600 hover:bg-green-600 cursor-not-allowed"
-              : isCheckoutBlocked
-                ? "bg-muted text-muted-foreground cursor-not-allowed hover:bg-muted"
-                : "bg-primary hover:bg-primary/90 shadow-[0_10px_20px_-5px_rgba(255,0,127,0.4)] hover:scale-[1.02] active:scale-[0.98]"
-          )}
-          disabled={
-            isProcessing ||
-            isParticipating ||
-            isCheckoutBlocked ||
-            (step === 'select_ticket_type' && !selectedTicketTypeId) ||
-            (step === 'payment' && !selectedTicketTypeId)
-          }
-        >
-          {isEventCanceled ? (
-            <>
-                <Ban className="w-5 h-5 mr-2" />
-                Evento cancelado
-            </>
-          ) : isSalesClosedByDate ? (
-            <>
-              <Ban className="w-5 h-5 mr-2" />
-              Venda encerrada
-            </>
-          ) : isSalesDisabled ? (
-            <>
-              <Ban className="w-5 h-5 mr-2" />
-              Vendas desativadas
-            </>
-          ) : isParticipating ? (
-            <>
-              <Check className="w-5 h-5 mr-2" />
-              Você já está inscrito!
-            </>
-          ) : isProcessing ? (
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
-              className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full"
-            />
-          ) : (
-            step === 'payment' ? (
+          >
+            {isEventCanceled ? (
               <>
-                <Ticket className="w-5 h-5 mr-2" />
-                Confirmar Ingressos
+                  <Ban className="w-5 h-5 mr-2" />
+                  Evento cancelado
               </>
+            ) : isSalesClosedByDate ? (
+              <>
+                <Ban className="w-5 h-5 mr-2" />
+                Venda encerrada
+              </>
+            ) : isParticipating ? (
+              <>
+                <Check className="w-5 h-5 mr-2" />
+                Você já está inscrito!
+              </>
+            ) : isProcessing ? (
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full"
+              />
             ) : (
-              <>Continuar</>
-            )
-          )}
-        </Button>
-      </div>
+              step === 'payment' ? (
+                <>
+                  <Ticket className="w-5 h-5 mr-2" />
+                  Confirmar Ingressos
+                </>
+              ) : (
+                <>Continuar</>
+              )
+            )}
+          </Button>
+        </div>
+      )}
 
       {(isSalesClosedByDate || isEventCanceled) && (
         <p className="text-center text-sm font-medium text-destructive mt-2">
@@ -1257,15 +1262,10 @@ export function TicketPurchase({ event, onPurchase, isParticipating = false }: T
         </p>
       )}
 
-      {isSalesDisabled && !isSalesClosedByDate && !isEventCanceled && (
-        <Card className="border-amber-200 bg-amber-50/70 mt-2">
-          <div className="p-4 text-sm">
-            <p className="font-semibold text-amber-800">Vendas desativadas</p>
-            <p className="text-amber-700">
-              As vendas para este evento foram desativadas manualmente pelo organizador.
-            </p>
-          </div>
-        </Card>
+      {isSalesDisabled && step !== 'select_ticket_type' && !isSalesClosedByDate && !isEventCanceled && (
+        <p className="text-center text-sm font-medium text-destructive mt-2">
+          Vendas desativadas. Este evento não está aceitando novas compras.
+        </p>
       )}
 
       <p className="text-center text-[10px] text-muted-foreground uppercase tracking-[0.15em] opacity-50">

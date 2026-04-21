@@ -127,19 +127,7 @@ export function TicketSelector({
   }
 
   if (isSalesDisabled) {
-    return (
-      <Card className="border-amber-200 bg-amber-50/50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-amber-700">
-            <Ticket className="w-5 h-5" />
-            Vendas desativadas
-          </CardTitle>
-          <CardDescription className="text-amber-700/90">
-            As vendas para este evento foram desativadas manualmente pelo organizador.
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    );
+    return null;
   }
 
   if (ticketTypes.length === 0) {
