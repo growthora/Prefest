@@ -63,11 +63,14 @@ const Novidades = () => {
           state: event.state,
           event_type: event.event_type,
           price: event.price,
+          display_price_label: event.display_price_label,
+          display_price_value: event.display_price_value,
+          is_free_event: event.is_free_event,
           image: imageUrl,
           description: event.description || '',
           category: event.category || 'Geral',
           attendeesCount: event.current_participants,
-          tags: event.category ? [event.category] : [],
+          tags: [],
         };
       });
 

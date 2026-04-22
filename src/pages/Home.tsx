@@ -79,7 +79,7 @@ const Home = () => {
   };
 
   const collections = [
-    { icon: Music, label: "Festas e Shows", slug: "festas-e-shows" },
+    { icon: Music, label: "Festas e Shows", slug: "festas-e-shows", href: "/explorar-eventos?category=Festas%20e%20shows" },
     { icon: PartyPopper, label: "Carnaval", slug: "carnaval" },
     { icon: Theater, label: "Teatros e Espetáculos", slug: "teatros-e-espetaculos" },
     { icon: Mic, label: "Stand Up Comedy", slug: "stand-up-comedy" },
@@ -128,7 +128,7 @@ const Home = () => {
                     key={idx} 
                     className="pl-3 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5"
                   >
-                    <Link to={`/colecao/${col.slug}`}>
+                    <Link to={col.href ?? `/colecao/${col.slug}`}>
                       <div className="flex flex-col items-center justify-center p-6 bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-lg hover:border-primary/30 transition-all cursor-pointer group h-32">
                         <div className="w-10 h-10 mb-3 text-gray-400 group-hover:text-primary transition-colors">
                           <col.icon size={40} strokeWidth={1.5} />

@@ -208,7 +208,7 @@ export default function EventDetails() {
       }
 
       if (result.status === 'match') {
-        toast.success("It's a Match! ??");
+        toast.success("É um Match!");
 
         // Play sound
         const audio = new Audio('/sounds/match.mp3');
@@ -264,7 +264,7 @@ export default function EventDetails() {
 
   const handleLike = async () => {
     if (!user) {
-      toast.error("Faça login para curtir este evento! ??");
+      toast.error("Faça login para curtir este evento!");
       return;
     }
 
@@ -282,7 +282,7 @@ export default function EventDetails() {
       setIsLoadingLike(true);
       const newStatus = await eventService.toggleLike(event.id, user.id);
       setIsLiked(newStatus);
-      toast.success(newStatus ? "Evento favoritado! ??" : "Removido dos favoritos");
+      toast.success(newStatus ? "Evento favoritado!" : "Removido dos favoritos");
     } catch (error) {
       setIsLiked(previousState);
       toast.error("Erro ao atualizar favorito");
@@ -293,13 +293,23 @@ export default function EventDetails() {
 
   const handleShare = async () => {
     if (!event) return;
-    const shareUrl = `${window.location.origin}/evento/${event.slug || event.id}`;
+    const slugOrId = encodeURIComponent(event.slug || event.id);
+    const shareUrl = new URL(ROUTE_PATHS.EVENT_DETAILS.replace(':slug', slugOrId), window.location.origin).toString();
 
     try {
+      if (navigator.share) {
+        await navigator.share({
+          title: event.title,
+          url: shareUrl,
+        });
+        return;
+      }
+
       await navigator.clipboard.writeText(shareUrl);
-      toast.success("Link copiado! ??");
+      toast.success("Link copiado!");
     } catch (err) {
-      toast.error("Erro ao copiar link");
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      toast.error("Erro ao compartilhar");
     }
   };
 
@@ -327,36 +337,39 @@ export default function EventDetails() {
   };
 
   const handleToggleMeetAttendees = async () => {
-  if (!checkAccess('aparecer na lista de participantes')) return;
+    if (!user || !profile) {
+      toast.error('Você precisa estar logado para ativar essa função');
+      return;
+    }
 
-  if (!user || !profile) {
-    toast.error('Você precisa estar logado para ativar essa função');
-    return;
-  }
+    if (isEventMatchEnabled) {
+      await toggleMatchStatus(false);
+      return;
+    }
 
-  if (!isParticipating) {
-    toast.info('Garanta seu ingresso para liberar o Match deste evento.');
-    document.getElementById('ticket-purchase')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    return;
-  }
+    if (!checkAccess('aparecer na lista de participantes')) {
+      toast.error('Sua conta não tem acesso para participar do Match deste evento.');
+      return;
+    }
 
-  if (!isEventMatchEnabled && isOwnPhotoValidationPending) {
-    toast.info('Validando sua foto de perfil...');
-    return;
-  }
+    if (!isParticipating) {
+      toast.info('Garanta seu ingresso para liberar o Match deste evento.');
+      document.getElementById('ticket-purchase')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
 
-  if (!isEventMatchEnabled && isMatchPhotoMissing) {
-    redirectToMatchProfileSetup();
-    return;
-  }
+    if (isOwnPhotoValidationPending) {
+      toast.info('Validando sua foto de perfil...');
+      return;
+    }
 
-  if (!isEventMatchEnabled) {
+    if (isMatchPhotoMissing) {
+      redirectToMatchProfileSetup();
+      return;
+    }
+
     setShowMatchGuidelines(true);
-    return;
-  }
-
-  await toggleMatchStatus(false);
-};
+  };
 
 const toggleMatchStatus = async (enable: boolean) => {
   if (!profile || !user || !event?.id) return;
@@ -384,12 +397,12 @@ const toggleMatchStatus = async (enable: boolean) => {
       const removedLikes = Number(result.removed_likes || 0);
       toast.success(
         removedLikes > 0
-          ? 'Voce saiu do Match deste evento e limpamos as curtidas pendentes.'
-          : 'Voce saiu do Match deste evento.'
+          ? 'Você saiu do Match deste evento e limpamos as curtidas pendentes.'
+          : 'Você saiu do Match deste evento.'
       );
       return;
     }
-    toast.success('Voce entrou no Match deste evento!');
+    toast.success('Você entrou no Match deste evento!');
   } catch (error) {
     toast.error(toUserFriendlyErrorMessage(error));
   }
@@ -479,7 +492,7 @@ const loadEvent = async () => {
           description: supabaseEvent.description || '',
           category: supabaseEvent.category || 'Geral',
           attendeesCount: supabaseEvent.current_participants,
-          tags: supabaseEvent.category ? [supabaseEvent.category] : [],
+          tags: [],
           status: supabaseEvent.status, // Add status mapping
           sales_enabled: supabaseEvent.sales_enabled ?? true,
         };
@@ -583,7 +596,7 @@ const loadEvent = async () => {
         matchService.markMatchSeen(likeResult.match_id, event.id).catch(() => {});
       }
     } else {
-      toast.success('Like enviado! ??');
+      toast.success('Like enviado!');
     }
   } catch (error: any) {
     if (error.code === '23505') {

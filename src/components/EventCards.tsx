@@ -21,36 +21,38 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
   const eventLink = ROUTE_PATHS.EVENT_DETAILS.replace(':slug', event.slug || event.id);
   const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(false);
-  const [isLoadingLike, setIsLoadingLike] = useState(false);
 
   const eventEndTimestamp = new Date((event.event_end_at || event.end_at || event.event_start_at || '') as string).getTime();
   const isEnded = !Number.isNaN(eventEndTimestamp) && Date.now() >= eventEndTimestamp;
+  const normalizedCategory = (event.category || '').trim().toLowerCase();
+  const displayTags = (event.tags || [])
+    .map(tag => String(tag).trim())
+    .filter(tag => tag.length > 0 && tag.toLowerCase() !== normalizedCategory)
+    .slice(0, 1);
 
   useEffect(() => {
-    if (user && event.id) {
-      checkLikeStatus();
-    }
-  }, [user, event.id]);
+    if (!user || !event.id) return;
 
-  const checkLikeStatus = async () => {
-    try {
-      // Validar se ID é UUID antes de chamar o serviço para evitar erro 400 em dados mockados
-      if (event.id.length === 36) { 
-        const liked = await eventService.hasUserLiked(event.id, user!.id);
-        setIsLiked(liked);
+    const run = async () => {
+      try {
+        if (event.id.length === 36) {
+          const liked = await eventService.hasUserLiked(event.id, user.id);
+          setIsLiked(liked);
+        }
+      } catch (err) {
+        void err;
       }
-    } catch (error) {
-      // Silently fail for mock data or errors
-      // console.warn("Could not check like status", error);
-    }
-  };
+    };
+
+    run();
+  }, [user, event.id]);
 
   const handleLike = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
     if (!user) {
-      toast.error("Faça login para curtir este evento! ??");
+      toast.error("Faça login para curtir este evento!");
       return;
     }
 
@@ -64,19 +66,15 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
     setIsLiked(!previousState); // Optimistic
 
     try {
-      setIsLoadingLike(true);
       const newStatus = await eventService.toggleLike(event.id, user.id);
       setIsLiked(newStatus); // Confirm state from server
-      toast.success(newStatus ? "Evento favoritado! ??" : "Removido dos favoritos");
+      toast.success(newStatus ? "Evento favoritado!" : "Removido dos favoritos");
       if (onLikeToggle) {
         onLikeToggle(newStatus);
       }
-    } catch (error) {
+    } catch {
       setIsLiked(previousState); // Revert on error
       toast.error("Erro ao atualizar favorito");
-      // console.error(error);
-    } finally {
-      setIsLoadingLike(false);
     }
   };
 
@@ -84,14 +82,23 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
     e.preventDefault();
     e.stopPropagation();
     
-    const shareUrl = `${window.location.origin}/eventos/${event.slug || event.id}`;
+    const slugOrId = encodeURIComponent(event.slug || event.id);
+    const shareUrl = new URL(ROUTE_PATHS.EVENT_DETAILS.replace(':slug', slugOrId), window.location.origin).toString();
     
     try {
+      if (navigator.share) {
+        await navigator.share({
+          title: event.title,
+          url: shareUrl,
+        });
+        return;
+      }
+
       await navigator.clipboard.writeText(shareUrl);
-      toast.success("Link copiado! ??");
+      toast.success("Link copiado!");
     } catch (err) {
-      // console.error("Failed to copy: ", err);
-      toast.error("Erro ao copiar link");
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      toast.error("Erro ao compartilhar");
     }
   };
 
@@ -122,10 +129,10 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
           </div>
         )}
         
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent opacity-90 z-20" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent opacity-90 z-20 pointer-events-none" />
         
         {/* Floating Badges */}
-        <div className="absolute top-4 left-4 flex flex-wrap gap-2">
+        <div className="absolute top-4 left-4 flex flex-wrap gap-2 z-30">
           <Badge className="bg-background/80 backdrop-blur-md text-foreground border-none font-medium">
             {event.category}
           </Badge>
@@ -144,10 +151,10 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
                   : "bg-pink-500/40 text-white"
               )}
             >
-              {event.event_type === 'formal' ? '?? Networking' : '?? Match'}
+              {event.event_type === 'formal' ? 'Networking' : 'Match'}
             </Badge>
           )}
-          {(event.tags || []).slice(0, 1).map((tag: string) => (
+          {displayTags.map((tag: string) => (
             <Badge key={tag} variant="outline" className="bg-black/40 backdrop-blur-sm border-white/10 text-white/80">
               {tag}
             </Badge>
@@ -155,7 +162,7 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
         </div>
 
         {/* Actions Buttons */}
-        <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
+        <div className="absolute top-4 right-4 flex flex-col gap-2 z-30">
           {/* Like Button */}
           <button
             onClick={handleLike}
@@ -185,7 +192,7 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
             The previous code had it at top-4 right-4. 
             I'll move it to bottom-right of image or below Like button. 
             Let's put it at bottom-right of image section. */}
-        <div className="absolute bottom-4 right-4 bg-primary text-primary-foreground px-3 py-1.5 rounded-full font-mono text-xs font-bold shadow-[0_0_20px_rgba(255,0,127,0.4)]">
+        <div className="absolute bottom-4 right-4 bg-primary text-primary-foreground px-3 py-1.5 rounded-full tabular-nums text-xs font-bold shadow-[0_0_20px_rgba(255,0,127,0.4)] z-30">
           {event.time}
         </div>
       </div>
@@ -193,7 +200,7 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
       {/* Content Section */}
       <div className="p-6 space-y-4">
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground uppercase tracking-widest">
+          <div className="flex items-center gap-2 text-xs font-semibold tabular-nums text-muted-foreground uppercase tracking-widest">
             <Calendar className="w-3 h-3 text-primary" />
             {event.date}
           </div>
@@ -214,7 +221,7 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
               </span>
             ) : (
               event.is_free_event ? (
-                <span className="text-lg font-mono font-bold text-foreground">
+                <span className="text-lg font-bold tabular-nums text-foreground">
                   Evento gratuito
                 </span>
               ) : event.display_price_value !== undefined ? (
@@ -222,7 +229,7 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
                   <span className="text-[10px] uppercase tracking-tighter text-muted-foreground font-semibold">
                     A partir de
                   </span>
-                  <span className="text-lg font-mono font-bold text-foreground">
+                  <span className="text-lg font-bold tabular-nums text-foreground">
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(event.display_price_value)}
                   </span>
                 </>
@@ -232,22 +239,27 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
             )}
           </div>
           
-          <Button
-            className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-[0_0_15px_rgba(255,0,127,0.3)] hover:shadow-[0_0_25px_rgba(255,0,127,0.5)] transition-all px-6"
-            disabled={isEnded}
-          >
-            {isEnded ? (
+          {isEnded ? (
+            <Button
+              className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-[0_0_15px_rgba(255,0,127,0.3)] hover:shadow-[0_0_25px_rgba(255,0,127,0.5)] transition-all px-6"
+              disabled
+            >
               <span className="flex items-center">
                 Indisponível
                 <Ticket className="ml-2 w-4 h-4" />
               </span>
-            ) : (
+            </Button>
+          ) : (
+            <Button
+              asChild
+              className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-[0_0_15px_rgba(255,0,127,0.3)] hover:shadow-[0_0_25px_rgba(255,0,127,0.5)] transition-all px-6"
+            >
               <Link to={eventLink}>
                 Comprar
                 <Ticket className="ml-2 w-4 h-4" />
               </Link>
-            )}
-          </Button>
+            </Button>
+          )}
         </div>
       </div>
     </motion.div>
@@ -338,5 +350,3 @@ export function HorizontalEventCard({ event, className }: { event: Event; classN
     </Link>
   );
 }
-
-

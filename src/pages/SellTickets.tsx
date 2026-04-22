@@ -3,24 +3,10 @@ import { motion } from 'framer-motion';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, TrendingUp, ShieldCheck, Users, Zap, PieChart } from 'lucide-react';
-import { ROUTE_PATHS } from '@/lib';
+import { CreateEventModal } from '@/components/CreateEventModal';
 
 const SellTickets = () => {
-  const navigate = useNavigate();
-
-  const handleCreateEventCta = () => {
-    sessionStorage.setItem('postRegisterRedirect', ROUTE_PATHS.CREATE_EVENT);
-    navigate(ROUTE_PATHS.LOGIN, {
-      state: {
-        tab: 'signup',
-        organizer: true,
-        returnTo: ROUTE_PATHS.CREATE_EVENT,
-      },
-    });
-  };
-
   const handleWhatsappSpecialist = () => {
     const phone = '5579988538053';
     const message = encodeURIComponent('Olá quero falar com um Especialista.');
@@ -54,13 +40,16 @@ const SellTickets = () => {
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4">
-                <Button
-                  size="lg"
-                  className="h-14 px-8 text-lg font-semibold shadow-[0_0_20px_rgba(255,0,127,0.3)]"
-                  onClick={handleCreateEventCta}
-                >
-                  Criar meu evento agora
-                </Button>
+                <CreateEventModal
+                  trigger={
+                    <Button
+                      size="lg"
+                      className="h-14 px-8 text-lg font-semibold shadow-[0_0_20px_rgba(255,0,127,0.3)]"
+                    >
+                      Criar meu evento agora
+                    </Button>
+                  }
+                />
                 <Button
                   size="lg"
                   variant="outline"

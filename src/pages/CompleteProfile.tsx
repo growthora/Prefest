@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { Loader2, User, Phone, Calendar as CalendarIcon, ShieldCheck } from 'lucide-react';
 import { toUserFriendlyErrorMessage } from '@/lib/appErrors';
 import { Layout } from '@/components/Layout';
-import { formatCPF, validateCPF } from '@/utils/validators';
+import { formatCPF, getBirthDateBoundsISO, validateBirthDateISO, validateCPF } from '@/utils/validators';
 
 const digitsOnly = (value: string) => value.replace(/\D/g, '');
 
@@ -40,6 +40,7 @@ const normalizeBirthDate = (value: string) => {
 export default function CompleteProfile() {
   const { user, profile, isLoading: isAuthLoading } = useAuth();
   const navigate = useNavigate();
+  const birthDateBounds = getBirthDateBoundsISO();
 
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -105,11 +106,8 @@ export default function CompleteProfile() {
       toast.error('Data de nascimento obrigatoria');
       return null;
     }
-
-    const birthDate = new Date(`${payload.birth_date}T00:00:00`);
-    const today = new Date();
-
-    if (Number.isNaN(birthDate.getTime()) || birthDate > today) {
+    
+    if (!validateBirthDateISO(payload.birth_date)) {
       toast.error('Data de nascimento invalida');
       return null;
     }
@@ -220,6 +218,8 @@ export default function CompleteProfile() {
                   value={formData.birth_date}
                   onChange={handleChange}
                   required
+                  min={birthDateBounds.min}
+                  max={birthDateBounds.max}
                 />
                 <p className="text-[10px] text-muted-foreground">
                   Necessario para verificacao de idade em eventos +18.

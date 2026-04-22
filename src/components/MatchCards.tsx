@@ -259,14 +259,14 @@ export function MatchInterface({
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="flex h-full w-full flex-col items-center justify-center space-y-6 rounded-3xl border border-white/5 bg-zinc-900/50 text-center backdrop-blur-sm"
+            className="flex h-full w-full flex-col items-center justify-center space-y-6 rounded-3xl border border-border/40 bg-card text-center"
           >
             <div className="rounded-full bg-primary/10 p-6">
               <MapPin size={48} className="animate-pulse text-primary" />
             </div>
             <div className="space-y-2 px-8">
-              <h4 className="text-xl font-bold text-white">Fim da fila</h4>
-              <p className="text-sm text-zinc-400">
+              <h4 className="text-xl font-bold text-foreground">Fim da fila</h4>
+              <p className="text-sm text-foreground/75">
                 {isRefreshing
                   ? 'Buscando novos perfis para reiniciar sua fila...'
                   : 'Voce ja viu os perfis disponiveis neste momento. Fique de olho, novas pessoas podem entrar a qualquer momento.'}

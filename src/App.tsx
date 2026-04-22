@@ -161,7 +161,7 @@ const AppRoutes = () => {
     // Check if current path starts with allowed paths (to handle query params or sub-routes if any)
     // Actually exact match or base path match is safer.
     const isAllowed = allowedPaths.some(path => location.pathname === path);
-    
+
     if (!isAllowed) {
       return <Navigate to={ROUTE_PATHS.UPDATE_PASSWORD} replace />;
     }
@@ -211,10 +211,12 @@ const AppRoutes = () => {
       <Route path={ROUTE_PATHS.PUBLIC_PROFILE} element={<PublicProfile />} />
       <Route path={ROUTE_PATHS.COMPLETE_PROFILE} element={<CompleteProfile />} />
       <Route path={ROUTE_PATHS.DEBUG_AUTH} element={<DebugAuth />} />
-      
+
       {/* Protected Routes */}
-      <Route element={<ProtectedRoute />}>
+      <Route element={<ProtectedRoute allowedRoles={['ORGANIZER', 'ADMIN']} requireOrganizerApproved={true} />}>
         <Route path={ROUTE_PATHS.CREATE_EVENT} element={<CreateEventForm />} />
+      </Route>
+      <Route element={<ProtectedRoute />}>
         <Route path={ROUTE_PATHS.MY_EVENTS} element={<MyEvents />} />
         <Route path={ROUTE_PATHS.TICKET_DETAILS} element={<TicketDetails />} />
         <Route path={ROUTE_PATHS.EVENT_MATCHES} element={<EventMatches />} />
@@ -222,7 +224,7 @@ const AppRoutes = () => {
         <Route path={ROUTE_PATHS.DELETE_ACCOUNT} element={<DeletarConta />} />
         <Route path={ROUTE_PATHS.REFUND_REQUESTS} element={<RefundRequests />} />
         <Route path={ROUTE_PATHS.TICKET_SCANNER} element={<TicketScanner />} />
-        
+
         {/* Chat Routes */}
         <Route path={ROUTE_PATHS.CHAT_LIST} element={<ChatDesktopRoute />} />
         <Route path={ROUTE_PATHS.CHAT} element={<ChatDesktopRoute />} />
@@ -279,7 +281,7 @@ const AuthErrorInterceptor = () => {
     if (hash && (hash.includes('error=') || hash.includes('error_code='))) {
       // Remove the leading #
       const params = new URLSearchParams(hash.substring(1));
-      
+
       const error = params.get('error');
       const errorCode = params.get('error_code');
       const errorDescription = params.get('error_description');
@@ -325,7 +327,6 @@ const App = () => {
 };
 
 export default App;
-
 
 
 

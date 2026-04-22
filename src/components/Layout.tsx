@@ -127,9 +127,7 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
             />
           </Link>
           <div className="flex items-center gap-2">
-            <div className="scale-90 origin-right">
-              <StateSelector />
-            </div>
+            <StateSelector />
 
             {user && canUseScanner && (
               <button
@@ -435,7 +433,6 @@ export function Layout({ children, showTopBanner = false, fullWidth = false }: L
     </div>
   );
 }
-
 
 
 

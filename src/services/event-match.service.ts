@@ -82,7 +82,7 @@ class EventMatchService {
       return normalizedPhoto;
     }
 
-    const { data } = supabase.storage.from('profiles').getPublicUrl(normalizedPhoto);
+    const { data } = supabase.storage.from('avatars').getPublicUrl(normalizedPhoto);
     return data.publicUrl;
   }
 

@@ -56,13 +56,16 @@ export function StateSelector() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <div className="flex items-center gap-2 px-6 h-12 bg-white border border-gray-200 border-l-gray-200 rounded-r-lg rounded-l-none text-primary cursor-pointer hover:bg-gray-50 transition-colors min-w-[180px] shadow-none">
+        <button
+          type="button"
+          className="flex items-center gap-2 px-3 h-9 bg-white border border-gray-200 rounded-full text-primary hover:bg-gray-50 transition-colors shadow-none max-w-[180px] md:px-6 md:h-12 md:rounded-r-lg md:rounded-l-none md:min-w-[180px]"
+        >
           <MapPin size={20} className="flex-shrink-0" />
           <span className="truncate font-semibold text-sm flex-1">
             {currentStateLabel || "Qualquer lugar"}
           </span>
           <ChevronDown size={16} className="flex-shrink-0 opacity-70" />
-        </div>
+        </button>
       </PopoverTrigger>
       <PopoverContent className="w-[250px] p-0" align="start">
         <Command>

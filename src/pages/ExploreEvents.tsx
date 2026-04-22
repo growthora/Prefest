@@ -27,6 +27,8 @@ const ExploreEvents = () => {
   const stateParam = searchParams.get('state');
   const searchParam = searchParams.get('q') || '';
   const sortParam = searchParams.get('sort') || 'relevance';
+  const dateParam = searchParams.get('date') || '';
+  const priceParam = searchParams.get('price') || '';
 
   // Local state for inputs (synced with URL on submit/change)
   const [localSearchQuery, setLocalSearchQuery] = useState(searchParam);
@@ -85,6 +87,40 @@ const ExploreEvents = () => {
     }
   };
 
+  const normalizeCategoryValue = (value: string) =>
+    value
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ');
+
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  const getWeekStartMonday = (d: Date) => {
+    const dayIndexMondayZero = (d.getDay() + 6) % 7;
+    const start = new Date(d);
+    start.setDate(d.getDate() - dayIndexMondayZero);
+    return startOfDay(start);
+  };
+
+  const addDays = (d: Date, days: number) => {
+    const next = new Date(d);
+    next.setDate(d.getDate() + days);
+    return next;
+  };
+
+  const now = new Date();
+  const todayStart = startOfDay(now);
+  const tomorrowStart = addDays(todayStart, 1);
+  const dayAfterTomorrowStart = addDays(todayStart, 2);
+  const weekStart = getWeekStartMonday(now);
+  const nextWeekStart = addDays(weekStart, 7);
+  const weekendStart = addDays(weekStart, 5);
+  const nextMondayStart = addDays(weekStart, 7);
+  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const monthAfterNextStart = new Date(now.getFullYear(), now.getMonth() + 2, 1);
+
   // Filter Logic
   const filteredEvents = events.filter(event => {
     // Search Filter
@@ -92,11 +128,37 @@ const ExploreEvents = () => {
       event.title.toLowerCase().includes(searchParam.toLowerCase()) || 
       event.location.toLowerCase().includes(searchParam.toLowerCase());
 
+    // Date Filter
+    const matchesDate = (() => {
+      if (!dateParam) return true;
+      const eventTime = event.rawDate?.getTime?.() ? event.rawDate : new Date(event.rawDate);
+      const time = eventTime.getTime();
+      if (Number.isNaN(time)) return true;
+
+      if (dateParam === 'today') return time >= todayStart.getTime() && time < tomorrowStart.getTime();
+      if (dateParam === 'tomorrow') return time >= tomorrowStart.getTime() && time < dayAfterTomorrowStart.getTime();
+      if (dateParam === 'week') return time >= now.getTime() && time < nextWeekStart.getTime();
+      if (dateParam === 'weekend') return time >= weekendStart.getTime() && time < nextMondayStart.getTime();
+      if (dateParam === 'next_month') return time >= nextMonthStart.getTime() && time < monthAfterNextStart.getTime();
+      return true;
+    })();
+
+    // Price Filter
+    const matchesPrice = (() => {
+      if (!priceParam) return true;
+      const price = Number.isFinite(event.numericPrice) ? event.numericPrice : Number.POSITIVE_INFINITY;
+      if (priceParam === 'free') return price === 0;
+      if (priceParam === 'paid') return price !== 0;
+      return true;
+    })();
+
     // Category Filter
-    const matchesCategory = !categoryParam || categoryParam === 'Todas' || 
-      event.category?.toLowerCase() === categoryParam.toLowerCase() ||
-      (categoryParam === 'Festas e shows' && event.event_type === 'festive') || // Fallback/Mapping
-      (categoryParam === 'Congressos e palestras' && event.event_type === 'formal');
+    const normalizedCategoryParam = categoryParam ? normalizeCategoryValue(categoryParam) : '';
+    const normalizedEventCategory = normalizeCategoryValue(event.category || '');
+    const matchesCategory = !normalizedCategoryParam || normalizedCategoryParam === 'todas' || 
+      normalizedEventCategory === normalizedCategoryParam ||
+      (normalizedCategoryParam === normalizeCategoryValue('Festas e shows') && event.event_type === 'festive') ||
+      (normalizedCategoryParam === normalizeCategoryValue('Congressos e palestras') && event.event_type === 'formal');
 
     // State Filter
     const matchesState = !stateParam || stateParam === 'all' || 
@@ -104,7 +166,7 @@ const ExploreEvents = () => {
       event.location?.includes(`- ${stateParam}`) || // Fallback comum "Cidade - UF"
       event.address?.includes(`/${stateParam}`);     // Fallback comum "Cidade/UF"
 
-    return matchesSearch && matchesCategory && matchesState;
+    return matchesSearch && matchesDate && matchesPrice && matchesCategory && matchesState;
   });
 
   // Sort Logic
@@ -136,22 +198,54 @@ const ExploreEvents = () => {
   };
 
   const handleCategoryChange = (category: string) => {
+    const params = new URLSearchParams(searchParams);
     if (category === 'Todas') {
-      searchParams.delete('category');
+      params.delete('category');
     } else {
-      searchParams.set('category', category);
+      params.set('category', category);
     }
-    setSearchParams(searchParams);
+    setSearchParams(params);
   };
 
   const handleSearch = (term: string) => {
     setLocalSearchQuery(term);
+    const params = new URLSearchParams(searchParams);
     if (term) {
-      searchParams.set('q', term);
+      params.set('q', term);
     } else {
-      searchParams.delete('q');
+      params.delete('q');
     }
-    setSearchParams(searchParams);
+    setSearchParams(params);
+  };
+
+  const handleDateChange = (value: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (!value) {
+      params.delete('date');
+      setSearchParams(params);
+      return;
+    }
+    if (params.get('date') === value) {
+      params.delete('date');
+    } else {
+      params.set('date', value);
+    }
+    setSearchParams(params);
+  };
+
+  const handlePriceChange = (value: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (!value) {
+      params.delete('price');
+      setSearchParams(params);
+      return;
+    }
+    if (params.get('price') === value) {
+      params.delete('price');
+    } else {
+      params.set('price', value);
+    }
+    setSearchParams(params);
   };
 
   const categories = ['Todas', 'Festas e shows', 'Teatros e espetáculos', 'Congressos e palestras', 'Passeios e tours', 'Gastronomia', 'Grátis'];
@@ -232,7 +326,8 @@ const ExploreEvents = () => {
                   <label className="text-sm font-semibold text-gray-700 mb-3 block">Categorias</label>
                   <div className="space-y-2">
                     {categories.map((cat) => {
-                      const isSelected = (cat === 'Todas' && !categoryParam) || cat === categoryParam;
+                      const normalizedCategoryParam = categoryParam ? normalizeCategoryValue(categoryParam) : '';
+                      const isSelected = (cat === 'Todas' && !normalizedCategoryParam) || normalizeCategoryValue(cat) === normalizedCategoryParam;
                       return (
                         <label key={cat} className="flex items-center gap-3 cursor-pointer group">
                           <div 
@@ -253,29 +348,64 @@ const ExploreEvents = () => {
                   </div>
                 </div>
 
-                {/* Date (Mock) */}
+                {/* Date */}
                 <div className="mb-6">
                   <label className="text-sm font-semibold text-gray-700 mb-3 block">Data</label>
                   <div className="space-y-2">
-                    {['Hoje', 'Amanhãã', 'Esta semana', 'Este fim de semana', 'Próximo mês'].map((date) => (
-                      <label key={date} className="flex items-center gap-3 cursor-pointer group">
-                        <div className="w-4 h-4 rounded-full border border-gray-300 group-hover:border-primary flex items-center justify-center transition-colors"></div>
-                        <span className="text-gray-600 group-hover:text-primary transition-colors text-sm">{date}</span>
-                      </label>
-                    ))}
+                    {[
+                      { label: 'Hoje', value: 'today' },
+                      { label: 'Amanhã', value: 'tomorrow' },
+                      { label: 'Esta semana', value: 'week' },
+                      { label: 'Este fim de semana', value: 'weekend' },
+                      { label: 'Próximo mês', value: 'next_month' },
+                    ].map((opt) => {
+                      const isSelected = dateParam === opt.value;
+                      return (
+                        <label key={opt.value} className="flex items-center gap-3 cursor-pointer group">
+                          <div
+                            className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${isSelected ? 'border-primary bg-primary' : 'border-gray-300 group-hover:border-primary'}`}
+                            onClick={() => handleDateChange(opt.value)}
+                          >
+                            {isSelected && <div className="w-2 h-2 bg-white rounded-full" />}
+                          </div>
+                          <span
+                            className={`text-sm transition-colors ${isSelected ? 'text-primary font-medium' : 'text-gray-600 group-hover:text-primary'}`}
+                            onClick={() => handleDateChange(opt.value)}
+                          >
+                            {opt.label}
+                          </span>
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
 
-                 {/* Price (Mock) */}
+                 {/* Price */}
                  <div>
                   <label className="text-sm font-semibold text-gray-700 mb-3 block">Preço</label>
                   <div className="space-y-2">
-                    {['Pago', 'Gratuito'].map((price) => (
-                      <label key={price} className="flex items-center gap-3 cursor-pointer group">
-                         <div className="w-4 h-4 rounded border border-gray-300 group-hover:border-primary flex items-center justify-center transition-colors"></div>
-                        <span className="text-gray-600 group-hover:text-primary transition-colors text-sm">{price}</span>
-                      </label>
-                    ))}
+                    {[
+                      { label: 'Pago', value: 'paid' },
+                      { label: 'Gratuito', value: 'free' },
+                    ].map((opt) => {
+                      const isSelected = priceParam === opt.value;
+                      return (
+                        <label key={opt.value} className="flex items-center gap-3 cursor-pointer group">
+                          <div
+                            className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${isSelected ? 'border-primary bg-primary' : 'border-gray-300 group-hover:border-primary'}`}
+                            onClick={() => handlePriceChange(opt.value)}
+                          >
+                            {isSelected && <div className="w-2 h-2 bg-white rounded-sm" />}
+                          </div>
+                          <span
+                            className={`text-sm transition-colors ${isSelected ? 'text-primary font-medium' : 'text-gray-600 group-hover:text-primary'}`}
+                            onClick={() => handlePriceChange(opt.value)}
+                          >
+                            {opt.label}
+                          </span>
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
 

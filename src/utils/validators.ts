@@ -42,6 +42,23 @@ export const formatDate = (value: string) => {
     .replace(/(\d{4})\d+?$/, '$1');
 };
 
+const pad2 = (value: number) => String(value).padStart(2, '0');
+
+const formatISODate = (date: Date) =>
+  `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+
+export const getBirthDateBounds = (referenceDate: Date = new Date()) => {
+  const maxDate = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
+  const minDate = new Date(maxDate);
+  minDate.setFullYear(minDate.getFullYear() - 120);
+  return { minDate, maxDate };
+};
+
+export const getBirthDateBoundsISO = (referenceDate: Date = new Date()) => {
+  const { minDate, maxDate } = getBirthDateBounds(referenceDate);
+  return { min: formatISODate(minDate), max: formatISODate(maxDate) };
+};
+
 export const validateBirthDate = (dateString: string) => {
   // Aceita formato DD/MM/YYYY
   if (!/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) return false;
@@ -56,14 +73,23 @@ export const validateBirthDate = (dateString: string) => {
     date.getDate() !== day
   ) return false;
 
-  // Verifica idade mínima (ex: 18 anos)
-  const today = new Date();
-  const minAgeDate = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
-  
-  // Opcional: Retornar true mesmo se menor, depende da regra de negócio.
-  // Vou assumir apenas validação de formato e existência por enquanto.
-  // Mas para um app de festas, talvez +18 seja relevante. Vou deixar comentado a verificação de idade.
-  
-  return date <= today;
+  const { minDate, maxDate } = getBirthDateBounds();
+  return date >= minDate && date <= maxDate;
+};
+
+export const validateBirthDateISO = (dateString: string) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return false;
+
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() + 1 !== month ||
+    date.getDate() !== day
+  ) return false;
+
+  const { minDate, maxDate } = getBirthDateBounds();
+  return date >= minDate && date <= maxDate;
 };
 

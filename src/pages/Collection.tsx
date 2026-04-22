@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { EventListItem } from '@/components/EventListItem';
 import { eventService, type Event as SupabaseEvent } from '@/services/event.service';
-import { type Event as FrontendEvent } from '@/lib/index';
+import { ROUTE_PATHS, type Event as FrontendEvent } from '@/lib/index';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChevronRight, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ interface CollectionConfig {
 
 const Collection = () => {
   const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
   const [events, setEvents] = useState<FrontendEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [config, setConfig] = useState<CollectionConfig | null>(null);
@@ -110,8 +111,13 @@ const Collection = () => {
   };
 
   useEffect(() => {
+    if (slug === 'festas-e-shows') {
+      const search = new URLSearchParams({ category: 'Festas e shows' }).toString();
+      navigate(`${ROUTE_PATHS.EXPLORE}?${search}`, { replace: true });
+      return;
+    }
     loadCollection();
-  }, [slug]);
+  }, [slug, navigate]);
 
   const loadCollection = async () => {
     if (!slug || !COLLECTIONS[slug]) {

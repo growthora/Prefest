@@ -70,6 +70,7 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState("profile");
   const [likedEvents, setLikedEvents] = useState<Event[]>([]);
   const [loadingFavorites, setLoadingFavorites] = useState(false);
+  const [showExpiredFavorites, setShowExpiredFavorites] = useState(false);
 
   // Basic Form Data
   const [formData, setFormData] = useState({
@@ -156,15 +157,18 @@ export default function Profile() {
       setLoadingFavorites(true);
       const events = await eventService.getUserLikedEvents(user.id);
       
-      const formattedEvents: Event[] = events.map((ev: any) => ({
+      const formattedEvents = favorites.map(ev => ({
         id: ev.id,
         slug: ev.slug,
         title: ev.title,
         date: new Date(ev.event_date).toLocaleDateString('pt-BR'),
         time: new Date(ev.event_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        event_start_at: ev.event_date,
+        end_at: ev.end_at,
         location: ev.location,
         address: ev.location,
         city: ev.city,
+        state: ev.state,
         event_type: ev.event_type,
         price: ev.price,
         display_price_label: ev.display_price_label,
@@ -174,7 +178,7 @@ export default function Profile() {
         description: ev.description,
         category: ev.category || 'Geral',
         attendeesCount: ev.current_participants || 0,
-        tags: ev.category ? [ev.category] : [],
+        tags: [],
       }));
 
       setLikedEvents(formattedEvents);
@@ -191,6 +195,21 @@ export default function Profile() {
       navigate('/login');
     }
   }, [isAuthenticated, navigate]);
+
+  const isEventExpired = (event: Event) => {
+    const endCandidate = event.event_end_at || event.end_at || event.event_start_at;
+    if (!endCandidate) return false;
+    const timestamp = new Date(endCandidate).getTime();
+    if (Number.isNaN(timestamp)) return false;
+    return Date.now() >= timestamp;
+  };
+
+  const getEventSortTimestamp = (event: Event) => {
+    const endCandidate = event.event_end_at || event.end_at || event.event_start_at;
+    if (!endCandidate) return 0;
+    const timestamp = new Date(endCandidate).getTime();
+    return Number.isNaN(timestamp) ? 0 : timestamp;
+  };
 
   useEffect(() => {
     if (profile) {
@@ -895,7 +914,35 @@ export default function Profile() {
                  ))}
                </div>
             ) : likedEvents.length > 0 ? (
-               <EventGrid events={likedEvents} onLikeToggle={handleLikeToggle} />
+               (() => {
+                 const expiredCount = likedEvents.reduce((acc, event) => acc + (isEventExpired(event) ? 1 : 0), 0);
+                 const visibleEvents = (showExpiredFavorites ? likedEvents : likedEvents.filter((event) => !isEventExpired(event)))
+                   .slice()
+                   .sort((a, b) => {
+                     const aExpired = isEventExpired(a);
+                     const bExpired = isEventExpired(b);
+                     if (aExpired !== bExpired) return aExpired ? 1 : -1;
+                     return getEventSortTimestamp(b) - getEventSortTimestamp(a);
+                   });
+
+                 return (
+                   <div className="space-y-4">
+                     {expiredCount > 0 && (
+                       <div className="flex items-center gap-2">
+                         <Switch
+                           id="show-expired-favorites"
+                           checked={showExpiredFavorites}
+                           onCheckedChange={setShowExpiredFavorites}
+                         />
+                         <Label htmlFor="show-expired-favorites" className="text-sm text-muted-foreground">
+                           Mostrar encerrados ({expiredCount})
+                         </Label>
+                       </div>
+                     )}
+                     <EventGrid events={visibleEvents} onLikeToggle={handleLikeToggle} />
+                   </div>
+                 );
+               })()
             ) : (
                <div className="text-center py-16 bg-muted/20 rounded-2xl border border-dashed flex flex-col items-center">
                  <div className="bg-background p-4 rounded-full mb-4 shadow-sm">

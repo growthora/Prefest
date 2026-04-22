@@ -152,18 +152,30 @@ class StorageService {
   // Deletar imagem do bucket
   async deleteImage(imageUrl: string): Promise<void> {
     try {
-      // Tenta identificar o bucket pela URL ou usa o padrão
       let bucket = this.bucketName;
-      if (imageUrl.includes('/profiles/')) bucket = 'profiles';
-      else if (imageUrl.includes('/avatars/')) bucket = 'avatars';
-      else if (imageUrl.includes('/events/')) bucket = 'event-images';
-      else if (imageUrl.includes('/event-images/')) bucket = 'event-images';
+      let filePath = '';
 
-      // Extrair o caminho do arquivo da URL
-      const urlParts = imageUrl.split(`/${bucket}/`);
-      if (urlParts.length < 2) return;
+      try {
+        const parsedUrl = new URL(imageUrl);
+        const match = parsedUrl.pathname.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+)$/);
+        if (match) {
+          bucket = match[1];
+          filePath = match[2];
+        }
+      } catch {
+        // ignore invalid URL
+      }
 
-      const filePath = urlParts[1];
+      if (!filePath) {
+        if (imageUrl.includes('/avatars/')) bucket = 'avatars';
+        else if (imageUrl.includes('/events/')) bucket = 'event-images';
+        else if (imageUrl.includes('/event-images/')) bucket = 'event-images';
+        else if (imageUrl.includes('/profiles/')) bucket = 'avatars';
+
+        const urlParts = imageUrl.split(`/${bucket}/`);
+        if (urlParts.length < 2) return;
+        filePath = urlParts[1];
+      }
       
       // console.log('🗑️ [StorageService] Deletando imagem:', filePath);
 
@@ -185,6 +197,5 @@ class StorageService {
 }
 
 export const storageService = new StorageService();
-
 
 

@@ -70,7 +70,7 @@ const EmAlta = () => {
           description: event.description || '',
           category: event.category || 'Geral',
           attendeesCount: event.current_participants,
-          tags: event.category ? [event.category] : [],
+          tags: [],
         };
       });
 
