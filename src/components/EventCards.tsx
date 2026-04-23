@@ -21,6 +21,7 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
   const eventLink = ROUTE_PATHS.EVENT_DETAILS.replace(':slug', event.slug || event.id);
   const { user } = useAuth();
   const [isLiked, setIsLiked] = useState(false);
+  const compactPriceLabel = event.display_price_label?.replace(/^Ingressos\s+/i, '');
 
   const eventEndTimestamp = new Date((event.event_end_at || event.end_at || event.event_start_at || '') as string).getTime();
   const isEnded = !Number.isNaN(eventEndTimestamp) && Date.now() >= eventEndTimestamp;
@@ -213,11 +214,11 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
           </div>
         </div>
 
-        <div className="pt-4 flex items-center justify-between border-t border-border/40">
-          <div className="flex flex-col">
-            {event.display_price_label ? (
-              <span className="text-sm font-semibold text-foreground">
-                {event.display_price_label}
+        <div className="pt-4 flex items-center justify-between gap-3 border-t border-border/40">
+          <div className="min-w-0 flex-1 flex flex-col">
+            {compactPriceLabel ? (
+              <span className="truncate text-xs sm:text-sm font-semibold text-foreground">
+                {compactPriceLabel}
               </span>
             ) : (
               event.is_free_event ? (
@@ -252,7 +253,7 @@ export function EventCard({ event, className, onLikeToggle }: EventCardProps) {
           ) : (
             <Button
               asChild
-              className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-[0_0_15px_rgba(255,0,127,0.3)] hover:shadow-[0_0_25px_rgba(255,0,127,0.5)] transition-all px-6"
+              className="shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground shadow-[0_0_15px_rgba(255,0,127,0.3)] hover:shadow-[0_0_25px_rgba(255,0,127,0.5)] transition-all px-5 sm:px-6"
             >
               <Link to={eventLink}>
                 Comprar

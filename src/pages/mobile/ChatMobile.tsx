@@ -61,27 +61,38 @@ function ChatListMobile() {
   useEffect(() => {
     if (!user) return;
 
+    let isMounted = true;
+
     const loadMatches = async () => {
       try {
-        setLoading(true);
+        if (isMounted) {
+          setLoading(true);
+        }
         const data = await matchService.getUserMatches();
-        setMatches(data);
+        if (isMounted) {
+          setMatches(data);
+        }
       } catch (error) {
         // console.error('Error loading matches:', error);
-        toast.error('Erro ao carregar conversas');
+        if (isMounted) {
+          toast.error('Erro ao carregar conversas');
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
-    loadMatches();
+    void loadMatches();
 
-    const interval = setInterval(() => {
+    const subscription = chatService.subscribeToMatchList(() => {
       void loadMatches();
-    }, 2000);
+    });
 
     return () => {
-      clearInterval(interval);
+      isMounted = false;
+      subscription.unsubscribe();
     };
   }, [user]);
 
@@ -225,6 +236,7 @@ function ChatConversationMobile({ matchId }: ChatConversationMobileProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<any>(null);
   const presenceChannelRef = useRef<any>(null);
+  const matchStatusChannelRef = useRef<any>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
   const lastTypingSentRef = useRef<number>(0);
 
@@ -312,24 +324,19 @@ function ChatConversationMobile({ matchId }: ChatConversationMobileProps) {
       presenceChannelRef.current = presenceChannel;
     }
 
-    const statusInterval = setInterval(async () => {
-      if (!matchId) return;
-      try {
-        const latest = await matchService.getMatchDetails(matchId);
-        if (latest && latest.status === 'inactive') {
-          toast.info('O match foi desfeito.');
-          navigate('/m/chat', { replace: true });
-        }
-      } catch {
-      }
-    }, 5000);
+    const matchStatusChannel = chatService.subscribeToMatchStatus(matchId, () => {
+      toast.info('O match foi desfeito.');
+      navigate('/m/chat', { replace: true });
+    });
+    matchStatusChannelRef.current = matchStatusChannel;
 
     return () => {
       channel.unsubscribe();
-      clearInterval(statusInterval);
       if (presenceChannelRef.current) presenceChannelRef.current.unsubscribe();
+      if (matchStatusChannelRef.current) matchStatusChannelRef.current.unsubscribe();
       channelRef.current = null;
       presenceChannelRef.current = null;
+      matchStatusChannelRef.current = null;
       chatService.updatePresence(null);
     };
   }, [chatId, user, match, matchId, navigate]);

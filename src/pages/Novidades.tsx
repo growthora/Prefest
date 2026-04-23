@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Layout } from '@/components/Layout';
+import { EventGrid, EventCard } from '@/components/EventCards';
 import { eventService, type Event as SupabaseEvent } from '@/services/event.service';
 import { type Event as FrontendEvent, ROUTE_PATHS } from '@/lib/index';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { Clock, ChevronRight, Sparkles } from 'lucide-react';
-import { EventCard } from '@/components/EventCards';
 
 const Novidades = () => {
   const [events, setEvents] = useState<FrontendEvent[]>([]);
@@ -76,7 +76,7 @@ const Novidades = () => {
 
       setEvents(convertedEvents);
     } catch (err) {
-      // console.error('Erro ao carregar novidades', err);
+      void err;
       setLoadError(true);
       setEvents([]);
     } finally {
@@ -111,21 +111,26 @@ const Novidades = () => {
 
   const renderSkeleton = () => {
     return (
-      <div className="space-y-4">
-        {Array.from({ length: 5 }).map((_, index) => (
-          <div key={index} className="flex gap-4">
-            <div className="flex flex-col items-center">
-              <Skeleton className="w-8 h-8 rounded-full mb-2" />
-              <div className="w-px flex-1 bg-gray-100" />
-            </div>
-            <div className="flex-1 rounded-2xl border border-gray-100 bg-white p-4">
+      <div className="space-y-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="rounded-2xl border border-gray-100 bg-white p-4">
               <Skeleton className="w-full aspect-[4/5] rounded-xl mb-4" />
-              <Skeleton className="h-4 w-32 mb-2" />
+              <Skeleton className="h-4 w-24 mb-2" />
               <Skeleton className="h-6 w-3/4 mb-2" />
               <Skeleton className="h-4 w-1/2" />
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="rounded-2xl border border-gray-100 bg-white p-4">
+              <Skeleton className="w-full aspect-[4/5] rounded-xl mb-4" />
+              <Skeleton className="h-4 w-3/4 mb-2" />
+              <Skeleton className="h-4 w-1/2" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   };
@@ -150,6 +155,9 @@ const Novidades = () => {
     );
   };
 
+  const newestThree = events.slice(0, 3);
+  const others = events.slice(3);
+
   return (
     <Layout fullWidth={true}>
       <div className="bg-white min-h-screen pb-12">
@@ -165,7 +173,7 @@ const Novidades = () => {
                 </div>
                 <h1 className="mt-2 text-2xl md:text-3xl font-bold text-gray-900">Eventos recém-publicados</h1>
                 <p className="text-gray-500 text-sm md:text-base mt-1">
-                  Timeline com os eventos publicados nos últimos dias, sempre com datas futuras.
+                  Lista dos eventos publicados mais recentemente, com o mesmo padrão visual de navegação da rota em alta.
                 </p>
               </div>
             </div>
@@ -174,9 +182,9 @@ const Novidades = () => {
           </div>
         </div>
 
-        <div className="container max-w-7xl mx-auto px-4 py-8">
+        <div className="container max-w-7xl mx-auto px-4 py-8 space-y-10">
           {loadError && (
-            <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700 mb-4">
+            <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
               Não foi possível carregar as novidades. Tente novamente em alguns instantes.
             </div>
           )}
@@ -186,25 +194,33 @@ const Novidades = () => {
           ) : events.length === 0 ? (
             renderEmptyState()
           ) : (
-            <div className="space-y-6">
-              {events.map((event, index) => (
-                <div key={event.id} className="flex gap-4">
-                  <div className="flex flex-col items-center">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary text-xs font-semibold">
-                      <Clock className="w-4 h-4" />
-                    </div>
-                    {index !== events.length - 1 && <div className="w-px flex-1 bg-gray-200 mt-2" />}
-                  </div>
-                  <div className="flex-1">
-                    <div className="inline-flex items-center gap-2 mb-2 text-xs text-primary font-semibold bg-primary/5 px-2 py-1 rounded-full">
-                      <span>🆕 Novo</span>
-                      <span>Publicado recentemente</span>
-                    </div>
-                    <EventCard event={event} />
+            <>
+              <section>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-primary" />
+                    <h2 className="text-lg font-semibold text-gray-900">Publicados recentemente</h2>
                   </div>
                 </div>
-              ))}
-            </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-2">
+                  {newestThree.map((event) => (
+                    <div key={event.id}>
+                      <EventCard event={event} className="h-full" />
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {others.length > 0 && (
+                <section className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-gray-900">Mais novidades</h2>
+                    <span className="text-sm text-gray-500">{events.length} eventos no total</span>
+                  </div>
+                  <EventGrid events={others} />
+                </section>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -213,6 +229,3 @@ const Novidades = () => {
 };
 
 export default Novidades;
-
-
-

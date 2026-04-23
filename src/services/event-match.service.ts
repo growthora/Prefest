@@ -237,27 +237,101 @@ class EventMatchService {
   }
 
   subscribeToEvent(eventId: string, userId: string, handlers: EventMatchRealtimeHandlers) {
-    const pollIntervalMs = 5000;
+    void userId;
     let stopped = false;
-    let timer: ReturnType<typeof setInterval> | null = null;
+    const timers = new Map<'queue' | 'likes' | 'matches', ReturnType<typeof setTimeout>>();
 
-    const poll = async () => {
+    const schedule = (scope: 'queue' | 'likes' | 'matches') => {
       if (stopped) return;
-      void eventId;
-      void userId;
-      handlers.onQueueChanged?.();
-      handlers.onLikesChanged?.();
-      handlers.onMatchesChanged?.();
+
+      const existingTimer = timers.get(scope);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+      }
+
+      const nextTimer = setTimeout(() => {
+        timers.delete(scope);
+        if (stopped) return;
+
+        if (scope === 'queue') handlers.onQueueChanged?.();
+        if (scope === 'likes') handlers.onLikesChanged?.();
+        if (scope === 'matches') handlers.onMatchesChanged?.();
+      }, 150);
+
+      timers.set(scope, nextTimer);
     };
 
-    void poll();
-    timer = setInterval(poll, pollIntervalMs);
+    const channel = supabase
+      .channel(`event-match:${eventId}:${Math.random().toString(36).slice(2, 10)}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'event_participants',
+          filter: `event_id=eq.${eventId}`,
+        },
+        () => {
+          schedule('queue');
+          schedule('likes');
+          schedule('matches');
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'likes',
+          filter: `event_id=eq.${eventId}`,
+        },
+        () => {
+          schedule('queue');
+          schedule('likes');
+          schedule('matches');
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'matches',
+          filter: `event_id=eq.${eventId}`,
+        },
+        () => {
+          schedule('queue');
+          schedule('likes');
+          schedule('matches');
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'match_passes',
+          filter: `event_id=eq.${eventId}`,
+        },
+        () => {
+          schedule('queue');
+        }
+      );
+
+    void channel.subscribe();
+
+    schedule('queue');
+    schedule('likes');
+    schedule('matches');
 
     return {
       unsubscribe() {
         stopped = true;
-        if (timer) clearInterval(timer);
-        timer = null;
+        timers.forEach((timer) => {
+          clearTimeout(timer);
+        });
+        timers.clear();
+        void channel.unsubscribe();
       },
     };
   }

@@ -101,11 +101,17 @@ export function Notifications() {
   };
 
   useEffect(() => {
-    if (user) {
-      loadNotifications();
-      const interval = setInterval(loadNotifications, 30000);
-      return () => clearInterval(interval);
-    }
+    if (!user) return;
+
+    void loadNotifications();
+
+    const subscription = notificationService.subscribeToNotificationFeed(user.id, () => {
+      void loadNotifications();
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [user]);
 
   useEffect(() => {

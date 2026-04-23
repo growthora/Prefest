@@ -248,78 +248,119 @@ export async function invokeEdgeRoute<T = any>(
 ): Promise<{ data: T | null; error: any }> {
   const { requiresAuth = true } = options;
   let token: string | undefined;
+  let attemptedRefresh = false;
 
   try {
     const normalizedPath = routePath.replace(/^\/+/, '');
+    const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${normalizedPath}`;
 
-    if (requiresAuth) {
+    const resolveToken = async () => {
+      if (!requiresAuth) {
+        token = undefined;
+        return;
+      }
+
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       token = session?.access_token;
 
       if (sessionError || !token) {
         throw new Error('Usuário não autenticado');
       }
-    }
-
-    const headers: Record<string, string> = {
-      apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-      ...(options.headers || {}),
     };
 
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    } else {
-      headers['Authorization'] = `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`;
-    }
+    const doFetch = async (): Promise<{ data: T | null; error: any; unauthorized: boolean }> => {
+      await resolveToken();
 
-    const method = options.method || 'GET';
-    const fetchOptions: RequestInit = {
-      method,
-      headers,
-    };
+      const headers: Record<string, string> = {
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        ...(options.headers || {}),
+      };
 
-    if (options.body && method !== 'GET') {
-      const hasContentType = Object.keys(headers).some((key) => key.toLowerCase() === 'content-type');
-      const isStringBody = typeof options.body === 'string';
-      const isFormLikeBody = typeof FormData !== 'undefined' && options.body instanceof FormData;
-
-      if (isFormLikeBody || isStringBody) {
-        fetchOptions.body = options.body;
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
       } else {
-        if (!hasContentType) {
-          headers['Content-Type'] = 'application/json';
+        headers['Authorization'] = `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`;
+      }
+
+      const method = options.method || 'GET';
+      const fetchOptions: RequestInit = {
+        method,
+        headers,
+      };
+
+      if (options.body && method !== 'GET') {
+        const hasContentType = Object.keys(headers).some((key) => key.toLowerCase() === 'content-type');
+        const isStringBody = typeof options.body === 'string';
+        const isFormLikeBody = typeof FormData !== 'undefined' && options.body instanceof FormData;
+
+        if (isFormLikeBody || isStringBody) {
+          fetchOptions.body = options.body;
+        } else {
+          if (!hasContentType) {
+            headers['Content-Type'] = 'application/json';
+          }
+          fetchOptions.body = JSON.stringify(options.body);
         }
-        fetchOptions.body = JSON.stringify(options.body);
+      }
+
+      const res = await fetch(functionUrl, fetchOptions);
+      const contentType = res.headers.get('content-type') || '';
+      const payload = contentType.includes('application/json')
+        ? await res.json().catch(() => null)
+        : await res.text().catch(() => null);
+
+      const envelope = (payload && typeof payload === 'object' ? payload : null) as EdgeApiEnvelope<T> | null;
+      const unauthorized = res.status === 401 || envelope?.error?.code === 'UNAUTHORIZED';
+
+      if (!res.ok || envelope?.success === false) {
+        const message =
+          envelope?.error?.message ||
+          (payload && typeof payload === 'object' && ((payload as any).error || (payload as any).message)) ||
+          (typeof payload === 'string' && payload.trim().length > 0 ? payload.trim() : null) ||
+          `Erro ${res.status}`;
+        const error = Object.assign(new Error(String(message)), {
+          status: res.status,
+          code: envelope?.error?.code,
+        });
+        return { data: null, error, unauthorized };
+      }
+
+      if (envelope && typeof envelope.success === 'boolean') {
+        return { data: (envelope.data ?? null) as T | null, error: null, unauthorized: false };
+      }
+
+      return { data: payload as T, error: null, unauthorized: false };
+    };
+
+    const first = await doFetch();
+    if (first.unauthorized && requiresAuth && !attemptedRefresh) {
+      attemptedRefresh = true;
+      const { error: refreshError } = await supabase.auth.refreshSession();
+      if (!refreshError) {
+        const second = await doFetch();
+        if (!second.unauthorized) {
+          return { data: second.data, error: second.error };
+        }
+        await supabase.auth.signOut();
+        if (typeof window !== 'undefined') {
+          const currentPath = window.location.pathname;
+          if (!currentPath.includes('/login')) {
+            window.location.href = `/login?reason=session_expired&next=${encodeURIComponent(currentPath)}`;
+          }
+        }
+        return { data: null, error: second.error };
+      }
+
+      await supabase.auth.signOut();
+      if (typeof window !== 'undefined') {
+        const currentPath = window.location.pathname;
+        if (!currentPath.includes('/login')) {
+          window.location.href = `/login?reason=session_expired&next=${encodeURIComponent(currentPath)}`;
+        }
       }
     }
 
-    const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${normalizedPath}`;
-    const res = await fetch(functionUrl, fetchOptions);
-    const contentType = res.headers.get('content-type') || '';
-    const payload = contentType.includes('application/json')
-      ? await res.json().catch(() => null)
-      : await res.text().catch(() => null);
-
-    const envelope = (payload && typeof payload === 'object' ? payload : null) as EdgeApiEnvelope<T> | null;
-
-    if (!res.ok || envelope?.success === false) {
-      const message =
-        envelope?.error?.message ||
-        (payload && typeof payload === 'object' && ((payload as any).error || (payload as any).message)) ||
-        (typeof payload === 'string' && payload.trim().length > 0 ? payload.trim() : null) ||
-        `Erro ${res.status}`;
-      const error = Object.assign(new Error(String(message)), {
-        status: res.status,
-        code: envelope?.error?.code,
-      });
-      return { data: null, error };
-    }
-
-    if (envelope && typeof envelope.success === 'boolean') {
-      return { data: (envelope.data ?? null) as T | null, error: null };
-    }
-
-    return { data: payload as T, error: null };
+    return { data: first.data, error: first.error };
   } catch (err: any) {
     return { data: null, error: err };
   }

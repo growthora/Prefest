@@ -90,8 +90,8 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       // Always revalidate against DB/API to avoid stale frontend state.
-      staleTime: 0,
-      refetchOnMount: 'always',
+      staleTime: 30000,
+      refetchOnMount: true,
       refetchOnWindowFocus: true,
       refetchOnReconnect: true,
       retry: 1,
@@ -327,7 +327,6 @@ const App = () => {
 };
 
 export default App;
-
 
 
 

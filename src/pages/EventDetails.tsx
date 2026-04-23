@@ -102,9 +102,13 @@ export default function EventDetails() {
     hasOwnValidPhoto,
     isCheckingOwnPhoto,
     hasEvaluatedOwnPhoto,
-  } = useMatch(event?.id, { matchEnabled: participation?.match_enabled });
+  } = useMatch(event?.id, {
+    matchEnabled: participation?.match_enabled,
+    enabled: activeTab === 'match' || activeTab === 'likes',
+  });
   const [showSocialOnboarding, setShowSocialOnboarding] = useState(false);
   const [showMatchGuidelines, setShowMatchGuidelines] = useState(false);
+  const [isUpdatingMatchStatus, setIsUpdatingMatchStatus] = useState(false);
 
   const isUnderage = useMemo(() => {
     if (!profile?.birth_date) return false;
@@ -337,6 +341,9 @@ export default function EventDetails() {
   };
 
   const handleToggleMeetAttendees = async () => {
+    if (isUpdatingMatchStatus) {
+      return;
+    }
     if (!user || !profile) {
       toast.error('Você precisa estar logado para ativar essa função');
       return;
@@ -372,7 +379,7 @@ export default function EventDetails() {
   };
 
 const toggleMatchStatus = async (enable: boolean) => {
-  if (!profile || !user || !event?.id) return;
+  if (!profile || !user || !event?.id || isUpdatingMatchStatus) return;
 
   try {
     if (enable && isOwnPhotoValidationPending) {
@@ -385,10 +392,15 @@ const toggleMatchStatus = async (enable: boolean) => {
       return;
     }
 
+    setIsUpdatingMatchStatus(true);
+    setParticipation((prev) => (prev ? { ...prev, match_enabled: enable } : prev));
+
     const result = await eventMatchService.setMatchOptIn(event.id, enable);
+    const nextMatchEnabled = result.match_enabled ?? enable;
+
+    setParticipation((prev) => (prev ? { ...prev, match_enabled: nextMatchEnabled } : prev));
 
     await Promise.all([
-      loadParticipationState(event.id, user.id),
       refreshMatchData(),
       refreshParticipants(),
     ]);
@@ -404,7 +416,10 @@ const toggleMatchStatus = async (enable: boolean) => {
     }
     toast.success('Você entrou no Match deste evento!');
   } catch (error) {
+    setParticipation((prev) => (prev ? { ...prev, match_enabled: !enable } : prev));
     toast.error(toUserFriendlyErrorMessage(error));
+  } finally {
+    setIsUpdatingMatchStatus(false);
   }
 };
 
@@ -1243,10 +1258,15 @@ const shouldShowSocialOnboarding = () => {
                     <Button
                       variant={isMatchPhotoMissing ? "default" : isEventMatchEnabled ? "outline" : "default"}
                       onClick={isMatchPhotoMissing ? openMatchProfileSetup : handleToggleMeetAttendees}
-                      disabled={isOwnPhotoValidationPending}
+                      disabled={isOwnPhotoValidationPending || isUpdatingMatchStatus}
                       className="gap-2"
                     >
-                      {isOwnPhotoValidationPending ? (
+                      {isUpdatingMatchStatus ? (
+                        <>
+                          <HeartHandshake size={16} />
+                          Salvando...
+                        </>
+                      ) : isOwnPhotoValidationPending ? (
                         <>
                           <Camera size={16} />
                           Validando foto...
@@ -1325,14 +1345,15 @@ const shouldShowSocialOnboarding = () => {
                    <p className="text-muted-foreground max-w-md mb-8 text-lg">
                      Ative o modo Match para encontrar pessoas com interesses em comum que também vão ao evento.
                    </p>
-                   <Button
-                     size="lg"
-                     className="gap-2 text-lg px-8 py-6 rounded-xl shadow-xl shadow-primary/20 hover:shadow-primary/40 transition-all hover:scale-105"
-                     onClick={handleToggleMeetAttendees}
-                   >
-                     <HeartHandshake size={20} />
-                     Entrar no Match Agora
-                   </Button>
+                    <Button
+                      size="lg"
+                      className="gap-2 text-lg px-8 py-6 rounded-xl shadow-xl shadow-primary/20 hover:shadow-primary/40 transition-all hover:scale-105"
+                      onClick={handleToggleMeetAttendees}
+                      disabled={isUpdatingMatchStatus}
+                    >
+                      <HeartHandshake size={20} />
+                      {isUpdatingMatchStatus ? 'Salvando...' : 'Entrar no Match Agora'}
+                    </Button>
                    <p className="text-xs text-muted-foreground mt-4">
                      Ao ativar, seu perfil ficará visível para outros participantes na aba de Match.
                    </p>

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { authService, type Profile } from '@/services/auth.service';
+import { supabase } from '@/lib/supabase';
 import type { User } from '@supabase/supabase-js';
 
 export type AuthStatus = 'checking' | 'authenticated' | 'unauthenticated';
@@ -147,32 +148,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!user) return;
 
-    const updateLastSeen = async () => {
+    let stopped = false;
+    let lastSyncedAt = 0;
+
+    const updateLastSeen = async (force = false) => {
+      if (stopped) return;
+      const now = Date.now();
+      if (!force && now - lastSyncedAt < 5 * 60 * 1000) {
+        return;
+      }
+
       try {
         await authService.updateProfile(user.id, { last_seen: new Date().toISOString() });
+        lastSyncedAt = now;
       } catch (err: any) {
-        if (err?.code !== 'PGRST116') {
-        }
+        if (err?.code === 'PGRST116') return;
       }
     };
 
-    updateLastSeen();
-    const interval = setInterval(updateLastSeen, 5 * 60 * 1000);
+    void updateLastSeen(true);
 
-    return () => clearInterval(interval);
+    const handleVisible = () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      void updateLastSeen();
+    };
+
+    window.addEventListener('focus', handleVisible);
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisible);
+    }
+
+    return () => {
+      stopped = true;
+      window.removeEventListener('focus', handleVisible);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisible);
+      }
+    };
   }, [user]);
 
   useEffect(() => {
     if (!user) return;
 
-    const pollIntervalMs = 15000;
     let stopped = false;
 
-    const poll = async () => {
+    const refreshProfile = async () => {
       if (stopped) return;
       try {
         const refreshedProfile = await loadProfileSafely(user.id);
-        if (refreshedProfile) {
+        if (!stopped && refreshedProfile) {
           setProfile(refreshedProfile);
         }
       } catch (err: any) {
@@ -182,12 +206,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    void poll();
-    const interval = setInterval(poll, pollIntervalMs);
+    const channel = supabase
+      .channel(`auth-profile:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`,
+        },
+        (payload) => {
+          const nextProfile = payload.new as Profile | null;
+          if (nextProfile) {
+            setProfile(nextProfile);
+          } else {
+            void refreshProfile();
+          }
+        }
+      );
+
+    void channel.subscribe();
+
+    const handleVisible = () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      void refreshProfile();
+    };
+
+    window.addEventListener('focus', handleVisible);
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisible);
+    }
 
     return () => {
       stopped = true;
-      clearInterval(interval);
+      void channel.unsubscribe();
+      window.removeEventListener('focus', handleVisible);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisible);
+      }
     };
   }, [user]);
 

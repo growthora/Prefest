@@ -85,6 +85,7 @@ export default function Chat() {
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
   const channelRef = useRef<any>(null);
   const presenceChannelRef = useRef<any>(null);
+  const matchStatusChannelRef = useRef<any>(null);
   const lastTypingSentRef = useRef<number>(0);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
@@ -98,28 +99,39 @@ export default function Chat() {
   // Load matches list if no matchId
   useEffect(() => {
     if (!user || matchId) return;
-    
+    if (activeTab !== 'matches') return;
+
+    let isMounted = true;
+
     const loadMatches = async () => {
       try {
-        setLoading(true);
+        if (isMounted) {
+          setLoading(true);
+        }
         const data = await matchService.getUserMatches();
-    setMatches(data);
-  } catch (error) {
-    // console.error('Error loading matches:', error);
-  } finally {
-    setLoading(false);
+        if (isMounted) {
+          setMatches(data);
+        }
+      } catch (error) {
+        // console.error('Error loading matches:', error);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
-    loadMatches();
-    const interval = setInterval(() => {
+    void loadMatches();
+
+    const subscription = chatService.subscribeToMatchList(() => {
       void loadMatches();
-    }, 2000);
+    });
 
     return () => {
-      clearInterval(interval);
+      isMounted = false;
+      subscription.unsubscribe();
     };
-  }, [user, matchId]);
+  }, [user, matchId, activeTab]);
 
   useEffect(() => {
     if (!user || matchId) return;
@@ -232,25 +244,22 @@ export default function Chat() {
         });
         presenceChannelRef.current = presenceChannel;
     }
-
-    const statusInterval = setInterval(async () => {
-      if (!matchId) return;
-      try {
-        const latest = await matchService.getMatchDetails(matchId);
-        if (latest && latest.status === 'inactive') {
-          toast.info('O match foi desfeito.');
-          navigate(ROUTE_PATHS.MY_EVENTS);
-        }
-      } catch {
-      }
-    }, 5000);
+    
+    if (matchId) {
+      const matchStatusChannel = chatService.subscribeToMatchStatus(matchId, () => {
+        toast.info('O match foi desfeito.');
+        navigate(ROUTE_PATHS.MY_EVENTS);
+      });
+      matchStatusChannelRef.current = matchStatusChannel;
+    }
 
     return () => {
       channel.unsubscribe();
-      clearInterval(statusInterval);
       if (presenceChannelRef.current) presenceChannelRef.current.unsubscribe();
+      if (matchStatusChannelRef.current) matchStatusChannelRef.current.unsubscribe();
       channelRef.current = null;
       presenceChannelRef.current = null;
+      matchStatusChannelRef.current = null;
       
       // Clear presence on unmount/change
       chatService.updatePresence(null);

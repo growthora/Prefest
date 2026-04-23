@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase';
 import { invokeEdgeRoute } from '@/services/apiClient';
 
 export interface ChatMessage {
@@ -15,35 +16,69 @@ export interface ChatMessage {
   };
 }
 
+interface TypingPayload {
+  isTyping: boolean;
+  userId: string;
+}
+
+interface RealtimeMessageRow {
+  id?: string;
+  chat_id?: string;
+  sender_id?: string;
+  content?: string;
+  created_at?: string;
+  read_at?: string | null;
+  status?: 'sent' | 'delivered' | 'seen' | null;
+}
+
+interface ChatSubscription {
+  unsubscribe: () => void;
+  sendTyping?: (isTyping: boolean) => Promise<void>;
+}
+
+interface MatchListSubscription {
+  unsubscribe: () => void;
+}
+
 class ChatService {
-  // Atualiza a presença do usuário atual (qual chat está aberto)
+  private createChannelName(prefix: string, id: string) {
+    return `${prefix}:${id}:${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  private normalizeRealtimeMessage(row: RealtimeMessageRow): ChatMessage {
+    return {
+      id: String(row.id || ''),
+      chat_id: String(row.chat_id || ''),
+      sender_id: String(row.sender_id || ''),
+      content: String(row.content || ''),
+      created_at: String(row.created_at || new Date().toISOString()),
+      read_at: row.read_at ?? undefined,
+      status: row.status === 'seen' || row.status === 'delivered' ? row.status : 'sent',
+    };
+  }
+
   async updatePresence(chatId: string | null) {
-    // console.log('🔔 [ChatService] Atualizando presença:', chatId);
     const { error } = await invokeEdgeRoute('chat-api/presence', {
       method: 'POST',
       body: { chatId },
     });
-    
+
     if (error) {
-        // console.error('❌ [ChatService] Erro ao atualizar presença:', error);
+      void error;
     }
   }
 
-  // Buscar mensagens de um chat
   async getMessages(chatId: string): Promise<ChatMessage[]> {
-    // console.log('💬 [ChatService] Buscando mensagens do chat:', chatId);
-
-    const { data, error } = await invokeEdgeRoute<{ messages: ChatMessage[] }>(`chat-api/messages?chatId=${encodeURIComponent(chatId)}`, {
-      method: 'GET',
-    });
+    const { data, error } = await invokeEdgeRoute<{ messages: ChatMessage[] }>(
+      `chat-api/messages?chatId=${encodeURIComponent(chatId)}`,
+      {
+        method: 'GET',
+      }
+    );
 
     if (error) {
-      // console.error('❌ [ChatService] Erro ao buscar mensagens:', error);
       throw error;
     }
-    
-    // Note: We don't mark as delivered here anymore because the backend trigger handles 'seen' 
-    // if the user is active. 'Delivered' logic could be added if needed but 'seen' is priority.
 
     return data?.messages || [];
   }
@@ -63,22 +98,17 @@ class ChatService {
     });
 
     if (error) {
-      // console.error('❌ [ChatService] Erro ao desfazer match:', error);
       throw error;
     }
   }
 
-  // Enviar mensagem
   async sendMessage(chatId: string, content: string): Promise<ChatMessage> {
-    // console.log('📤 [ChatService] Enviando mensagem:', chatId);
-
     const { data, error } = await invokeEdgeRoute<{ message: ChatMessage }>('chat-api/send', {
       method: 'POST',
       body: { chatId, content },
     });
 
     if (error) {
-      // console.error('❌ [ChatService] Erro ao enviar mensagem:', error);
       throw error;
     }
 
@@ -86,119 +116,202 @@ class ChatService {
     return data.message;
   }
 
-  // Subscribe para novas mensagens e typing em tempo real
   subscribeToChat(
-      chatId: string, 
-      onMessage: (message: any, eventType: 'INSERT' | 'UPDATE') => void,
-      onTyping?: (payload: { isTyping: boolean, userId: string }) => void
-  ) {
-    const pollIntervalMs = 2000;
-    let stopped = false;
-    let lastById = new Map<string, ChatMessage>();
-    let timer: ReturnType<typeof setInterval> | null = null;
-
-    const hasMeaningfulChange = (prev: ChatMessage, next: ChatMessage) => {
-      return (
-        prev.content !== next.content ||
-        prev.status !== next.status ||
-        prev.read_at !== next.read_at ||
-        prev.created_at !== next.created_at
+    chatId: string,
+    onMessage: (message: ChatMessage, eventType: 'INSERT' | 'UPDATE') => void,
+    onTyping?: (payload: TypingPayload) => void
+  ): ChatSubscription {
+    const channel = supabase
+      .channel(this.createChannelName('chat', chatId))
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `chat_id=eq.${chatId}`,
+        },
+        (payload) => {
+          onMessage(this.normalizeRealtimeMessage(payload.new as RealtimeMessageRow), 'INSERT');
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `chat_id=eq.${chatId}`,
+        },
+        (payload) => {
+          onMessage(this.normalizeRealtimeMessage(payload.new as RealtimeMessageRow), 'UPDATE');
+        }
       );
-    };
-
-    const poll = async () => {
-      if (stopped) return;
-
-      try {
-        const messages = await this.getMessages(chatId);
-        const nextById = new Map<string, ChatMessage>();
-        for (const message of messages) {
-          nextById.set(message.id, message);
-        }
-
-        for (const [id, next] of nextById.entries()) {
-          const prev = lastById.get(id);
-          if (!prev) {
-            onMessage(next, 'INSERT');
-            continue;
-          }
-          if (hasMeaningfulChange(prev, next)) {
-            onMessage(next, 'UPDATE');
-          }
-        }
-
-        lastById = nextById;
-      } catch {
-      }
-    };
-
-    void poll();
-    timer = setInterval(poll, pollIntervalMs);
 
     if (onTyping) {
+      channel.on('broadcast', { event: 'typing' }, ({ payload }) => {
+        const typingPayload = payload as Partial<TypingPayload>;
+        onTyping({
+          isTyping: Boolean(typingPayload.isTyping),
+          userId: String(typingPayload.userId || ''),
+        });
+      });
       void onTyping({ isTyping: false, userId: '' });
     }
 
+    void channel.subscribe();
+
     return {
       unsubscribe() {
-        stopped = true;
-        if (timer) clearInterval(timer);
-        timer = null;
+        void channel.unsubscribe();
       },
-      async send() {
-        return;
+      async sendTyping(isTyping: boolean) {
+        const { data } = await supabase.auth.getUser();
+        const userId = data.user?.id;
+        if (!userId) return;
+
+        await channel.send({
+          type: 'broadcast',
+          event: 'typing',
+          payload: {
+            isTyping,
+            userId,
+          } satisfies TypingPayload,
+        });
       },
     };
   }
-  
-  // Obter presença atual de um usuário
+
   async getPresence(userId: string): Promise<string | null> {
     const { data, error } = await invokeEdgeRoute<{ active_chat_id: string | null }>(`chat-api/presence/${userId}`, {
       method: 'GET',
     });
-    
+
     if (error) {
-        // console.warn('⚠️ [ChatService] Could not fetch presence (maybe empty):', error.message);
-        return null;
+      return null;
     }
     return data?.active_chat_id || null;
   }
 
-  // Subscribe to partner presence
   subscribeToPartnerPresence(partnerId: string, onPresenceChange: (activeChatId: string | null) => void) {
-    const pollIntervalMs = 3000;
-    let stopped = false;
-    let lastValue: string | null | undefined = undefined;
-    let timer: ReturnType<typeof setInterval> | null = null;
-
-    const poll = async () => {
-      if (stopped) return;
-      try {
-        const activeChatId = await this.getPresence(partnerId);
-        if (lastValue === undefined || activeChatId !== lastValue) {
-          lastValue = activeChatId;
-          onPresenceChange(activeChatId);
+    const channel = supabase
+      .channel(this.createChannelName('presence', partnerId))
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_presence',
+          filter: `user_id=eq.${partnerId}`,
+        },
+        (payload) => {
+          const nextRow = (payload.new || payload.old || {}) as { active_chat_id?: string | null };
+          onPresenceChange(nextRow.active_chat_id ?? null);
         }
-      } catch {
-      }
-    };
+      );
 
-    void poll();
-    timer = setInterval(poll, pollIntervalMs);
+    void channel.subscribe();
 
     return {
       unsubscribe() {
-        stopped = true;
-        if (timer) clearInterval(timer);
-        timer = null;
+        void channel.unsubscribe();
       },
     };
-    }
+  }
 
-  async sendTyping(channel: any, isTyping: boolean) {
-      void channel;
-      void isTyping;
-      return;
+  subscribeToMatchStatus(matchId: string, onInactive: () => void) {
+    const channel = supabase
+      .channel(this.createChannelName('match-status', matchId))
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'matches',
+          filter: `id=eq.${matchId}`,
+        },
+        (payload) => {
+          const nextRow = payload.new as { status?: string | null };
+          if (nextRow?.status === 'inactive') {
+            onInactive();
+          }
+        }
+      );
+
+    void channel.subscribe();
+
+    return {
+      unsubscribe() {
+        void channel.unsubscribe();
+      },
+    };
+  }
+
+  subscribeToMatchList(onChange: () => void): MatchListSubscription {
+    let refreshTimeout: ReturnType<typeof setTimeout> | null = null;
+    let isUnsubscribed = false;
+
+    const scheduleRefresh = () => {
+      if (isUnsubscribed) return;
+      if (refreshTimeout) {
+        clearTimeout(refreshTimeout);
+      }
+
+      refreshTimeout = setTimeout(() => {
+        refreshTimeout = null;
+        if (!isUnsubscribed) {
+          onChange();
+        }
+      }, 150);
+    };
+
+    const channel = supabase
+      .channel(this.createChannelName('chat-list', 'global'))
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'matches',
+        },
+        scheduleRefresh
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+        },
+        scheduleRefresh
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chats',
+        },
+        scheduleRefresh
+      );
+
+    void channel.subscribe();
+
+    return {
+      unsubscribe() {
+        isUnsubscribed = true;
+        if (refreshTimeout) {
+          clearTimeout(refreshTimeout);
+        }
+        void channel.unsubscribe();
+      },
+    };
+  }
+
+  async sendTyping(channel: ChatSubscription | null | undefined, isTyping: boolean) {
+    if (channel && typeof channel.sendTyping === 'function') {
+      await channel.sendTyping(isTyping);
+    }
   }
 
   async markMessagesAsRead(chatId: string): Promise<void> {
@@ -208,13 +321,9 @@ class ChatService {
     });
 
     if (error) {
-      // console.error('Error marking messages as read:', error);
-      // throw error; // Don't block UI
+      void error;
     }
   }
 }
 
 export const chatService = new ChatService();
-
-
-

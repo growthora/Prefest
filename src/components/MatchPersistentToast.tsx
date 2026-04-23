@@ -5,6 +5,7 @@ import { Heart, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { matchService, Match } from '@/services/match.service';
+import { chatService } from '@/services/chat.service';
 import { useAuth } from '@/hooks/useAuth';
 import { getMatchEventSummary } from '@/utils/matchEvents';
 
@@ -43,12 +44,12 @@ export function MatchPersistentToast() {
 
     void loadUnseenMatches();
 
-    const interval = setInterval(() => {
+    const subscription = chatService.subscribeToMatchList(() => {
       void loadUnseenMatches();
-    }, 5000);
+    });
 
     return () => {
-      clearInterval(interval);
+      subscription.unsubscribe();
     };
   }, [applyUnseenMatches, loadUnseenMatches, user]);
 

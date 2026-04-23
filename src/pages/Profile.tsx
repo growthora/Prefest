@@ -157,29 +157,35 @@ export default function Profile() {
       setLoadingFavorites(true);
       const events = await eventService.getUserLikedEvents(user.id);
       
-      const formattedEvents = favorites.map(ev => ({
-        id: ev.id,
-        slug: ev.slug,
-        title: ev.title,
-        date: new Date(ev.event_date).toLocaleDateString('pt-BR'),
-        time: new Date(ev.event_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        event_start_at: ev.event_date,
-        end_at: ev.end_at,
-        location: ev.location,
-        address: ev.location,
-        city: ev.city,
-        state: ev.state,
-        event_type: ev.event_type,
-        price: ev.price,
-        display_price_label: ev.display_price_label,
-        display_price_value: ev.display_price_value,
-        is_free_event: ev.is_free_event,
-        image: ev.image_url || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1770&q=80',
-        description: ev.description,
-        category: ev.category || 'Geral',
-        attendeesCount: ev.current_participants || 0,
-        tags: [],
-      }));
+      const formattedEvents = (events as any[]).map((ev) => {
+        const eventDate = ev.event_date || ev.event_start_at || ev.date;
+        const dateObj = eventDate ? new Date(eventDate) : null;
+
+        return {
+          id: ev.id,
+          slug: ev.slug,
+          title: ev.title,
+          date: dateObj ? dateObj.toLocaleDateString('pt-BR') : '',
+          time: dateObj ? dateObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '',
+          event_start_at: eventDate ?? null,
+          event_end_at: ev.event_end_at ?? null,
+          end_at: ev.end_at ?? null,
+          location: ev.location || ev.address || '',
+          address: ev.address || ev.location || '',
+          city: ev.city ?? null,
+          state: ev.state ?? null,
+          event_type: ev.event_type,
+          price: ev.price,
+          display_price_label: ev.display_price_label,
+          display_price_value: ev.display_price_value,
+          is_free_event: ev.is_free_event,
+          image: ev.image_url || ev.image || 'https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1770&q=80',
+          description: ev.description || '',
+          category: ev.category || 'Geral',
+          attendeesCount: ev.current_participants || ev.attendeesCount || 0,
+          tags: Array.isArray(ev.tags) ? ev.tags : [],
+        } as Event;
+      });
 
       setLikedEvents(formattedEvents);
     } catch (error) {

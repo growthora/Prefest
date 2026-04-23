@@ -5,12 +5,11 @@ import { toast } from 'sonner';
 import { Heart, Calendar, PartyPopper } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ROUTE_PATHS } from '@/lib/index';
-import { RealtimeChannel } from '@supabase/supabase-js';
 
 export const NotificationManager: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const channelRef = useRef<RealtimeChannel | null>(null);
+  const channelRef = useRef<{ unsubscribe: () => void } | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -20,18 +19,6 @@ export const NotificationManager: React.FC = () => {
         }
         return;
     }
-
-    // Load initial unread notifications
-    const loadUnreadNotifications = async () => {
-        try {
-            const notifications = await notificationService.listNotifications();
-            notifications.forEach(handleNotification);
-    } catch (error) {
-      // console.error('Failed to load notifications:', error);
-    }
-  };
-
-    loadUnreadNotifications();
 
     // Subscribe to new notifications
     const channel = notificationService.subscribeToNotifications(user.id, (notification) => {

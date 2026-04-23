@@ -50,6 +50,7 @@ export function FloatingChat() {
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
   const channelRef = useRef<any>(null);
   const presenceChannelRef = useRef<any>(null); // New ref for presence channel
+  const matchStatusChannelRef = useRef<any>(null);
   const lastTypingSentRef = useRef<number>(0);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
@@ -58,26 +59,31 @@ export function FloatingChat() {
     activeChatRef.current = activeChat;
   }, [activeChat]);
 
-  // Load matches
-  useEffect(() => {
-    if (user && isOpen && !activeChat) {
-      loadMatches();
-    }
-  }, [user, isOpen, activeChat]);
-
   // Realtime subscription for matches list
   useEffect(() => {
     if (!user) return;
 
-    void loadMatches();
-    const interval = setInterval(() => {
-      void loadMatches();
-    }, 2000);
+    if (!isOpen) return;
+    if (location.pathname.includes('/chat')) return;
+
+    let isMounted = true;
+
+    const refreshMatches = async () => {
+      if (!isMounted) return;
+      if (activeChatRef.current) return;
+      await loadMatches();
+    };
+
+    void refreshMatches();
+    const subscription = chatService.subscribeToMatchList(() => {
+      void refreshMatches();
+    });
 
     return () => {
-      clearInterval(interval);
+      isMounted = false;
+      subscription.unsubscribe();
     };
-  }, [user]);
+  }, [user, isOpen, location.pathname]);
 
   // Load messages when chat is active
   useEffect(() => {
@@ -177,11 +183,20 @@ export function FloatingChat() {
           presenceChannelRef.current = presenceChannel;
       }
 
+      const matchStatusChannel = chatService.subscribeToMatchStatus(activeChat.match_id, () => {
+        setActiveChat(null);
+        setMessages([]);
+        toast.info('O match foi desfeito.');
+      });
+      matchStatusChannelRef.current = matchStatusChannel;
+
       return () => {
         channel.unsubscribe();
         if (presenceChannelRef.current) presenceChannelRef.current.unsubscribe();
+        if (matchStatusChannelRef.current) matchStatusChannelRef.current.unsubscribe();
         channelRef.current = null;
         presenceChannelRef.current = null;
+        matchStatusChannelRef.current = null;
         // Update Presence: I left the chat
         chatService.updatePresence(null);
       };

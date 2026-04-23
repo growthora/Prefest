@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase';
 import { invokeEdgeRoute } from '@/services/apiClient';
 
 export interface Notification {
@@ -8,6 +9,10 @@ export interface Notification {
   payload: any;
   read_at: string | null;
   created_at: string;
+}
+
+interface NotificationSubscription {
+  unsubscribe: () => void;
 }
 
 export const notificationService = {
@@ -37,37 +42,79 @@ export const notificationService = {
   },
   
   subscribeToNotifications(userId: string, callback: (notification: Notification) => void) {
-    const pollIntervalMs = 4000;
-    let stopped = false;
-    let knownIds = new Set<string>();
-    let hydratedInitial = false;
-    let timer: ReturnType<typeof setInterval> | null = null;
-
-    const poll = async () => {
-      if (stopped) return;
-      try {
-        const notifications = await this.listNotifications();
-        const ids = new Set<string>();
-        for (const notification of notifications) {
-          ids.add(notification.id);
-          if (hydratedInitial && !knownIds.has(notification.id)) {
-            callback(notification);
-          }
+    void userId;
+    const channel = supabase
+      .channel(`notifications:insert:${Math.random().toString(36).slice(2, 10)}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+        },
+        (payload) => {
+          callback(payload.new as Notification);
         }
-        knownIds = ids;
-        hydratedInitial = true;
-      } catch {
-      }
-    };
+      );
 
-    void poll();
-    timer = setInterval(poll, pollIntervalMs);
+    void channel.subscribe();
 
     return {
       unsubscribe() {
-        stopped = true;
-        if (timer) clearInterval(timer);
-        timer = null;
+        void channel.unsubscribe();
+      },
+    };
+  },
+
+  subscribeToNotificationFeed(userId: string, onChange: () => void): NotificationSubscription {
+    void userId;
+    let refreshTimeout: ReturnType<typeof setTimeout> | null = null;
+    let isUnsubscribed = false;
+
+    const scheduleRefresh = () => {
+      if (isUnsubscribed) return;
+      if (refreshTimeout) {
+        clearTimeout(refreshTimeout);
+      }
+
+      refreshTimeout = setTimeout(() => {
+        refreshTimeout = null;
+        if (!isUnsubscribed) {
+          onChange();
+        }
+      }, 150);
+    };
+
+    const channel = supabase
+      .channel(`notifications:feed:${Math.random().toString(36).slice(2, 10)}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+        },
+        scheduleRefresh
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'likes',
+        },
+        scheduleRefresh
+      );
+
+    void channel.subscribe();
+
+    return {
+      unsubscribe() {
+        isUnsubscribed = true;
+        if (refreshTimeout) {
+          clearTimeout(refreshTimeout);
+        }
+        void channel.unsubscribe();
       },
     };
   }

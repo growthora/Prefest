@@ -21,6 +21,7 @@ type MatchSyncScope = 'queue' | 'likes' | 'matches';
 
 interface UseMatchOptions {
   matchEnabled?: boolean;
+  enabled?: boolean;
 }
 
 /**
@@ -47,6 +48,7 @@ export function useMatch(eventId?: string, options?: UseMatchOptions) {
   const isQueueFetchInFlightRef = useRef(false);
 
   const isSingleMode = Boolean(options?.matchEnabled);
+  const isEnabled = options?.enabled ?? true;
 
   useEffect(() => {
     let isMounted = true;
@@ -246,10 +248,12 @@ export function useMatch(eventId?: string, options?: UseMatchOptions) {
   }, [loadMatches, loadQueue, loadReceivedLikes]);
 
   useEffect(() => {
+    if (!isEnabled) return;
     void refreshAll();
-  }, [refreshAll]);
+  }, [isEnabled, refreshAll]);
 
   useEffect(() => {
+    if (!isEnabled) return;
     if (!user || !eventId) return;
 
     const channel = eventMatchService.subscribeToEvent(eventId, user.id, {
@@ -273,7 +277,7 @@ export function useMatch(eventId?: string, options?: UseMatchOptions) {
       scheduledScopesRef.current.clear();
       channel.unsubscribe();
     };
-  }, [eventId, scheduleSync, user]);
+  }, [eventId, isEnabled, scheduleSync, user]);
 
   const likeUser = useCallback(async (targetUserId: string): Promise<LikeActionResponse | null> => {
     if (!user || !eventId) return null;
