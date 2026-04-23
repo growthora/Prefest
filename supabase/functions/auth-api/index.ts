@@ -19,10 +19,12 @@ Deno.serve(async (req) => {
     return withMiddleware(
       req,
       { action: "auth_check_registration_data", requireAuth: false },
-      async () => {
+      async ({ serviceClient }) => {
         const body = await parseJsonBody<{ email?: string; cpf?: string }>(req);
         const email = String(body.email || "").trim();
         const cpf = String(body.cpf || "").trim();
+        const normalizedEmail = email.toLowerCase();
+        const normalizedCpf = cpf.replace(/\D/g, "");
 
         assertCondition(email && cpf, "INVALID_PARAMS", "Parametros invalidos", 400);
 
@@ -33,7 +35,37 @@ Deno.serve(async (req) => {
         });
 
         if (error) throw new HttpError("CHECK_REGISTRATION_FAILED", error.message, 400);
-        return data || { email_exists: false, cpf_exists: false };
+
+        const { data: deletedIdentity, error: deletedIdentityError } = await serviceClient
+          .from("user_deletion_logs")
+          .select("deleted_email_normalized, deleted_cpf_normalized")
+          .or(
+            [
+              normalizedEmail ? `deleted_email_normalized.eq.${normalizedEmail}` : null,
+              normalizedCpf ? `deleted_cpf_normalized.eq.${normalizedCpf}` : null,
+            ].filter(Boolean).join(","),
+          )
+          .limit(1);
+
+        if (deletedIdentityError) {
+          throw new HttpError("CHECK_DELETED_IDENTITY_FAILED", deletedIdentityError.message, 400);
+        }
+
+        const deletedEmailExists = Boolean(
+          normalizedEmail &&
+          deletedIdentity?.some((row: { deleted_email_normalized?: string | null }) => row.deleted_email_normalized === normalizedEmail),
+        );
+        const deletedCpfExists = Boolean(
+          normalizedCpf &&
+          deletedIdentity?.some((row: { deleted_cpf_normalized?: string | null }) => row.deleted_cpf_normalized === normalizedCpf),
+        );
+
+        return {
+          email_exists: Boolean(data?.email_exists) || deletedEmailExists,
+          cpf_exists: Boolean(data?.cpf_exists) || deletedCpfExists,
+          email_deleted: deletedEmailExists,
+          cpf_deleted: deletedCpfExists,
+        };
       },
     );
   }

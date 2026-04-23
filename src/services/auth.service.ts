@@ -74,18 +74,44 @@ class AuthService {
   }
 
   async checkRegistrationData(email: string, cpf: string) {
-    const { data, error } = await invokeEdgeRoute<{ email_exists: boolean; cpf_exists: boolean }>('auth-api/register/check', {
+    const { data, error } = await invokeEdgeRoute<{
+      email_exists: boolean;
+      cpf_exists: boolean;
+      email_deleted?: boolean;
+      cpf_deleted?: boolean;
+    }>('auth-api/register/check', {
       method: 'POST',
       body: { email, cpf },
       requiresAuth: false,
     });
 
     if (error) throw error;
-    return (data || { email_exists: false, cpf_exists: false }) as { email_exists: boolean; cpf_exists: boolean };
+    return (data || {
+      email_exists: false,
+      cpf_exists: false,
+      email_deleted: false,
+      cpf_deleted: false,
+    }) as {
+      email_exists: boolean;
+      cpf_exists: boolean;
+      email_deleted?: boolean;
+      cpf_deleted?: boolean;
+    };
   }
 
   async signUp({ email, password, fullName, cpf, birthDate, isOrganizer = false }: SignUpData) {
     assertAuthEmailSafety();
+
+    const registrationCheck = await this.checkRegistrationData(email, cpf);
+    if (registrationCheck.email_deleted || registrationCheck.cpf_deleted) {
+      throw new Error('Esta conta foi excluida permanentemente e nao pode ser cadastrada novamente.');
+    }
+    if (registrationCheck.email_exists) {
+      throw new Error('Este e-mail ja esta cadastrado. Tente fazer login.');
+    }
+    if (registrationCheck.cpf_exists) {
+      throw new Error('Este CPF ja esta cadastrado. Entre em contato com o suporte se acredita ser um erro.');
+    }
 
     const { data, error } = await supabase.auth.signUp({
       email,

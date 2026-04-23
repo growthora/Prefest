@@ -142,7 +142,12 @@ export const LoginForm = () => {
       
       try {
         const checkResult = await authService.checkRegistrationData(formData.email, formData.cpf);
-        
+
+        if (checkResult.email_deleted || checkResult.cpf_deleted) {
+          setLocalError('Esta conta foi excluida permanentemente e nao pode ser usada novamente.');
+          return;
+        }
+
         if (checkResult.email_exists) {
           setLocalError('Este e-mail já está cadastrado. Tente fazer login.');
           return;

@@ -27,6 +27,15 @@ Deno.serve(async (req) => {
 
     // 2. Admin Client for Privileged Operations
     const adminClient = createClient(supabaseUrl, supabaseServiceKey)
+    const deletedEmail = String(user.email || '').trim() || null
+
+    const { data: existingProfile } = await adminClient
+      .from('profiles')
+      .select('cpf')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    const deletedCpf = String(existingProfile?.cpf || '').trim() || null
 
     // 3. Check Pending Financials
     // 3.1 Payments (Incoming)
@@ -176,6 +185,10 @@ Deno.serve(async (req) => {
       asaas_account_id: asaasAccountId,
       asaas_action: asaasAction,
       reason: 'User requested deletion',
+      deleted_email: deletedEmail,
+      deleted_email_normalized: deletedEmail ? deletedEmail.toLowerCase() : null,
+      deleted_cpf: deletedCpf,
+      deleted_cpf_normalized: deletedCpf ? deletedCpf.replace(/\D/g, '') : null,
     })
 
     return new Response(JSON.stringify({ success: true }), {

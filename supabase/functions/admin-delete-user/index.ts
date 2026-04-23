@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
 
     const { data: targetProfile, error: targetProfileError } = await adminClient
       .from("profiles")
-      .select("id, roles")
+      .select("id, roles, email, cpf")
       .eq("id", userId)
       .maybeSingle();
 
@@ -108,6 +108,21 @@ Deno.serve(async (req) => {
 
     const { error: authDeleteError } = await adminClient.auth.admin.deleteUser(userId);
     if (authDeleteError) throw authDeleteError;
+
+    await adminClient.from("user_deletion_logs").insert({
+      user_id: userId,
+      had_organizer_role: Array.isArray(targetProfile.roles)
+        ? targetProfile.roles.some((role: string) => String(role).toUpperCase() === "ORGANIZER")
+        : false,
+      had_buyer_role: true,
+      asaas_account_id: null,
+      asaas_action: "not_applicable",
+      reason: "Admin requested deletion",
+      deleted_email: targetProfile.email || null,
+      deleted_email_normalized: targetProfile.email ? String(targetProfile.email).trim().toLowerCase() : null,
+      deleted_cpf: targetProfile.cpf || null,
+      deleted_cpf_normalized: targetProfile.cpf ? String(targetProfile.cpf).replace(/\D/g, "") : null,
+    });
 
     return new Response(
       JSON.stringify({ ok: true }),
